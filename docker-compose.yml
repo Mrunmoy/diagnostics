@@ -5,7 +5,8 @@ services:
       dockerfile: tools/docker/Dockerfile
     image: generic-diagnostics-dev:local
     working_dir: /workspace
+    user: "${DIAG_DOCKER_UID:-1000}:${DIAG_DOCKER_GID:-1000}"
     volumes:
       - .:/workspace
     command: >
-      sh -lc "./build.py test --preset container-debug"
+      sh -lc "./build.py all --preset container-debug"

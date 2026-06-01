@@ -32,23 +32,31 @@ Use the build wrapper for common workflows:
 ```sh
 ./build.py build
 ./build.py test
+./build.py test --preset linux-asan
+./build.py all
 ./build.py format --check
 ./build.py clean
 ```
 
-Pass CMake cache options with `--option`:
+`./build.py all` is the main local gate. It runs format checking, debug tests,
+ASAN/UBSAN tests, release library installation, and a generated CMake package
+consumption smoke test.
+
+Pass CMake cache options after `--`:
 
 ```sh
-./build.py build --option DIAG_BUILD_EXAMPLES=OFF
+./build.py build -- DIAG_BUILD_EXAMPLES=OFF
+./build.py all -- DIAG_BUILD_EXAMPLES=OFF
 ```
 
 Build installable library output for another CMake project:
 
 ```sh
-./build.py library --prefix dist/diag
+./build.py library
 ```
 
-This produces headers, `libdiag.a`, and CMake package files under `dist/diag`.
+This produces headers, `libdiag.a`, and CMake package files under
+`build/install/diag`.
 
 Build and test in Docker:
 
@@ -79,9 +87,7 @@ ctest --preset linux-debug
 Inside the devcontainer, use the container preset:
 
 ```sh
-cmake --preset container-debug
-cmake --build --preset container-debug
-ctest --preset container-debug
+./build.py all --preset container-debug
 ```
 
 ## Repository Layout

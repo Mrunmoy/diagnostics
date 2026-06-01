@@ -11,6 +11,7 @@ RUN apt-get update \
         git \
         ninja-build \
         pkg-config \
+        python3 \
         valgrind \
     && rm -rf /var/lib/apt/lists/*
 
