@@ -24,6 +24,20 @@
       }
     },
     {
+      "name": "linux-asan",
+      "displayName": "Linux ASAN/UBSAN Host",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
       "name": "container-debug",
       "displayName": "Linux Debug Container",
       "generator": "Ninja",
@@ -32,6 +46,20 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "DIAG_BUILD_TESTS": "ON",
         "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "container-asan",
+      "displayName": "Linux ASAN/UBSAN Container",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
       }
     },
     {
@@ -56,8 +84,16 @@
       "configurePreset": "linux-release"
     },
     {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan"
+    },
+    {
       "name": "container-debug",
       "configurePreset": "container-debug"
+    },
+    {
+      "name": "container-asan",
+      "configurePreset": "container-asan"
     },
     {
       "name": "container-release",
@@ -70,6 +106,9 @@
       "configurePreset": "linux-debug",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
       }
     },
     {
@@ -77,6 +116,23 @@
       "configurePreset": "linux-release",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
+      }
+    },
+    {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
       }
     },
     {
@@ -84,6 +140,23 @@
       "configurePreset": "container-debug",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
+      }
+    },
+    {
+      "name": "container-asan",
+      "configurePreset": "container-asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
       }
     },
     {
@@ -91,6 +164,9 @@
       "configurePreset": "container-release",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
       }
     }
   ]
