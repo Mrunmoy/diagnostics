@@ -1,0 +1,272 @@
+#include "diag/capsule.h"
+
+#include <string.h>
+
+static void write_u16_le(uint8_t *buffer, uint16_t value)
+{
+    buffer[0] = (uint8_t)(value & 0xFFu);
+    buffer[1] = (uint8_t)((value >> 8u) & 0xFFu);
+}
+
+static void write_u32_le(uint8_t *buffer, uint32_t value)
+{
+    buffer[0] = (uint8_t)(value & 0xFFu);
+    buffer[1] = (uint8_t)((value >> 8u) & 0xFFu);
+    buffer[2] = (uint8_t)((value >> 16u) & 0xFFu);
+    buffer[3] = (uint8_t)((value >> 24u) & 0xFFu);
+}
+
+static uint16_t read_u16_le(const uint8_t *buffer)
+{
+    return (uint16_t)((uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8u));
+}
+
+static uint32_t read_u32_le(const uint8_t *buffer)
+{
+    return (uint32_t)((uint32_t)buffer[0] | ((uint32_t)buffer[1] << 8u) |
+                      ((uint32_t)buffer[2] << 16u) | ((uint32_t)buffer[3] << 24u));
+}
+
+static size_t section_table_end(uint16_t section_count)
+{
+    return DIAG_CAPSULE_HEADER_SIZE +
+           ((size_t)section_count * (size_t)DIAG_CAPSULE_SECTION_ENTRY_SIZE);
+}
+
+static int range_past_end(uint32_t offset, uint32_t length, uint32_t total_length)
+{
+    return offset > total_length || length > (total_length - offset);
+}
+
+static int sections_overlap(const struct diag_capsule_section *left,
+                            const struct diag_capsule_section *right)
+{
+    const uint32_t left_end = left->offset + left->length;
+    const uint32_t right_end = right->offset + right->length;
+
+    return left->offset < right_end && right->offset < left_end;
+}
+
+static diag_result_t validate_sections(const struct diag_capsule_section *sections,
+                                       uint16_t section_count, uint32_t total_length,
+                                       size_t payload_start)
+{
+    uint16_t i = 0u;
+
+    for (i = 0u; i < section_count; i++)
+    {
+        if (sections[i].offset < payload_start)
+        {
+            return DIAG_ERROR_CORRUPT_DATA;
+        }
+
+        if (sections[i].used_length > sections[i].length)
+        {
+            return DIAG_ERROR_CORRUPT_DATA;
+        }
+
+        if (range_past_end(sections[i].offset, sections[i].length, total_length) != 0)
+        {
+            return DIAG_ERROR_CORRUPT_DATA;
+        }
+    }
+
+    for (i = 0u; i < section_count; i++)
+    {
+        uint16_t j = 0u;
+
+        for (j = (uint16_t)(i + 1u); j < section_count; j++)
+        {
+            if (sections_overlap(&sections[i], &sections[j]) != 0)
+            {
+                return DIAG_ERROR_CORRUPT_DATA;
+            }
+        }
+    }
+
+    return DIAG_OK;
+}
+
+uint32_t diag_capsule_crc32(const uint8_t *data, size_t length)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    size_t i = 0u;
+
+    if (data == 0 && length != 0u)
+    {
+        return 0u;
+    }
+
+    for (i = 0u; i < length; i++)
+    {
+        uint8_t bit = 0u;
+
+        crc ^= (uint32_t)data[i];
+        for (bit = 0u; bit < 8u; bit++)
+        {
+            const uint32_t mask = (uint32_t)(0u - (crc & 1u));
+            crc = (crc >> 1u) ^ (0xEDB88320u & mask);
+        }
+    }
+
+    return ~crc;
+}
+
+diag_result_t diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
+                                     const struct diag_capsule_descriptor *descriptor,
+                                     size_t *encoded_length)
+{
+    uint16_t i = 0u;
+    size_t payload_start = 0u;
+    uint32_t content_crc32 = 0u;
+
+    if (buffer == 0 || descriptor == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (descriptor->schema_version != DIAG_CAPSULE_SCHEMA_VERSION)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (descriptor->section_count > DIAG_CAPSULE_MAX_SECTIONS)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    payload_start = section_table_end(descriptor->section_count);
+    if (descriptor->total_length < payload_start || capacity < descriptor->total_length)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    if (validate_sections(descriptor->sections, descriptor->section_count, descriptor->total_length,
+                          payload_start) != DIAG_OK)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    write_u32_le(&buffer[0], DIAG_CAPSULE_MAGIC);
+    write_u16_le(&buffer[4], DIAG_CAPSULE_SCHEMA_VERSION);
+    write_u16_le(&buffer[6], DIAG_CAPSULE_HEADER_SIZE);
+    write_u32_le(&buffer[8], descriptor->total_length);
+    write_u32_le(&buffer[12], descriptor->generation);
+    write_u16_le(&buffer[16], descriptor->section_count);
+    write_u16_le(&buffer[18], 0u);
+    write_u32_le(&buffer[20], 0u);
+
+    for (i = 0u; i < descriptor->section_count; i++)
+    {
+        const size_t entry_offset =
+            DIAG_CAPSULE_HEADER_SIZE + ((size_t)i * DIAG_CAPSULE_SECTION_ENTRY_SIZE);
+
+        write_u16_le(&buffer[entry_offset], descriptor->sections[i].type);
+        write_u16_le(&buffer[entry_offset + 2u], descriptor->sections[i].version);
+        write_u32_le(&buffer[entry_offset + 4u], descriptor->sections[i].offset);
+        write_u32_le(&buffer[entry_offset + 8u], descriptor->sections[i].length);
+        write_u32_le(&buffer[entry_offset + 12u], descriptor->sections[i].used_length);
+    }
+
+    content_crc32 = diag_capsule_crc32(&buffer[DIAG_CAPSULE_HEADER_SIZE],
+                                       (size_t)descriptor->total_length - DIAG_CAPSULE_HEADER_SIZE);
+    write_u32_le(&buffer[20], content_crc32);
+
+    if (encoded_length != 0)
+    {
+        *encoded_length = descriptor->total_length;
+    }
+
+    return DIAG_OK;
+}
+
+diag_result_t diag_capsule_decode(const uint8_t *buffer, size_t length,
+                                  struct diag_capsule_descriptor *out_descriptor)
+{
+    uint16_t section_count = 0u;
+    uint16_t i = 0u;
+    size_t payload_start = 0u;
+    uint32_t total_length = 0u;
+    uint32_t expected_content_crc32 = 0u;
+    uint32_t actual_content_crc32 = 0u;
+
+    if (buffer == 0 || out_descriptor == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (length < DIAG_CAPSULE_HEADER_SIZE)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (read_u32_le(&buffer[0]) != DIAG_CAPSULE_MAGIC)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (read_u16_le(&buffer[4]) != DIAG_CAPSULE_SCHEMA_VERSION)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (read_u16_le(&buffer[6]) != DIAG_CAPSULE_HEADER_SIZE)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    total_length = read_u32_le(&buffer[8]);
+    if (total_length > length)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    section_count = read_u16_le(&buffer[16]);
+    if (section_count > DIAG_CAPSULE_MAX_SECTIONS)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    payload_start = section_table_end(section_count);
+    if (total_length < payload_start)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    memset(out_descriptor, 0, sizeof(*out_descriptor));
+    out_descriptor->schema_version = DIAG_CAPSULE_SCHEMA_VERSION;
+    out_descriptor->section_count = section_count;
+    out_descriptor->total_length = total_length;
+    out_descriptor->generation = read_u32_le(&buffer[12]);
+    out_descriptor->content_crc32 = read_u32_le(&buffer[20]);
+
+    for (i = 0u; i < section_count; i++)
+    {
+        const size_t entry_offset =
+            DIAG_CAPSULE_HEADER_SIZE + ((size_t)i * DIAG_CAPSULE_SECTION_ENTRY_SIZE);
+
+        out_descriptor->sections[i].type = read_u16_le(&buffer[entry_offset]);
+        out_descriptor->sections[i].version = read_u16_le(&buffer[entry_offset + 2u]);
+        out_descriptor->sections[i].offset = read_u32_le(&buffer[entry_offset + 4u]);
+        out_descriptor->sections[i].length = read_u32_le(&buffer[entry_offset + 8u]);
+        out_descriptor->sections[i].used_length = read_u32_le(&buffer[entry_offset + 12u]);
+    }
+
+    if (validate_sections(out_descriptor->sections, section_count, total_length, payload_start) !=
+        DIAG_OK)
+    {
+        memset(out_descriptor, 0, sizeof(*out_descriptor));
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    expected_content_crc32 = out_descriptor->content_crc32;
+    actual_content_crc32 = diag_capsule_crc32(&buffer[DIAG_CAPSULE_HEADER_SIZE],
+                                              (size_t)total_length - DIAG_CAPSULE_HEADER_SIZE);
+    if (actual_content_crc32 != expected_content_crc32)
+    {
+        memset(out_descriptor, 0, sizeof(*out_descriptor));
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    return DIAG_OK;
+}

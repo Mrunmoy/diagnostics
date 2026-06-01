@@ -14,6 +14,7 @@ FetchContent_MakeAvailable(googletest)
 
 # Test files are C++ (GoogleTest) and link the C99 library under test.
 add_executable(diag_tests
+    test_capsule.cpp
     test_context.cpp
 )
 

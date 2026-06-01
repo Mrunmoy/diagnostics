@@ -22,6 +22,7 @@ if(DIAG_BUILD_TESTS)
 endif()
 
 add_library(diag
+    src/diag_capsule.c
     src/diag_context.c
     src/diag_dtc.c
     src/diag_storage.c
