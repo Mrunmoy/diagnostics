@@ -106,6 +106,9 @@
       "configurePreset": "linux-debug",
       "output": {
         "outputOnFailure": true
+      },
+      "execution": {
+        "timeout": 30
       }
     },
     {
