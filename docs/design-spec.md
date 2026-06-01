@@ -7,6 +7,10 @@ applications. It is inspired by UDS diagnostic concepts, especially diagnostic
 trouble code management, but it is not an implementation of ISO 14229 and does
 not require CAN.
 
+The aim is to keep embedded devices honest about diagnostic cost: no hidden
+heap, no hidden flash churn, fixed capacities, and build-visible code, RAM, and
+storage impact.
+
 ## Non-Goals
 
 - No direct dependency on CAN, ISO-TP, SocketCAN, UART, TCP, or BLE.
@@ -58,9 +62,13 @@ storage, and transport adapters.
 A diagnostic trouble code is identified by an application-defined integer ID.
 The core tracks status, severity, counters, and optional user metadata.
 
+Not every DTC should persist. The design separates runtime-only diagnostics from
+persistent diagnostics so flash is reserved for faults that matter after reboot.
+
 The first version focuses on:
 
 - create/register code
+- register persistence policy
 - set active
 - set inactive
 - clear one code
@@ -69,6 +77,18 @@ The first version focuses on:
 - enumerate codes
 - increment/read/reset counters
 - save/load state through storage abstraction
+
+### Diagnostic Persistence Classes
+
+The core should support distinct persistence classes:
+
+- runtime event: RAM only, no persistent state.
+- volatile DTC: RAM state for the current boot, lost on reset.
+- persistent DTC: stored in the diagnostic capsule, survives reset.
+- critical lifecycle record: boot, reset, update, rollback, and handoff facts.
+
+Only persistent DTCs and critical lifecycle records should cause non-volatile
+storage writes.
 
 ### Platform Abstraction
 
@@ -93,8 +113,27 @@ TCP      <-> bytes  <-> project command parser <-> diagnostics core
 
 ## Error Handling
 
-All public APIs return `diag_result_t`. Output parameters are only valid on
-`DIAG_OK`.
+All public APIs return a `diag_result` status code (`enum diag_result`):
+`DIAG_OK == 0` on success and every other enumerator is a specific non-zero error.
+Output parameters are only valid on `DIAG_OK`.
+
+## C API Style
+
+The C branch uses explicit `struct` and `enum` tags in public APIs instead of
+typedef aliases for ordinary objects. This keeps embedded C signatures explicit
+and avoids hiding object categories. This is the target style (see ADR 0006); the
+current scaffold headers still expose `diag_result_t` / `diag_context_t` typedefs
+and are being migrated to match.
+
+Preferred:
+
+```c
+struct diag_context;
+enum diag_result diag_save(struct diag_context *ctx);
+```
+
+Typedefs are reserved for semantic scalar IDs, callback signatures, and true
+platform portability aliases.
 
 ## Memory Model
 
@@ -104,6 +143,7 @@ not allowed in the core implementation.
 All capacities must be explicit:
 
 - maximum DTC records
+- maximum persistent DTC records
 - maximum handoff records
 - maximum serialized capsule size
 - maximum transport payload handled by optional protocol helpers
@@ -118,3 +158,14 @@ must be documented in `docs/adr`.
 
 Serialized diagnostic state must also be versioned. Bootloader/application
 compatibility depends more on the persisted schema than on C struct layout.
+
+## Size and Wear Goals
+
+The MVP should support a minimum persistent capsule of 256 bytes, with 512 bytes
+as a practical small default and 1 KB as a recommended product starting point.
+
+Persistent reset counters are useful but write-sensitive. The reset counter
+policy must be configurable so users can avoid writing flash on every boot.
+
+Build tooling should eventually report library code size, static data, runtime
+RAM cost, configured persistent storage size, and record capacities.

@@ -32,3 +32,8 @@
 - registering more than configured capacity returns `DIAG_ERROR_CAPACITY`.
 - core tests prove no API requires dynamic allocation.
 - ecosystem identity fields are preserved through save/load.
+- runtime-only DTCs do not call storage save.
+- persistent DTCs are included in serialized storage.
+- reset counter policy does not force a flash write every boot.
+- unsupported schema versions return a deterministic error.
+- reserved bytes are initialized and preserved according to schema rules.
