@@ -141,10 +141,13 @@ diag_result_t diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
         return DIAG_ERROR_CAPACITY;
     }
 
+    // The descriptor is caller-supplied input, so a structural failure is an
+    // argument error. DIAG_ERROR_CORRUPT_DATA is reserved for decode, where it
+    // signals untrusted on-wire/on-disk bytes that failed the same checks.
     if (validate_sections(descriptor->sections, descriptor->section_count, descriptor->total_length,
                           payload_start) != DIAG_OK)
     {
-        return DIAG_ERROR_CORRUPT_DATA;
+        return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
     write_u32_le(&buffer[0], DIAG_CAPSULE_MAGIC);

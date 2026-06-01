@@ -162,6 +162,20 @@ TEST(DiagCapsule, EncodeRejectsDescriptorWithTooManySections)
               DIAG_ERROR_CAPACITY);
 }
 
+TEST(DiagCapsule, EncodeReportsStructurallyInvalidDescriptorAsInvalidArgument)
+{
+    // A descriptor whose sections fail structural validation is bad caller input,
+    // not corrupt on-wire data. Encode must report DIAG_ERROR_INVALID_ARGUMENT so
+    // callers can distinguish a bad request from a corrupt decode (which is the
+    // only place DIAG_ERROR_CORRUPT_DATA is appropriate).
+    std::array<uint8_t, kCapsuleBytes> buffer = {};
+    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    descriptor.sections[0].used_length = descriptor.sections[0].length + 1u;
+
+    EXPECT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr),
+              DIAG_ERROR_INVALID_ARGUMENT);
+}
+
 TEST(DiagCapsule, RejectsNullArguments)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
