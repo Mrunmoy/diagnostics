@@ -2,15 +2,16 @@
 
 int main(void)
 {
-    diag_context_t ctx;
-    diag_dtc_snapshot_t dtc_buffer[8];
+    struct diag_context_storage storage = {0};
+    struct diag_context *ctx = 0;
+    struct diag_dtc_snapshot dtc_buffer[8];
 
-    const diag_config_t config = {
+    const struct diag_config config = {
         .dtc_buffer = dtc_buffer,
         .dtc_capacity = 8,
         .storage = {0},
         .transport = {0},
     };
 
-    return diag_init(&ctx, &config) == DIAG_OK ? 0 : 1;
+    return diag_init(&storage, &config, &ctx) == DIAG_OK ? 0 : 1;
 }

@@ -6,16 +6,17 @@
 
 #include "diag/result.h"
 
-typedef struct diag_transport_ops
+struct diag_transport_ops
 {
-    diag_result_t (*send)(void *user, const uint8_t *buffer, size_t size);
-    diag_result_t (*receive)(void *user, uint8_t *buffer, size_t buffer_size, size_t *bytes_read);
-} diag_transport_ops_t;
+    enum diag_result (*send)(void *user, const uint8_t *buffer, size_t size);
+    enum diag_result (*receive)(void *user, uint8_t *buffer, size_t buffer_size,
+                                size_t *bytes_read);
+};
 
-typedef struct diag_transport
+struct diag_transport
 {
-    const diag_transport_ops_t *ops;
+    const struct diag_transport_ops *ops;
     void *user;
-} diag_transport_t;
+};
 
 #endif

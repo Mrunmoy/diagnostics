@@ -1,20 +1,26 @@
-#include "diag/context.h"
+#include "diag_context_internal.h"
 
-diag_result_t diag_init(diag_context_t *ctx, const diag_config_t *config)
+enum diag_result diag_init(struct diag_context_storage *storage, const struct diag_config *config,
+                           struct diag_context **out_ctx)
 {
-    if (ctx == 0 || config == 0 || config->dtc_buffer == 0 || config->dtc_capacity == 0)
+    struct diag_context *ctx;
+
+    if (storage == 0 || config == 0 || out_ctx == 0 || config->dtc_buffer == 0 ||
+        config->dtc_capacity == 0)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
+    ctx = (struct diag_context *)(void *)&storage->data.bytes[0];
     ctx->initialized = true;
     ctx->config = *config;
     ctx->dtc_count = 0;
+    *out_ctx = ctx;
 
     return DIAG_OK;
 }
 
-diag_result_t diag_deinit(diag_context_t *ctx)
+enum diag_result diag_deinit(struct diag_context *ctx)
 {
     if (ctx == 0)
     {
@@ -27,13 +33,13 @@ diag_result_t diag_deinit(diag_context_t *ctx)
     return DIAG_OK;
 }
 
-diag_result_t diag_save(diag_context_t *ctx)
+enum diag_result diag_save(struct diag_context *ctx)
 {
     (void)ctx;
     return DIAG_ERROR_NOT_INITIALIZED;
 }
 
-diag_result_t diag_load(diag_context_t *ctx)
+enum diag_result diag_load(struct diag_context *ctx)
 {
     (void)ctx;
     return DIAG_ERROR_NOT_INITIALIZED;

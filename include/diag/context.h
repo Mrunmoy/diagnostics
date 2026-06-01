@@ -3,31 +3,41 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "diag/dtc.h"
 #include "diag/result.h"
 #include "diag/storage.h"
 #include "diag/transport.h"
 
-typedef struct diag_config
+#define DIAG_CONTEXT_STORAGE_SIZE 128u
+
+struct diag_config
 {
-    diag_dtc_snapshot_t *dtc_buffer;
+    struct diag_dtc_snapshot *dtc_buffer;
     size_t dtc_capacity;
-    diag_storage_t storage;
-    diag_transport_t transport;
-} diag_config_t;
+    struct diag_storage storage;
+    struct diag_transport transport;
+};
 
-typedef struct diag_context
+struct diag_context;
+
+struct diag_context_storage
 {
-    bool initialized;
-    diag_config_t config;
-    size_t dtc_count;
-} diag_context_t;
+    union
+    {
+        uint8_t bytes[DIAG_CONTEXT_STORAGE_SIZE];
+        void *align_pointer;
+        size_t align_size;
+        uint32_t align_u32;
+    } data;
+};
 
-diag_result_t diag_init(diag_context_t *ctx, const diag_config_t *config);
-diag_result_t diag_deinit(diag_context_t *ctx);
+enum diag_result diag_init(struct diag_context_storage *storage, const struct diag_config *config,
+                           struct diag_context **out_ctx);
+enum diag_result diag_deinit(struct diag_context *ctx);
 
-diag_result_t diag_save(diag_context_t *ctx);
-diag_result_t diag_load(diag_context_t *ctx);
+enum diag_result diag_save(struct diag_context *ctx);
+enum diag_result diag_load(struct diag_context *ctx);
 
 #endif

@@ -6,17 +6,17 @@
 
 #include "diag/result.h"
 
-typedef struct diag_storage_ops
+struct diag_storage_ops
 {
-    diag_result_t (*load)(void *user, uint8_t *buffer, size_t buffer_size, size_t *bytes_read);
-    diag_result_t (*save)(void *user, const uint8_t *buffer, size_t size);
-    diag_result_t (*clear)(void *user);
-} diag_storage_ops_t;
+    enum diag_result (*load)(void *user, uint8_t *buffer, size_t buffer_size, size_t *bytes_read);
+    enum diag_result (*save)(void *user, const uint8_t *buffer, size_t size);
+    enum diag_result (*clear)(void *user);
+};
 
-typedef struct diag_storage
+struct diag_storage
 {
-    const diag_storage_ops_t *ops;
+    const struct diag_storage_ops *ops;
     void *user;
-} diag_storage_t;
+};
 
 #endif
