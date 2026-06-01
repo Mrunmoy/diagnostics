@@ -1,0 +1,97 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug Host",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release Host",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "container-debug",
+      "displayName": "Linux Debug Container",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "container-release",
+      "displayName": "Linux Release Container",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "container-debug",
+      "configurePreset": "container-debug"
+    },
+    {
+      "name": "container-release",
+      "configurePreset": "container-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "container-debug",
+      "configurePreset": "container-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "container-release",
+      "configurePreset": "container-release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

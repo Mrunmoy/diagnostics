@@ -1,0 +1,27 @@
+{
+  "name": "generic-diagnostics",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "diagnostics-dev",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": true,
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools-extension-pack",
+        "twxs.cmake"
+      ],
+      "settings": {
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "cmake.configureOnOpen": true,
+        "cmake.useCMakePresets": "always",
+        "cmake.configurePreset": "container-debug",
+        "cmake.buildPreset": "container-debug",
+        "cmake.testPreset": "container-debug",
+        "cmake.buildDirectory": "${workspaceFolder}/build/${presetName}"
+      }
+    }
+  }
+}

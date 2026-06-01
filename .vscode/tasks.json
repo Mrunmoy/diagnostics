@@ -1,0 +1,47 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake: configure container debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "container-debug"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake: build container debug",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "container-debug"
+      ],
+      "dependsOn": "CMake: configure container debug",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "CTest: container debug",
+      "type": "shell",
+      "command": "ctest",
+      "args": [
+        "--preset",
+        "container-debug",
+        "--output-on-failure"
+      ],
+      "dependsOn": "CMake: build container debug",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

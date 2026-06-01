@@ -1,0 +1,15 @@
+# Formatting follows the personal house style: Allman braces, 4-space indent,
+# 100-column limit. Applies to both C99 core sources and C++ test/host code.
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Right
+SortIncludes: false
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+IndentCaseLabels: true

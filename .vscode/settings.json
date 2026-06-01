@@ -1,0 +1,8 @@
+{
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "cmake.configurePreset": "container-debug",
+  "cmake.buildPreset": "container-debug",
+  "cmake.testPreset": "container-debug"
+}
