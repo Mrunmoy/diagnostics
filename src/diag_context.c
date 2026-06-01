@@ -5,6 +5,13 @@ enum diag_result diag_init(struct diag_context_storage *storage, const struct di
 {
     struct diag_context *ctx;
 
+    // Clear the out-parameter up front so a failed init never leaves the caller
+    // holding a stale context pointer from a previous successful call.
+    if (out_ctx != 0)
+    {
+        *out_ctx = 0;
+    }
+
     if (storage == 0 || config == 0 || out_ctx == 0 || config->dtc_buffer == 0 ||
         config->dtc_capacity == 0)
     {

@@ -68,4 +68,21 @@ TEST(DiagContextInit, RejectsInvalidDtcStorage)
     EXPECT_EQ(diag_init(&storage, &missing_capacity, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
 }
 
+TEST(DiagContextInit, ClearsOutContextOnFailure)
+{
+    // A failed init must leave the out-parameter in a known state so a stale
+    // pointer from a previous successful init cannot be reused by accident.
+    struct diag_context_storage storage = {};
+    struct diag_context *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
+    const struct diag_config bad_config = {
+        /* dtc_buffer   */ nullptr,
+        /* dtc_capacity */ 0,
+        /* storage      */ {},
+        /* transport    */ {},
+    };
+
+    EXPECT_EQ(diag_init(&storage, &bad_config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(ctx, nullptr);
+}
+
 } // namespace
