@@ -30,11 +30,15 @@ struct diag_context_storage
         void *align_pointer;
         size_t align_size;
         uint32_t align_u32;
+        // Carries the widest fundamental alignment so the storage is suitably
+        // aligned for the private context regardless of its layout. A
+        // compile-time alignment check in the implementation enforces this.
+        long double align_max;
     } data;
 };
 
-enum diag_result diag_init(struct diag_context_storage *storage, const struct diag_config *config,
-                           struct diag_context **out_ctx);
+enum diag_result diag_init(struct diag_context_storage *context_storage,
+                           const struct diag_config *config, struct diag_context **out_ctx);
 enum diag_result diag_deinit(struct diag_context *ctx);
 
 enum diag_result diag_save(struct diag_context *ctx);
