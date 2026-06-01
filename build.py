@@ -28,13 +28,23 @@ def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
 
 def cmake_options(options: list[str]) -> list[str]:
     normalized: list[str] = []
+    expect_define_value = False
     for option in options:
         if option == "--":
             continue
-        if option.startswith("-D"):
+        if expect_define_value:
+            # Fold a standalone "-D" with its value: "-D FOO=ON" -> "-DFOO=ON".
+            normalized.append(f"-D{option}")
+            expect_define_value = False
+        elif option == "-D":
+            expect_define_value = True
+        elif option.startswith("-D"):
             normalized.append(option)
         else:
             normalized.append(f"-D{option}")
+    if expect_define_value:
+        # Trailing bare "-D" with no value: preserve it rather than drop silently.
+        normalized.append("-D")
     return normalized
 
 
@@ -79,11 +89,14 @@ def install_library(args: argparse.Namespace) -> None:
 
 
 def install_library_for_preset(preset: str, prefix: Path, extra_options: list[str]) -> None:
+    # The installed package must always be a minimal library: no tests, no
+    # examples. CMake applies the last -D for a given variable, so the forced
+    # OFF options go last and win over any forwarded -- option.
     options = [
-        "DIAG_BUILD_TESTS=OFF",
-        "DIAG_BUILD_EXAMPLES=OFF",
         f"CMAKE_INSTALL_PREFIX={prefix}",
         *extra_options,
+        "DIAG_BUILD_TESTS=OFF",
+        "DIAG_BUILD_EXAMPLES=OFF",
     ]
 
     configure(preset, options)
