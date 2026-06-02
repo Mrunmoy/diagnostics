@@ -59,6 +59,15 @@ TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
     EXPECT_EQ(snapshot.abnormal_reset_count, 0u);
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
     EXPECT_FALSE(snapshot.persist_requested);
+
+    ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_get(fixture.ctx, &snapshot), DIAG_OK);
+
+    EXPECT_EQ(snapshot.last_reset_reason, DIAG_RESET_REASON_WATCHDOG);
+    EXPECT_EQ(snapshot.reset_count, 0u);
+    EXPECT_EQ(snapshot.abnormal_reset_count, 0u);
+    EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
+    EXPECT_FALSE(snapshot.persist_requested);
 }
 
 TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)

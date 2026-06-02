@@ -34,7 +34,7 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
         ctx->reset_count++;
     }
 
-    if (abnormal)
+    if (policy != DIAG_RESET_COUNTER_POLICY_DISABLED && abnormal)
     {
         ctx->abnormal_reset_count++;
     }
