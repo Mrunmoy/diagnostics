@@ -17,12 +17,14 @@ TEST(DiagContextInit, RejectsNullArguments)
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
     struct diag_dtc_snapshot    dtc_buffer[1];
+    // clang-format off
     const struct diag_config    config = {
-           /* dtc_buffer   */ dtc_buffer,
+        /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 1,
         /* storage      */ {},
         /* transport    */ {},
     };
+    // clang-format on
 
     EXPECT_EQ(diag_init(nullptr, &config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_init(&storage, nullptr, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
@@ -34,12 +36,14 @@ TEST(DiagContextInit, AcceptsValidConfiguration)
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
     struct diag_dtc_snapshot    dtc_buffer[2];
+    // clang-format off
     const struct diag_config    config = {
-           /* dtc_buffer   */ dtc_buffer,
+        /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 2,
         /* storage      */ {},
         /* transport    */ {},
     };
+    // clang-format on
 
     EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
     EXPECT_NE(ctx, nullptr);
@@ -57,9 +61,11 @@ TEST(DiagContextStorage, IsAlignedForOpaqueContext)
 
 TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
 {
+    // clang-format off
     alignas(DIAG_CONTEXT_STORAGE_ALIGN)
-        uint8_t          raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
-    struct diag_context *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
+        uint8_t raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
+    // clang-format on
+    struct diag_context     *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
     struct diag_dtc_snapshot dtc_buffer[1];
     const struct diag_config config = {
         /* dtc_buffer   */ dtc_buffer,
@@ -106,12 +112,14 @@ TEST(DiagContextInit, ClearsOutContextOnFailure)
     // pointer from a previous successful init cannot be reused by accident.
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
+    // clang-format off
     const struct diag_config    bad_config = {
-           /* dtc_buffer   */ nullptr,
+        /* dtc_buffer   */ nullptr,
         /* dtc_capacity */ 0,
         /* storage      */ {},
         /* transport    */ {},
     };
+    // clang-format on
 
     EXPECT_EQ(diag_init(&storage, &bad_config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(ctx, nullptr);

@@ -48,14 +48,15 @@ TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
     struct diag_dtc_snapshot    dtc_buffer[1];
+    // clang-format off
     const struct diag_config    config = {
-           /* dtc_buffer   */ dtc_buffer,
+        /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 1,
         /* storage      */ {},
         /* transport    */ {},
         /* identity */
         {
-               /* ecosystem_id       */ 0x0001u,
+            /* ecosystem_id       */ 0x0001u,
             /* product_id         */ 0x0002u,
             /* device_type        */ 0x0003u,
             /* device_instance    */ 0x04u,
@@ -64,6 +65,7 @@ TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
             /* reserved           */ 0u,
         },
     };
+    // clang-format on
     struct diag_identity identity = {};
 
     ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);

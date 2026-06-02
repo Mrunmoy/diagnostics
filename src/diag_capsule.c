@@ -354,8 +354,8 @@ enum diag_result diag_capsule_find_section_by_type(const struct diag_capsule_des
     return DIAG_ERROR_NOT_FOUND;
 }
 
-enum diag_result
 // clang-format off
+enum diag_result
 diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descriptor,
                                    enum diag_capsule_section_owner owner,
                                    const struct diag_capsule_section **out_section)
@@ -395,8 +395,8 @@ diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descrip
     return DIAG_ERROR_NOT_FOUND;
 }
 
-enum diag_result
 // clang-format off
+enum diag_result
 diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descriptor,
                                      const struct diag_capsule_section *section)
 // clang-format on
