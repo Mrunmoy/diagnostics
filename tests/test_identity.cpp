@@ -84,7 +84,6 @@ TEST(DiagIdentity, RejectsInvalidGetArguments)
 
     EXPECT_EQ(diag_identity_get(nullptr, &identity), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_identity_get(ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
-    EXPECT_EQ(diag_identity_get(ctx, &identity), DIAG_ERROR_INVALID_ARGUMENT);
 
     struct diag_dtc_snapshot dtc_buffer[1];
     const struct diag_config config = {

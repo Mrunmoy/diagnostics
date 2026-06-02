@@ -11,8 +11,8 @@ extern "C"
 {
 #endif
 
+// Forward compatibility marker for the compact numeric device identity layout.
 #define DIAG_IDENTITY_SCHEMA_VERSION (1u)
-#define DIAG_DTC_NAMESPACE_VERSION (1u)
 #define DIAG_IDENTITY_ENCODED_SIZE (10u)
 
     struct diag_context;
