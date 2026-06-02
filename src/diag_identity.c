@@ -2,8 +2,10 @@
 
 #include "diag_context_internal.h"
 
+// clang-format off
 enum diag_result diag_identity_copy(const struct diag_identity *identity,
                                     struct diag_identity *out_identity)
+// clang-format on
 {
     if (identity == 0 || out_identity == 0)
     {
@@ -15,8 +17,10 @@ enum diag_result diag_identity_copy(const struct diag_identity *identity,
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_identity_get(const struct diag_context *ctx,
                                    struct diag_identity *out_identity)
+// clang-format on
 {
     if (ctx == 0 || out_identity == 0)
     {

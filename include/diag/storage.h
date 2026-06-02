@@ -20,8 +20,8 @@ enum diag_storage_wear_leveling
 
 struct diag_storage_capabilities
 {
-    uint8_t erase_value;
-    size_t write_alignment;
+    uint8_t                         erase_value;
+    size_t                          write_alignment;
     enum diag_storage_atomic_commit atomic_commit;
     enum diag_storage_wear_leveling wear_leveling;
 };
@@ -35,8 +35,8 @@ struct diag_storage_ops
 
 struct diag_storage
 {
-    const struct diag_storage_ops *ops;
-    void *user;
+    const struct diag_storage_ops   *ops;
+    void                            *user;
     struct diag_storage_capabilities capabilities;
 };
 

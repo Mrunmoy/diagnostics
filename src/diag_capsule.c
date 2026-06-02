@@ -38,8 +38,10 @@ static int range_past_end(uint32_t offset, uint32_t length, uint32_t total_lengt
     return offset > total_length || length > (total_length - offset);
 }
 
+// clang-format off
 static int sections_overlap(const struct diag_capsule_section *left,
                             const struct diag_capsule_section *right)
+// clang-format on
 {
     const uint32_t left_end = left->offset + left->length;
     const uint32_t right_end = right->offset + right->length;
@@ -47,9 +49,11 @@ static int sections_overlap(const struct diag_capsule_section *left,
     return left->offset < right_end && right->offset < left_end;
 }
 
+// clang-format off
 static enum diag_result validate_sections(const struct diag_capsule_section *sections,
                                           uint16_t section_count, uint32_t total_length,
                                           size_t payload_start)
+// clang-format on
 {
     uint16_t i = 0u;
 
@@ -90,7 +94,7 @@ static enum diag_result validate_sections(const struct diag_capsule_section *sec
 uint32_t diag_capsule_crc32(const uint8_t *data, size_t length)
 {
     uint32_t crc = 0xFFFFFFFFu;
-    size_t i = 0u;
+    size_t   i = 0u;
 
     if (data == 0 && length != 0u)
     {
@@ -112,12 +116,14 @@ uint32_t diag_capsule_crc32(const uint8_t *data, size_t length)
     return ~crc;
 }
 
+// clang-format off
 enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
                                         const struct diag_capsule_descriptor *descriptor,
                                         size_t *encoded_length)
+// clang-format on
 {
     uint16_t i = 0u;
-    size_t payload_start = 0u;
+    size_t   payload_start = 0u;
     uint32_t content_crc32 = 0u;
 
     if (buffer == 0 || descriptor == 0)
@@ -183,12 +189,14 @@ enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
                                      struct diag_capsule_descriptor *out_descriptor)
+// clang-format on
 {
     uint16_t section_count = 0u;
     uint16_t i = 0u;
-    size_t payload_start = 0u;
+    size_t   payload_start = 0u;
     uint32_t total_length = 0u;
     uint32_t expected_content_crc32 = 0u;
     uint32_t actual_content_crc32 = 0u;
@@ -274,8 +282,10 @@ enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_capsule_section_owner_from_type(uint16_t type,
                                                       enum diag_capsule_section_owner *out_owner)
+// clang-format on
 {
     enum diag_capsule_section_owner owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
 
@@ -313,9 +323,11 @@ enum diag_result diag_capsule_section_owner_from_type(uint16_t type,
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_capsule_find_section_by_type(const struct diag_capsule_descriptor *descriptor,
                                                    uint16_t type,
                                                    const struct diag_capsule_section **out_section)
+// clang-format on
 {
     uint16_t i = 0u;
 
@@ -343,9 +355,11 @@ enum diag_result diag_capsule_find_section_by_type(const struct diag_capsule_des
 }
 
 enum diag_result
+// clang-format off
 diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descriptor,
                                    enum diag_capsule_section_owner owner,
                                    const struct diag_capsule_section **out_section)
+// clang-format on
 {
     uint16_t i = 0u;
 
@@ -363,7 +377,7 @@ diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descrip
     for (i = 0u; i < descriptor->section_count; i++)
     {
         enum diag_capsule_section_owner section_owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
-        const enum diag_result result =
+        const enum diag_result          result =
             diag_capsule_section_owner_from_type(descriptor->sections[i].type, &section_owner);
 
         if (result != DIAG_OK)
@@ -382,8 +396,10 @@ diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descrip
 }
 
 enum diag_result
+// clang-format off
 diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descriptor,
                                      const struct diag_capsule_section *section)
+// clang-format on
 {
     size_t payload_start = 0u;
 
@@ -421,11 +437,13 @@ diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descr
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_capsule_copy_section_payload(const uint8_t *capsule, size_t capsule_length,
                                                    const struct diag_capsule_descriptor *descriptor,
                                                    const struct diag_capsule_section *section,
                                                    uint8_t *out_payload, size_t out_capacity,
                                                    size_t *out_length)
+// clang-format on
 {
     enum diag_result result = DIAG_OK;
 
@@ -468,12 +486,14 @@ enum diag_result diag_capsule_copy_section_payload(const uint8_t *capsule, size_
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_capsule_copy_section_payload_by_type(
     const uint8_t *capsule, size_t capsule_length, const struct diag_capsule_descriptor *descriptor,
     uint16_t type, uint8_t *out_payload, size_t out_capacity, size_t *out_length)
+// clang-format on
 {
     const struct diag_capsule_section *section = 0;
-    enum diag_result result = DIAG_OK;
+    enum diag_result                   result = DIAG_OK;
 
     if (out_length != 0)
     {

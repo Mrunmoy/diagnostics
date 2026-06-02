@@ -38,7 +38,7 @@ TEST(DiagCapsule, EncodesHeaderAndSectionTableLittleEndian)
     buffer[43] = 0xD4u;
 
     struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
-    std::size_t encoded_length = 0u;
+    std::size_t                    encoded_length = 0u;
 
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, &encoded_length),
               DIAG_OK);
@@ -86,7 +86,7 @@ TEST(DiagCapsule, DecodesValidCapsule)
 TEST(DiagCapsule, FindsKnownSectionByType)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     struct diag_capsule_descriptor decoded = {};
@@ -104,7 +104,7 @@ TEST(DiagCapsule, FindsKnownSectionByType)
 
 TEST(DiagCapsule, ReportsMissingSectionByType)
 {
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     const struct diag_capsule_section *section = nullptr;
 
     EXPECT_EQ(diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_BOOTLOADER_DTC,
@@ -115,7 +115,7 @@ TEST(DiagCapsule, ReportsMissingSectionByType)
 
 TEST(DiagCapsule, FindsKnownSectionByOwner)
 {
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     const struct diag_capsule_section *section = nullptr;
 
     ASSERT_EQ(diag_capsule_find_section_by_owner(&descriptor,
@@ -152,7 +152,7 @@ TEST(DiagCapsule, CopiesKnownSectionPayloadIntoCallerBuffer)
     ASSERT_EQ(diag_capsule_decode(buffer.data(), buffer.size(), &decoded), DIAG_OK);
 
     std::array<uint8_t, 4u> payload = {};
-    std::size_t copied = 0u;
+    std::size_t             copied = 0u;
     ASSERT_EQ(diag_capsule_copy_section_payload_by_type(buffer.data(), buffer.size(), &decoded,
                                                         DIAG_CAPSULE_SECTION_APPLICATION_DTC,
                                                         payload.data(), payload.size(), &copied),
@@ -168,11 +168,11 @@ TEST(DiagCapsule, CopiesKnownSectionPayloadIntoCallerBuffer)
 TEST(DiagCapsule, RejectsPayloadCopyWhenCallerBufferIsTooSmall)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     std::array<uint8_t, 3u> payload = {};
-    std::size_t copied = 99u;
+    std::size_t             copied = 99u;
     EXPECT_EQ(diag_capsule_copy_section_payload_by_type(buffer.data(), buffer.size(), &descriptor,
                                                         DIAG_CAPSULE_SECTION_APPLICATION_DTC,
                                                         payload.data(), payload.size(), &copied),
@@ -195,11 +195,11 @@ TEST(DiagCapsule, HelperLookupRejectsOversizedDescriptorSectionCountBeforeIterat
 TEST(DiagCapsule, PayloadCopyRejectsShortCapsuleBuffer)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     std::array<uint8_t, 4u> payload = {};
-    std::size_t copied = 99u;
+    std::size_t             copied = 99u;
     EXPECT_EQ(diag_capsule_copy_section_payload_by_type(
                   buffer.data(), descriptor.total_length - 1u, &descriptor,
                   DIAG_CAPSULE_SECTION_APPLICATION_DTC, payload.data(), payload.size(), &copied),
@@ -210,7 +210,7 @@ TEST(DiagCapsule, PayloadCopyRejectsShortCapsuleBuffer)
 TEST(DiagCapsule, RejectsUnsupportedSchemaVersion)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     buffer[4] = 2u;
@@ -223,7 +223,7 @@ TEST(DiagCapsule, RejectsUnsupportedSchemaVersion)
 TEST(DiagCapsule, RejectsOversizedSectionCountBeforeIteration)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     buffer[16] = static_cast<uint8_t>(DIAG_CAPSULE_MAX_SECTIONS + 1u);
@@ -236,7 +236,7 @@ TEST(DiagCapsule, RejectsOversizedSectionCountBeforeIteration)
 TEST(DiagCapsule, RejectsSectionLengthPastCapsuleEnd)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     buffer[28] = 120u;
@@ -255,7 +255,7 @@ TEST(DiagCapsule, RejectsSectionLengthPastCapsuleEnd)
 TEST(DiagCapsule, RejectsInvalidCrc)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     buffer[40] ^= 0x55u;
@@ -267,7 +267,7 @@ TEST(DiagCapsule, RejectsInvalidCrc)
 TEST(DiagCapsule, RejectsSectionMetadataChangedAfterEncode)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
 
     buffer[24] = DIAG_CAPSULE_SECTION_BOOTLOADER_DTC;
@@ -279,7 +279,7 @@ TEST(DiagCapsule, RejectsSectionMetadataChangedAfterEncode)
 TEST(DiagCapsule, EncodeRejectsDescriptorWithTooManySections)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     descriptor.section_count = DIAG_CAPSULE_MAX_SECTIONS + 1u;
 
     EXPECT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr),
@@ -293,7 +293,7 @@ TEST(DiagCapsule, EncodeReportsStructurallyInvalidDescriptorAsInvalidArgument)
     // callers can distinguish a bad request from a corrupt decode (which is the
     // only place DIAG_ERROR_CORRUPT_DATA is appropriate).
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
     descriptor.sections[0].used_length = descriptor.sections[0].length + 1u;
 
     EXPECT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr),
@@ -303,7 +303,7 @@ TEST(DiagCapsule, EncodeReportsStructurallyInvalidDescriptorAsInvalidArgument)
 TEST(DiagCapsule, RejectsNullArguments)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
-    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
 
     EXPECT_EQ(diag_capsule_encode_v1(nullptr, buffer.size(), &descriptor, nullptr),
               DIAG_ERROR_INVALID_ARGUMENT);

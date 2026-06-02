@@ -13,3 +13,7 @@ AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortBlocksOnASingleLine: Never
 IndentCaseLabels: true
+# Align consecutive declarations so struct/union member names line up in a column.
+# This also aligns wrapped function-parameter names, which we do not want, so the
+# few multi-line function signatures are wrapped in // clang-format off/on guards.
+AlignConsecutiveDeclarations: Consecutive

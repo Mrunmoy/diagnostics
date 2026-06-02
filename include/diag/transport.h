@@ -16,7 +16,7 @@ struct diag_transport_ops
 struct diag_transport
 {
     const struct diag_transport_ops *ops;
-    void *user;
+    void                            *user;
 };
 
 #endif

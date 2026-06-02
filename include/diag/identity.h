@@ -22,17 +22,19 @@ extern "C"
         uint16_t ecosystem_id;
         uint16_t product_id;
         uint16_t device_type;
-        uint8_t device_instance;
-        uint8_t firmware_stage;
-        uint8_t firmware_component;
-        uint8_t reserved;
+        uint8_t  device_instance;
+        uint8_t  firmware_stage;
+        uint8_t  firmware_component;
+        uint8_t  reserved;
     };
 
+    // clang-format off
     enum diag_result diag_identity_copy(const struct diag_identity *identity,
                                         struct diag_identity *out_identity);
 
     enum diag_result diag_identity_get(const struct diag_context *ctx,
                                        struct diag_identity *out_identity);
+    // clang-format on
 
     bool diag_identity_equal(const struct diag_identity *left, const struct diag_identity *right);
 

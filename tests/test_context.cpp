@@ -15,10 +15,10 @@ namespace
 TEST(DiagContextInit, RejectsNullArguments)
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
-    struct diag_dtc_snapshot dtc_buffer[1];
-    const struct diag_config config = {
-        /* dtc_buffer   */ dtc_buffer,
+    struct diag_context        *ctx = nullptr;
+    struct diag_dtc_snapshot    dtc_buffer[1];
+    const struct diag_config    config = {
+           /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 1,
         /* storage      */ {},
         /* transport    */ {},
@@ -32,10 +32,10 @@ TEST(DiagContextInit, RejectsNullArguments)
 TEST(DiagContextInit, AcceptsValidConfiguration)
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
-    struct diag_dtc_snapshot dtc_buffer[2];
-    const struct diag_config config = {
-        /* dtc_buffer   */ dtc_buffer,
+    struct diag_context        *ctx = nullptr;
+    struct diag_dtc_snapshot    dtc_buffer[2];
+    const struct diag_config    config = {
+           /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 2,
         /* storage      */ {},
         /* transport    */ {},
@@ -58,7 +58,7 @@ TEST(DiagContextStorage, IsAlignedForOpaqueContext)
 TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
 {
     alignas(DIAG_CONTEXT_STORAGE_ALIGN)
-        uint8_t raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
+        uint8_t          raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
     struct diag_context *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
     struct diag_dtc_snapshot dtc_buffer[1];
     const struct diag_config config = {
@@ -79,7 +79,7 @@ TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
 TEST(DiagContextInit, RejectsInvalidDtcStorage)
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
+    struct diag_context        *ctx = nullptr;
 
     const struct diag_config missing_buffer = {
         /* dtc_buffer   */ nullptr,
@@ -105,9 +105,9 @@ TEST(DiagContextInit, ClearsOutContextOnFailure)
     // A failed init must leave the out-parameter in a known state so a stale
     // pointer from a previous successful init cannot be reused by accident.
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
-    const struct diag_config bad_config = {
-        /* dtc_buffer   */ nullptr,
+    struct diag_context        *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
+    const struct diag_config    bad_config = {
+           /* dtc_buffer   */ nullptr,
         /* dtc_capacity */ 0,
         /* storage      */ {},
         /* transport    */ {},

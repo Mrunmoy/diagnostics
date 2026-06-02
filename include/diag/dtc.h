@@ -22,12 +22,12 @@ enum diag_dtc_severity
 
 struct diag_dtc_snapshot
 {
-    diag_dtc_id_t id;
+    diag_dtc_id_t          id;
     enum diag_dtc_severity severity;
-    bool active;
-    uint32_t occurrence_count;
-    uint32_t active_count;
-    uint32_t clear_count;
+    bool                   active;
+    uint32_t               occurrence_count;
+    uint32_t               active_count;
+    uint32_t               clear_count;
 };
 
 struct diag_context;
