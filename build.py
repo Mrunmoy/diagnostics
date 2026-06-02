@@ -17,6 +17,11 @@ DEFAULT_PRESET = "linux-debug"
 DEFAULT_LIBRARY_PRESET = "linux-release"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 
+# Formatting must be reproducible across local, Docker, and CI, so clang-format
+# is pinned to one major version. Override with CLANG_FORMAT=/path/to/clang-format
+# only if you have verified it matches this version.
+CLANG_FORMAT_VERSION = "14"
+
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(command), flush=True)
@@ -165,10 +170,35 @@ def clean(args: argparse.Namespace) -> None:
             shutil.rmtree(path)
 
 
+def resolve_clang_format() -> str:
+    # Prefer an explicit override, then the version-suffixed binary, then a bare
+    # clang-format. Whatever resolves must report the pinned major version.
+    candidates = [
+        os.environ.get("CLANG_FORMAT"),
+        f"clang-format-{CLANG_FORMAT_VERSION}",
+        "clang-format",
+    ]
+    for name in candidates:
+        if not name:
+            continue
+        path = shutil.which(name) if "/" not in name else (name if Path(name).exists() else None)
+        if not path:
+            continue
+        version = subprocess.run(
+            [path, "--version"], capture_output=True, text=True, check=False
+        ).stdout
+        if f"version {CLANG_FORMAT_VERSION}." in version:
+            return path
+
+    raise SystemExit(
+        f"clang-format {CLANG_FORMAT_VERSION} is required for reproducible formatting "
+        f"but was not found. Install clang-format-{CLANG_FORMAT_VERSION}, or set "
+        f"CLANG_FORMAT to a clang-format {CLANG_FORMAT_VERSION} binary."
+    )
+
+
 def format_code(args: argparse.Namespace) -> None:
-    clang_format = shutil.which("clang-format")
-    if clang_format is None:
-        raise SystemExit("clang-format was not found on PATH")
+    clang_format = resolve_clang_format()
 
     files = source_files()
     if not files:

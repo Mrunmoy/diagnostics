@@ -92,6 +92,9 @@ Formatting is controlled by `.clang-format` and is the **same on the `c` and
   control structures.
 - **4-space indentation, no tabs.**
 - **100-column** limit, LLVM base style, right-aligned pointers.
+- **clang-format is pinned to version 14** (`CLANG_FORMAT_VERSION` in `build.py`)
+  so local, Docker, and CI produce identical output. Install `clang-format-14`, or
+  point `CLANG_FORMAT` at a matching binary.
 - Run `./build.py format` before every commit; CI runs `./build.py format --check`.
 
 ### Shared philosophy (both branches)
