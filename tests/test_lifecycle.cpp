@@ -23,6 +23,7 @@ struct diag_config make_config(Fixture &fixture, enum diag_reset_counter_policy 
         /* dtc_capacity     */ 1,
         /* storage          */ {},
         /* transport        */ {},
+        /* identity         */ {},
         /* lifecycle        */
         {
             /* reset_counter_policy */ policy,
@@ -164,6 +165,24 @@ TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)
     ASSERT_EQ(diag_lifecycle_get(fixture.ctx, &snapshot), DIAG_OK);
 
     EXPECT_EQ(snapshot.reset_count, 42u);
+    EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
+    EXPECT_FALSE(snapshot.persist_requested);
+}
+
+TEST(DiagLifecycle, PlatformPolicyDoesNotCountAbnormalResetsInLibrary)
+{
+    Fixture fixture;
+    struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0);
+
+    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+
+    struct diag_lifecycle_snapshot snapshot = {};
+    ASSERT_EQ(diag_lifecycle_get(fixture.ctx, &snapshot), DIAG_OK);
+
+    EXPECT_EQ(snapshot.last_reset_reason, DIAG_RESET_REASON_WATCHDOG);
+    EXPECT_EQ(snapshot.reset_count, 0u);
+    EXPECT_EQ(snapshot.abnormal_reset_count, 0u);
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
     EXPECT_FALSE(snapshot.persist_requested);
 }
