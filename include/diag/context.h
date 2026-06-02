@@ -7,6 +7,7 @@
 
 #include "diag/dtc.h"
 #include "diag/identity.h"
+#include "diag/lifecycle.h"
 #include "diag/result.h"
 #include "diag/storage.h"
 #include "diag/transport.h"
@@ -20,6 +21,7 @@ struct diag_config
     struct diag_storage storage;
     struct diag_transport transport;
     struct diag_identity identity;
+    struct diag_lifecycle_config lifecycle;
 };
 
 struct diag_context;
