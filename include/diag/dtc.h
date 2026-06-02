@@ -9,6 +9,9 @@
 
 typedef uint32_t diag_dtc_id_t;
 
+// Forward compatibility marker for host/catalog interpretation of DTC IDs.
+#define DIAG_DTC_NAMESPACE_VERSION (1u)
+
 enum diag_dtc_severity
 {
     DIAG_DTC_SEVERITY_INFO = 0,
