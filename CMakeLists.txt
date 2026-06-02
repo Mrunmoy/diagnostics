@@ -25,6 +25,7 @@ add_library(diag
     src/diag_capsule.c
     src/diag_context.c
     src/diag_dtc.c
+    src/diag_identity.c
     src/diag_storage.c
     src/diag_transport.c
 )

@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "diag/dtc.h"
+#include "diag/identity.h"
 #include "diag/result.h"
 #include "diag/storage.h"
 #include "diag/transport.h"
@@ -18,6 +19,7 @@ struct diag_config
     size_t dtc_capacity;
     struct diag_storage storage;
     struct diag_transport transport;
+    struct diag_identity identity;
 };
 
 struct diag_context;
