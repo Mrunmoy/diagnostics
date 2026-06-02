@@ -273,3 +273,219 @@ enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
 
     return DIAG_OK;
 }
+
+enum diag_result diag_capsule_section_owner_from_type(uint16_t type,
+                                                      enum diag_capsule_section_owner *out_owner)
+{
+    enum diag_capsule_section_owner owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
+
+    if (out_owner == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    switch (type)
+    {
+        case DIAG_CAPSULE_SECTION_BOOTLOADER_DTC:
+            owner = DIAG_CAPSULE_SECTION_OWNER_BOOTLOADER;
+            break;
+
+        case DIAG_CAPSULE_SECTION_APPLICATION_DTC:
+            owner = DIAG_CAPSULE_SECTION_OWNER_APPLICATION;
+            break;
+
+        case DIAG_CAPSULE_SECTION_LIFECYCLE:
+        case DIAG_CAPSULE_SECTION_HANDOFF:
+        case DIAG_CAPSULE_SECTION_RESET_COUNTERS:
+            owner = DIAG_CAPSULE_SECTION_OWNER_SHARED;
+            break;
+
+        case DIAG_CAPSULE_SECTION_RESERVED:
+            owner = DIAG_CAPSULE_SECTION_OWNER_RESERVED;
+            break;
+
+        default:
+            owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
+            break;
+    }
+
+    *out_owner = owner;
+    return DIAG_OK;
+}
+
+enum diag_result diag_capsule_find_section_by_type(const struct diag_capsule_descriptor *descriptor,
+                                                   uint16_t type,
+                                                   const struct diag_capsule_section **out_section)
+{
+    uint16_t i = 0u;
+
+    if (descriptor == 0 || out_section == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_section = 0;
+    if (descriptor->section_count > DIAG_CAPSULE_MAX_SECTIONS)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    for (i = 0u; i < descriptor->section_count; i++)
+    {
+        if (descriptor->sections[i].type == type)
+        {
+            *out_section = &descriptor->sections[i];
+            return DIAG_OK;
+        }
+    }
+
+    return DIAG_ERROR_NOT_FOUND;
+}
+
+enum diag_result
+diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descriptor,
+                                   enum diag_capsule_section_owner owner,
+                                   const struct diag_capsule_section **out_section)
+{
+    uint16_t i = 0u;
+
+    if (descriptor == 0 || out_section == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_section = 0;
+    if (descriptor->section_count > DIAG_CAPSULE_MAX_SECTIONS)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    for (i = 0u; i < descriptor->section_count; i++)
+    {
+        enum diag_capsule_section_owner section_owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
+        const enum diag_result result =
+            diag_capsule_section_owner_from_type(descriptor->sections[i].type, &section_owner);
+
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+
+        if (section_owner == owner)
+        {
+            *out_section = &descriptor->sections[i];
+            return DIAG_OK;
+        }
+    }
+
+    return DIAG_ERROR_NOT_FOUND;
+}
+
+enum diag_result
+diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descriptor,
+                                     const struct diag_capsule_section *section)
+{
+    size_t payload_start = 0u;
+
+    if (descriptor == 0 || section == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (descriptor->section_count > DIAG_CAPSULE_MAX_SECTIONS)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    payload_start = section_table_end(descriptor->section_count);
+    if (descriptor->total_length < payload_start)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (section->offset < payload_start)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (section->used_length > section->length)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (range_past_end(section->offset, section->length, descriptor->total_length) != 0)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    return DIAG_OK;
+}
+
+enum diag_result diag_capsule_copy_section_payload(const uint8_t *capsule, size_t capsule_length,
+                                                   const struct diag_capsule_descriptor *descriptor,
+                                                   const struct diag_capsule_section *section,
+                                                   uint8_t *out_payload, size_t out_capacity,
+                                                   size_t *out_length)
+{
+    enum diag_result result = DIAG_OK;
+
+    if (out_length != 0)
+    {
+        *out_length = 0u;
+    }
+
+    if (capsule == 0 || descriptor == 0 || section == 0 || out_payload == 0)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    result = diag_capsule_validate_section_bounds(descriptor, section);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (descriptor->total_length > capsule_length)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if (section->used_length > out_capacity)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    if (section->used_length != 0u)
+    {
+        memcpy(out_payload, &capsule[section->offset], section->used_length);
+    }
+
+    if (out_length != 0)
+    {
+        *out_length = section->used_length;
+    }
+
+    return DIAG_OK;
+}
+
+enum diag_result diag_capsule_copy_section_payload_by_type(
+    const uint8_t *capsule, size_t capsule_length, const struct diag_capsule_descriptor *descriptor,
+    uint16_t type, uint8_t *out_payload, size_t out_capacity, size_t *out_length)
+{
+    const struct diag_capsule_section *section = 0;
+    enum diag_result result = DIAG_OK;
+
+    if (out_length != 0)
+    {
+        *out_length = 0u;
+    }
+
+    result = diag_capsule_find_section_by_type(descriptor, type, &section);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    return diag_capsule_copy_section_payload(capsule, capsule_length, descriptor, section,
+                                             out_payload, out_capacity, out_length);
+}
