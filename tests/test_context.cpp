@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
 // The library under test is C99. Pull its public headers in with C linkage so
 // the C++ test translation unit links against the unmangled symbols.
 extern "C"
@@ -42,6 +44,14 @@ TEST(DiagContextInit, AcceptsValidConfiguration)
     EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
     EXPECT_NE(ctx, nullptr);
     EXPECT_EQ(diag_deinit(ctx), DIAG_OK);
+}
+
+TEST(DiagContextStorage, IsAlignedForOpaqueContext)
+{
+    struct diag_context_storage storage = {};
+
+    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&storage.bytes[0]) % DIAG_CONTEXT_STORAGE_ALIGN, 0u);
+    EXPECT_EQ(sizeof(storage.bytes), static_cast<std::size_t>(DIAG_CONTEXT_STORAGE_SIZE));
 }
 
 TEST(DiagContextInit, RejectsInvalidDtcStorage)
