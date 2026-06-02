@@ -28,7 +28,7 @@ Rules for agents:
 
 This repository is an embedded-first diagnostics library. Public APIs live in
 `include/diag/`. Core implementation files live in `src/`. Unit tests live in
-`tests/`, examples in `examples/`, design notes in `docs/`, and Docker tooling
+`tests/`, examples in `examples/`, the design document in `docs/`, and Docker tooling
 in `tools/docker/`. VS Code Dev Container and debug configuration are under
 `.devcontainer/` and `.vscode/`.
 
@@ -38,16 +38,9 @@ Concrete adapters should usually live in downstream projects or under
 
 ## Design Source of Truth
 
-Before changing APIs or implementation, read these docs in order. `docs/README.md`
-is the authoritative index — keep this list in sync with it.
-
-1. `docs/design-spec.md` — purpose, non-goals, and core concepts
-2. `docs/architecture.md` — module boundaries and data flow
-3. `docs/tdd-strategy.md` — how features are test-driven here
-4. The relevant topic doc for your change: `docs/platform-abstraction.md`,
-   `docs/protocol-boundary.md`, `docs/shared-bootloader-application.md`, or
-   `docs/ecosystem-identity.md`
-5. Any applicable decision record under `docs/adr/`
+Before changing APIs or implementation, read `docs/design.md`. It is the single
+tracked design document and must stay concise. Do not add scratch, deep-dive,
+task-list, or temporary planning markdown files to the repository.
 
 The current MVP direction is:
 
@@ -124,10 +117,7 @@ Both implementations target constrained embedded systems:
 
 ### `c` branch — C99
 
-These are the **target** C API conventions (see `docs/adr/0006-c-api-uses-explicit-struct-and-enum-tags.md`).
-The scaffold headers still expose the older `diag_result_t` / `diag_context_t`
-typedef aliases; they are being migrated to explicit tags (see the opaque-context
-work). Write new and changed code to the conventions below.
+These are the C API conventions. Write new and changed code to them.
 
 - C99 only; must remain suitable for the most constrained targets.
 - Use explicit `struct` and `enum` tags in public APIs. Do not typedef ordinary
@@ -200,8 +190,8 @@ Add fixed-capacity DTC registration
 Document diagnostic capsule format
 ```
 
-Commit only genuine design docs under `docs/` — no scratch, requirement, or
-intermediate `.md` notes.
+Only `docs/design.md` should be tracked under `docs/`. Do not add scratch,
+requirement, task-list, or intermediate `.md` notes.
 
 Commit implementation to the `c` or `cpp` branch that matches the language —
 **never to `main`** (it stays empty). When a change alters public behavior, note

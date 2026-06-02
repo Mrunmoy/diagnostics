@@ -15,8 +15,7 @@ embed and connect to their own:
 
 This repository is intentionally at the design-first stage. It contains:
 
-- design specifications
-- architecture decisions
+- one design document
 - public API skeletons
 - platform abstraction interfaces
 - Docker-based build and test environment
@@ -97,7 +96,7 @@ Inside the devcontainer, use the container preset:
 ├── cmake/                  # CMake helper modules
 ├── .devcontainer/          # VS Code Dev Container definition
 ├── .vscode/                # Build, test, and debug tasks
-├── docs/                   # Design specs and architecture records
+├── docs/                   # Single design document
 ├── examples/               # Example adapters and usage
 ├── include/diag/           # Public library API
 ├── src/                    # Library implementation
