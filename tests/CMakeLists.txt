@@ -19,6 +19,7 @@ add_executable(diag_tests
     test_storage.cpp
     test_dtc.cpp
     test_identity.cpp
+    test_lifecycle.cpp
 )
 
 target_link_libraries(diag_tests

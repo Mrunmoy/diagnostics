@@ -22,6 +22,17 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
     ctx->initialized = true;
     ctx->config = *config;
     ctx->dtc_count = 0;
+    ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
+    if (config->lifecycle.reset_counter_policy == DIAG_RESET_COUNTER_POLICY_PLATFORM)
+    {
+        ctx->reset_count = config->lifecycle.platform_reset_count;
+    }
+    else
+    {
+        ctx->reset_count = 0;
+    }
+    ctx->abnormal_reset_count = 0;
+    ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
     *out_ctx = ctx;
 
     return DIAG_OK;
@@ -36,6 +47,10 @@ enum diag_result diag_deinit(struct diag_context *ctx)
 
     ctx->initialized = false;
     ctx->dtc_count = 0;
+    ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
+    ctx->reset_count = 0;
+    ctx->abnormal_reset_count = 0;
+    ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
 
     return DIAG_OK;
 }
