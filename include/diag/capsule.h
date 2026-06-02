@@ -43,11 +43,11 @@ struct diag_capsule_descriptor
 
 uint32_t diag_capsule_crc32(const uint8_t *data, size_t length);
 
-diag_result_t diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
-                                     const struct diag_capsule_descriptor *descriptor,
-                                     size_t *encoded_length);
+enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
+                                        const struct diag_capsule_descriptor *descriptor,
+                                        size_t *encoded_length);
 
-diag_result_t diag_capsule_decode(const uint8_t *buffer, size_t length,
-                                  struct diag_capsule_descriptor *out_descriptor);
+enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
+                                     struct diag_capsule_descriptor *out_descriptor);
 
 #endif

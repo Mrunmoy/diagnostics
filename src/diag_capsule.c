@@ -47,9 +47,9 @@ static int sections_overlap(const struct diag_capsule_section *left,
     return left->offset < right_end && right->offset < left_end;
 }
 
-static diag_result_t validate_sections(const struct diag_capsule_section *sections,
-                                       uint16_t section_count, uint32_t total_length,
-                                       size_t payload_start)
+static enum diag_result validate_sections(const struct diag_capsule_section *sections,
+                                          uint16_t section_count, uint32_t total_length,
+                                          size_t payload_start)
 {
     uint16_t i = 0u;
 
@@ -112,9 +112,9 @@ uint32_t diag_capsule_crc32(const uint8_t *data, size_t length)
     return ~crc;
 }
 
-diag_result_t diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
-                                     const struct diag_capsule_descriptor *descriptor,
-                                     size_t *encoded_length)
+enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
+                                        const struct diag_capsule_descriptor *descriptor,
+                                        size_t *encoded_length)
 {
     uint16_t i = 0u;
     size_t payload_start = 0u;
@@ -183,8 +183,8 @@ diag_result_t diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
     return DIAG_OK;
 }
 
-diag_result_t diag_capsule_decode(const uint8_t *buffer, size_t length,
-                                  struct diag_capsule_descriptor *out_descriptor)
+enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
+                                     struct diag_capsule_descriptor *out_descriptor)
 {
     uint16_t section_count = 0u;
     uint16_t i = 0u;
