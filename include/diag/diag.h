@@ -2,6 +2,7 @@
 #define DIAG_DIAG_H
 
 #include "diag/capsule.h"
+#include "diag/compiler.h"
 #include "diag/context.h"
 #include "diag/dtc.h"
 #include "diag/identity.h"

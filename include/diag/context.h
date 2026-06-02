@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/dtc.h"
 #include "diag/identity.h"
 #include "diag/lifecycle.h"
@@ -13,6 +14,7 @@
 #include "diag/transport.h"
 
 #define DIAG_CONTEXT_STORAGE_SIZE 128u
+#define DIAG_CONTEXT_STORAGE_ALIGN 8u
 
 struct diag_config
 {
@@ -28,17 +30,8 @@ struct diag_context;
 
 struct diag_context_storage
 {
-    union
-    {
-        uint8_t bytes[DIAG_CONTEXT_STORAGE_SIZE];
-        void *align_pointer;
-        size_t align_size;
-        uint32_t align_u32;
-        // Carries the widest fundamental alignment so the storage is suitably
-        // aligned for the private context regardless of its layout. A
-        // compile-time alignment check in the implementation enforces this.
-        long double align_max;
-    } data;
+    DIAG_ALIGNAS_PREFIX(DIAG_CONTEXT_STORAGE_ALIGN)
+    uint8_t bytes[DIAG_CONTEXT_STORAGE_SIZE] DIAG_ALIGNAS_SUFFIX(DIAG_CONTEXT_STORAGE_ALIGN);
 };
 
 enum diag_result diag_init(struct diag_context_storage *context_storage,

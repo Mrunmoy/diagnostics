@@ -1,5 +1,12 @@
 #include "diag_context_internal.h"
 
+#include <stdint.h>
+
+static int diag_context_storage_is_aligned(const struct diag_context_storage *storage)
+{
+    return ((uintptr_t)(const void *)storage % DIAG_CONTEXT_STORAGE_ALIGN) == 0u;
+}
+
 enum diag_result diag_init(struct diag_context_storage *context_storage,
                            const struct diag_config *config, struct diag_context **out_ctx)
 {
@@ -18,7 +25,12 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    ctx = (struct diag_context *)(void *)&context_storage->data.bytes[0];
+    if (!diag_context_storage_is_aligned(context_storage))
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    ctx = (struct diag_context *)(void *)context_storage;
     ctx->initialized = true;
     ctx->config = *config;
     ctx->dtc_count = 0;

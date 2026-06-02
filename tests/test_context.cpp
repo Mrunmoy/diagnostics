@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cstdint>
+
 // The library under test is C99. Pull its public headers in with C linkage so
 // the C++ test translation unit links against the unmangled symbols.
 extern "C"
@@ -42,6 +44,36 @@ TEST(DiagContextInit, AcceptsValidConfiguration)
     EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
     EXPECT_NE(ctx, nullptr);
     EXPECT_EQ(diag_deinit(ctx), DIAG_OK);
+}
+
+TEST(DiagContextStorage, IsAlignedForOpaqueContext)
+{
+    struct diag_context_storage storage = {};
+
+    EXPECT_EQ(reinterpret_cast<std::uintptr_t>(&storage.bytes[0]) % DIAG_CONTEXT_STORAGE_ALIGN, 0u);
+    EXPECT_EQ(sizeof(storage), static_cast<std::size_t>(DIAG_CONTEXT_STORAGE_SIZE));
+    EXPECT_EQ(sizeof(storage.bytes), static_cast<std::size_t>(DIAG_CONTEXT_STORAGE_SIZE));
+}
+
+TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
+{
+    alignas(DIAG_CONTEXT_STORAGE_ALIGN)
+        uint8_t raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
+    struct diag_context *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
+    struct diag_dtc_snapshot dtc_buffer[1];
+    const struct diag_config config = {
+        /* dtc_buffer   */ dtc_buffer,
+        /* dtc_capacity */ 1,
+        /* storage      */ {},
+        /* transport    */ {},
+    };
+
+    auto *misaligned_storage = reinterpret_cast<struct diag_context_storage *>(&raw[1]);
+
+    ASSERT_NE(reinterpret_cast<std::uintptr_t>(misaligned_storage) % DIAG_CONTEXT_STORAGE_ALIGN,
+              0u);
+    EXPECT_EQ(diag_init(misaligned_storage, &config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(ctx, nullptr);
 }
 
 TEST(DiagContextInit, RejectsInvalidDtcStorage)
