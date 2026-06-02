@@ -23,7 +23,8 @@ struct FakeStorage
     unsigned int fake_flash_erases;
 };
 
-enum diag_result fake_load(void *user, uint8_t *buffer, size_t buffer_size, size_t *bytes_read)
+extern "C" enum diag_result fake_load(void *user, uint8_t *buffer, size_t buffer_size,
+                                      size_t *bytes_read)
 {
     auto *fake = static_cast<FakeStorage *>(user);
 
@@ -39,7 +40,7 @@ enum diag_result fake_load(void *user, uint8_t *buffer, size_t buffer_size, size
     return DIAG_OK;
 }
 
-enum diag_result fake_save(void *user, const uint8_t *buffer, size_t size)
+extern "C" enum diag_result fake_save(void *user, const uint8_t *buffer, size_t size)
 {
     auto *fake = static_cast<FakeStorage *>(user);
 
@@ -56,7 +57,7 @@ enum diag_result fake_save(void *user, const uint8_t *buffer, size_t size)
     return DIAG_OK;
 }
 
-enum diag_result fake_clear(void *user)
+extern "C" enum diag_result fake_clear(void *user)
 {
     auto *fake = static_cast<FakeStorage *>(user);
 
