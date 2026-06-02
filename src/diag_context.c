@@ -4,7 +4,7 @@
 
 static int diag_context_storage_is_aligned(const struct diag_context_storage *storage)
 {
-    return ((uintptr_t)&storage->bytes[0] % DIAG_CONTEXT_STORAGE_ALIGN) == 0u;
+    return ((uintptr_t)(const void *)storage % DIAG_CONTEXT_STORAGE_ALIGN) == 0u;
 }
 
 enum diag_result diag_init(struct diag_context_storage *context_storage,
@@ -30,7 +30,7 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    ctx = (struct diag_context *)(void *)&context_storage->bytes[0];
+    ctx = (struct diag_context *)(void *)context_storage;
     ctx->initialized = true;
     ctx->config = *config;
     ctx->dtc_count = 0;
