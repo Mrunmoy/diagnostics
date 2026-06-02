@@ -84,6 +84,7 @@ Examples:
 
 - boot reason
 - reset reason
+- reset counter snapshot
 - selected firmware slot
 - image verification result
 - rollback reason
@@ -92,15 +93,22 @@ Examples:
 These should be represented as explicit handoff records rather than hidden
 global state.
 
+Reset counters are useful but can create frequent non-volatile writes. The
+shared design must allow reset counters to be RAM-only, abnormal-reset-only,
+batched, platform-provided, or handled by a wear-leveled storage adapter.
+
 ## Compatibility Rules
 
 - Never persist raw C structs.
 - Persist a versioned binary schema with explicit endianness.
 - Include length fields so unknown future sections can be skipped.
+- Include reserved fields or reserved sections for future schema growth.
 - Include integrity protection, such as CRC32, in the storage format.
 - Mutating shared storage should be atomic at the adapter level where possible.
 - A newer application must be able to ignore older unknown bootloader fields.
 - A newer bootloader must be able to preserve unknown application fields.
+- Older firmware should reject unsupported schema versions rather than
+  rewriting data it cannot safely preserve.
 
 ## API Implications
 

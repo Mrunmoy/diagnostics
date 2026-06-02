@@ -36,30 +36,56 @@ Keep platform-specific storage and transport implementations out of the core.
 Concrete adapters should usually live in downstream projects or under
 `examples/` if they are generally useful.
 
+## Design Source of Truth
+
+Before changing APIs or implementation, read these docs in order. `docs/README.md`
+is the authoritative index — keep this list in sync with it.
+
+1. `docs/design-spec.md` — purpose, non-goals, and core concepts
+2. `docs/architecture.md` — module boundaries and data flow
+3. `docs/tdd-strategy.md` — how features are test-driven here
+4. The relevant topic doc for your change: `docs/platform-abstraction.md`,
+   `docs/protocol-boundary.md`, `docs/shared-bootloader-application.md`, or
+   `docs/ecosystem-identity.md`
+5. Any applicable decision record under `docs/adr/`
+
+The current MVP direction is:
+
+- runtime events and volatile DTCs stay in RAM.
+- only important persistent DTCs and lifecycle records enter storage.
+- persistent writes are explicit or policy-driven, never hidden in hot paths.
+- reset counter persistence is RAM-only or wear-aware by policy; no default
+  write-on-every-boot behavior.
+- bootloader and application use separate capsule banks.
+- host tooling owns strings, catalogs, descriptions, and rich product meaning.
+
 ## Build, Test, and Development Commands
 
 Use `build.py` as the preferred entry point:
 
 ```sh
 ./build.py build              # configure and build with linux-debug
+./build.py all                # format check, debug tests, ASAN tests, library install
 ./build.py test               # build and run the GoogleTest suite
+./build.py test --preset linux-asan
 ./build.py format             # apply clang-format
 ./build.py format --check     # verify formatting
 ./build.py clean              # remove one preset build directory
-./build.py clean --all        # remove build/ and dist/
-./build.py library --prefix dist/diag
+./build.py clean --all        # remove build outputs
+./build.py library            # install package output to build/install/diag
 ```
 
-Pass CMake options with `--option`, for example:
+Pass CMake options after `--`, for example:
 
 ```sh
-./build.py build --option DIAG_BUILD_EXAMPLES=OFF
+./build.py build -- DIAG_BUILD_EXAMPLES=OFF
 ```
 
 Docker/devcontainer users should use the `container-debug` preset:
 
 ```sh
 docker compose run --rm diagnostics-dev
+./build.py all --preset container-debug
 ```
 
 ## Coding Style & Naming Conventions
@@ -81,15 +107,33 @@ Both implementations target constrained embedded systems:
 
 - **No dynamic allocation** in library code. All runtime memory is caller-owned
   and capacity-limited.
+- **No recursion or unbounded loops** in core code. Loops must be bounded by
+  configured capacities.
+- **No hidden flash writes.** Runtime DTC operations update RAM and dirty flags;
+  storage writes happen through explicit save/policy paths.
+- **No raw C/C++ struct persistence.** Serialized storage uses explicit
+  fixed-width fields, schema versions, section lengths, and integrity checks.
+- **Optimize by design first.** Keep hot paths branch-light, avoid extra copies,
+  use fixed arrays, and add branch prediction macros only for clear cold paths.
 - **Compile-time over runtime** where the language allows it.
-- **Error codes, not exceptions** — return `diag_result_t` (negative/zero/positive
-  convention in C++); never throw across the library boundary.
+- **Error codes, not exceptions** — return a `diag_result` status (`DIAG_OK == 0`,
+  every other enumerator is a specific error code); never throw across the library
+  boundary.
 - **Comments explain *why*, not *what*.** Use `// ── Section ──` separators to
   group related code.
 
 ### `c` branch — C99
 
+These are the **target** C API conventions (see `docs/adr/0006-c-api-uses-explicit-struct-and-enum-tags.md`).
+The scaffold headers still expose the older `diag_result_t` / `diag_context_t`
+typedef aliases; they are being migrated to explicit tags (see the opaque-context
+work). Write new and changed code to the conventions below.
+
 - C99 only; must remain suitable for the most constrained targets.
+- Use explicit `struct` and `enum` tags in public APIs. Do not typedef ordinary
+  structs/enums just to remove the keyword.
+- Reserve typedefs for semantic scalar IDs, callback signatures, or true
+  platform portability aliases.
 - `diag_` prefix for public symbols (snake_case); uppercase `DIAG_` prefix for
   enum constants and macros.
 - Public headers are C; they may be consumed from C++ (tests do this via
@@ -137,15 +181,27 @@ refactor. Important coverage areas include fixed-capacity limits, null argument
 handling, serialization compatibility, no-allocation behavior, and storage or
 transport adapter contracts.
 
+Also test resource behavior directly:
+
+- runtime-only DTCs must not call storage save.
+- persistent DTC mutation should mark dirty state without immediate flash write.
+- reset counter policy must not force one flash write per boot.
+- unsupported schema versions must fail deterministically.
+- storage parsers must reject oversized/untrusted lengths before iterating.
+
 ## Commit & Pull Request Guidelines
 
-This checkout does not currently contain Git history, so no existing commit
-style can be inferred. Use short imperative commit subjects, for example:
+Work happens on `task/<short-name>` branches cut from the matching
+implementation branch (`c` or `cpp`); `main` stays empty. Use short imperative
+commit subjects, for example:
 
 ```text
 Add fixed-capacity DTC registration
 Document diagnostic capsule format
 ```
+
+Commit only genuine design docs under `docs/` — no scratch, requirement, or
+intermediate `.md` notes.
 
 Commit implementation to the `c` or `cpp` branch that matches the language —
 **never to `main`** (it stays empty). When a change alters public behavior, note
@@ -160,3 +216,8 @@ The diagnostic core must remain transport-agnostic and storage-agnostic. CAN,
 UART, TCP, flash, EEPROM, filesystem, and RTOS behavior must enter through
 abstraction interfaces. Shared bootloader/application state must use a versioned
 serialized capsule, never raw C structs.
+
+Future tooling should make efficiency visible through `build.py all` and a size
+report. Size reports should cover `.text`, `.rodata`, `.data`, `.bss`,
+configured RAM buffers, capsule size, record size, lookup strategy, and
+worst-case flash writes per operation.
