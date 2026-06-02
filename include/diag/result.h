@@ -1,7 +1,7 @@
 #ifndef DIAG_RESULT_H
 #define DIAG_RESULT_H
 
-typedef enum diag_result
+enum diag_result
 {
     DIAG_OK = 0,
     DIAG_ERROR_INVALID_ARGUMENT,
@@ -12,6 +12,6 @@ typedef enum diag_result
     DIAG_ERROR_STORAGE,
     DIAG_ERROR_TRANSPORT,
     DIAG_ERROR_CORRUPT_DATA
-} diag_result_t;
+};
 
 #endif
