@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(diag_tests
     test_capsule.cpp
     test_context.cpp
+    test_features.cpp
     test_storage.cpp
     test_dtc.cpp
     test_identity.cpp

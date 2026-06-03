@@ -20,6 +20,7 @@
 #include "diag/compiler.h"
 #include "diag/context.h"
 #include "diag/dtc.h"
+#include "diag/features.h"
 #include "diag/identity.h"
 #include "diag/lifecycle.h"
 #include "diag/result.h"
