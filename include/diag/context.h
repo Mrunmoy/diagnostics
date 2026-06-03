@@ -13,7 +13,10 @@
 #include "diag/storage.h"
 #include "diag/transport.h"
 
-#define DIAG_CONTEXT_STORAGE_SIZE 128u
+// Opaque-context storage budget. A compile-time check in the implementation
+// fails the build if the private context outgrows this, so it is sized with
+// headroom above the current layout (currently ~136 bytes with config embedded).
+#define DIAG_CONTEXT_STORAGE_SIZE 160u
 #define DIAG_CONTEXT_STORAGE_ALIGN 8u
 
 struct diag_config
@@ -24,6 +27,7 @@ struct diag_config
     struct diag_transport        transport;
     struct diag_identity         identity;
     struct diag_lifecycle_config lifecycle;
+    struct diag_dtc_config       dtc;
 };
 
 struct diag_context;
