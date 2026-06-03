@@ -12,6 +12,7 @@ extern "C"
 namespace
 {
 
+/** Adapter spy used to prove wrapper validation happens before storage callbacks run. */
 struct FakeStorage
 {
     uint8_t      bytes[32];
@@ -140,7 +141,7 @@ TEST(DiagStorageCapabilities, AcceptsValidCapabilityCombinations)
     EXPECT_EQ(diag_storage_validate_capabilities(&adapter_managed), DIAG_OK);
 }
 
-TEST(DiagStorageValidate, RejectsMissingRequiredCallbacks)
+TEST(DiagStorageValidate, RejectsMissingSaveCallback)
 {
     FakeStorage                   fake = {};
     const struct diag_storage_ops missing_save = {
@@ -161,6 +162,28 @@ TEST(DiagStorageValidate, RejectsMissingRequiredCallbacks)
     };
 
     EXPECT_EQ(diag_storage_validate(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_storage_validate(&storage), DIAG_ERROR_INVALID_ARGUMENT);
+}
+
+TEST(DiagStorageValidate, RejectsMissingLoadAndClearCallbacks)
+{
+    FakeStorage                   fake = {};
+    const struct diag_storage_ops missing_load = {
+        /* load  */ nullptr,
+        /* save  */ fake_save,
+        /* clear */ fake_clear,
+    };
+    const struct diag_storage_ops missing_clear = {
+        /* load  */ fake_load,
+        /* save  */ fake_save,
+        /* clear */ nullptr,
+    };
+    struct diag_storage storage = make_storage(&fake);
+
+    storage.ops = &missing_load;
+    EXPECT_EQ(diag_storage_validate(&storage), DIAG_ERROR_INVALID_ARGUMENT);
+
+    storage.ops = &missing_clear;
     EXPECT_EQ(diag_storage_validate(&storage), DIAG_ERROR_INVALID_ARGUMENT);
 }
 
@@ -194,17 +217,23 @@ TEST(DiagStorageOps, RejectsInvalidArgumentsBeforeCallingAdapter)
     uint8_t             loaded[8] = {};
     size_t              loaded_size = 0u;
 
+    EXPECT_EQ(diag_storage_save(nullptr, payload, sizeof(payload)), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_save(&storage, nullptr, sizeof(payload)), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_save(&storage, payload, 0u), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_save(&storage, payload, 3u), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(fake.save_calls, 0u);
 
+    EXPECT_EQ(diag_storage_load(nullptr, loaded, sizeof(loaded), &loaded_size),
+              DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_load(&storage, nullptr, sizeof(loaded), &loaded_size),
               DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_load(&storage, loaded, 0u, &loaded_size), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_load(&storage, loaded, sizeof(loaded), nullptr),
               DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(fake.load_calls, 0u);
+
+    EXPECT_EQ(diag_storage_clear(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(fake.clear_calls, 0u);
 }
 
 TEST(DiagStorageOps, LoadClearsBytesReadBeforeAdapterFailure)
