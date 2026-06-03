@@ -63,6 +63,26 @@ static uint32_t diag_dtc_increment_saturating_u32(uint32_t value)
     return value + 1u;
 }
 
+static uint8_t diag_dtc_increment_saturating_u8(uint8_t value)
+{
+    if (value == UINT8_MAX)
+    {
+        return UINT8_MAX;
+    }
+
+    return (uint8_t)(value + 1u);
+}
+
+static uint16_t diag_dtc_increment_saturating_u16(uint16_t value)
+{
+    if (value == UINT16_MAX)
+    {
+        return UINT16_MAX;
+    }
+
+    return (uint16_t)(value + 1u);
+}
+
 static void diag_dtc_mark_test_failed(struct diag_dtc_snapshot *record)
 {
     if (!record->active)
@@ -72,6 +92,7 @@ static void diag_dtc_mark_test_failed(struct diag_dtc_snapshot *record)
     }
 
     record->active = true;
+    record->failed_this_cycle = true;
     record->status = (uint8_t)(record->status | DIAG_DTC_STATUS_TEST_FAILED |
                                DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE |
                                DIAG_DTC_STATUS_PENDING | DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR);
@@ -131,7 +152,10 @@ enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
     record->local_fault_id = local_fault_id;
     record->severity = severity;
     record->active = false;
+    record->failed_this_cycle = false;
     record->status = 0u;
+    record->failed_cycle_count = 0u;
+    record->aging_counter = 0u;
     record->occurrence_count = 0u;
     record->active_count = 0u;
     record->clear_count = 0u;
@@ -263,6 +287,9 @@ enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
         record->clear_count = diag_dtc_increment_saturating_u32(record->clear_count);
     }
     record->status = 0u;
+    record->failed_this_cycle = false;
+    record->failed_cycle_count = 0u;
+    record->aging_counter = 0u;
 
     return DIAG_OK;
 }
@@ -287,6 +314,9 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
                 diag_dtc_increment_saturating_u32(ctx->config.dtc_buffer[i].clear_count);
         }
         ctx->config.dtc_buffer[i].status = 0u;
+        ctx->config.dtc_buffer[i].failed_this_cycle = false;
+        ctx->config.dtc_buffer[i].failed_cycle_count = 0u;
+        ctx->config.dtc_buffer[i].aging_counter = 0u;
     }
 
     return DIAG_OK;
@@ -428,6 +458,79 @@ enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_s
     for (i = 0u; i < ctx->dtc_count; i++)
     {
         out[i] = ctx->config.dtc_buffer[i];
+    }
+
+    return DIAG_OK;
+}
+
+enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
+{
+    enum diag_result result;
+    uint8_t          confirmation_threshold;
+    uint16_t         aging_threshold;
+    size_t           i;
+
+    result = diag_dtc_validate_context(ctx);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    confirmation_threshold = ctx->config.dtc.confirmation_threshold;
+    if (confirmation_threshold == 0u)
+    {
+        confirmation_threshold = DIAG_DTC_DEFAULT_CONFIRMATION_THRESHOLD;
+    }
+
+    aging_threshold = ctx->config.dtc.aging_threshold;
+    if (aging_threshold == 0u)
+    {
+        aging_threshold = DIAG_DTC_DEFAULT_AGING_THRESHOLD;
+    }
+
+    for (i = 0u; i < ctx->dtc_count; i++)
+    {
+        struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+
+        if (record->failed_this_cycle)
+        {
+            // Failed during the cycle: progress toward confirmation, reset aging.
+            record->aging_counter = 0u;
+            record->failed_cycle_count =
+                diag_dtc_increment_saturating_u8(record->failed_cycle_count);
+            if (record->failed_cycle_count >= confirmation_threshold)
+            {
+                record->status = (uint8_t)(record->status | DIAG_DTC_STATUS_CONFIRMED);
+            }
+        }
+        else
+        {
+            // Clean cycle: one clean cycle clears pending; a confirmed DTC ages.
+            record->failed_cycle_count = 0u;
+            record->status = (uint8_t)(record->status & (uint8_t)~DIAG_DTC_STATUS_PENDING);
+
+            if ((record->status & DIAG_DTC_STATUS_CONFIRMED) != 0u)
+            {
+                record->aging_counter = diag_dtc_increment_saturating_u16(record->aging_counter);
+                if (record->aging_counter >= aging_threshold)
+                {
+                    // Aged out: the DTC heals back to a cleared state.
+                    record->status = 0u;
+                    record->active = false;
+                    record->aging_counter = 0u;
+                    record->failed_cycle_count = 0u;
+                    continue;
+                }
+            }
+        }
+
+        // Start the next operation cycle: drop the per-cycle latch and bit, and
+        // mark the monitor as not yet completed in the new cycle.
+        record->failed_this_cycle = false;
+        record->status =
+            (uint8_t)(record->status & (uint8_t)~DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
+        record->status =
+            (uint8_t)(record->status | DIAG_DTC_STATUS_TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE);
     }
 
     return DIAG_OK;

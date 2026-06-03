@@ -309,4 +309,153 @@ TEST_F(DtcFixture, CountersSaturateAtUint32Max)
     EXPECT_EQ(snapshot.active_count, UINT32_MAX);
 }
 
+// ── Operation-cycle lifecycle ───────────────────────────────────────────────
+
+// Builds a context with explicit confirmation/aging thresholds.
+struct CycleContext
+{
+    struct diag_context_storage             storage = {};
+    std::array<struct diag_dtc_snapshot, 3> buffer = {};
+    struct diag_context                    *ctx = nullptr;
+
+    CycleContext(uint8_t confirmation_threshold, uint16_t aging_threshold)
+    {
+        struct diag_config config = {};
+        config.dtc_buffer = buffer.data();
+        config.dtc_capacity = buffer.size();
+        config.dtc.confirmation_threshold = confirmation_threshold;
+        config.dtc.aging_threshold = aging_threshold;
+        EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+    }
+};
+
+TEST(DiagDtcOperationCycle, RejectsNullContext)
+{
+    EXPECT_EQ(diag_dtc_operation_cycle(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+}
+
+TEST_F(DtcFixture, OperationCycleConfirmsAfterDefaultThreshold)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register(ctx, 0x100u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x100u), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x100u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
+
+    // Default confirmation threshold is a single failed operation cycle.
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x100u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE);
+    EXPECT_FALSE(snapshot.failed_this_cycle);
+}
+
+TEST_F(DtcFixture, OperationCycleClearsPendingAfterCleanCycle)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register(ctx, 0x101u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x101u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x101u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+
+    // A clean cycle (no failure reported) clears the pending bit.
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x101u, &snapshot), DIAG_OK);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+}
+
+TEST(DiagDtcOperationCycle, ConfirmsOnlyAfterConfiguredThreshold)
+{
+    CycleContext c(3u, 0u);
+    ASSERT_NE(c.ctx, nullptr);
+    ASSERT_EQ(diag_dtc_register(c.ctx, 0x200u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    for (int cycle = 1; cycle <= 2; ++cycle)
+    {
+        ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x200u), DIAG_OK);
+        ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+        ASSERT_EQ(diag_dtc_get(c.ctx, 0x200u, &snapshot), DIAG_OK);
+        EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED) << "cycle " << cycle;
+    }
+
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x200u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x200u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+}
+
+TEST(DiagDtcOperationCycle, AgesOutConfirmedDtcAfterCleanCycles)
+{
+    CycleContext c(1u, 3u);
+    ASSERT_NE(c.ctx, nullptr);
+    ASSERT_EQ(diag_dtc_register(c.ctx, 0x300u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x300u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x300u, &snapshot), DIAG_OK);
+    ASSERT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+        ASSERT_EQ(diag_dtc_get(c.ctx, 0x300u, &snapshot), DIAG_OK);
+        EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED) << "clean cycle " << i;
+    }
+
+    // Third consecutive clean cycle reaches the aging threshold and heals the DTC.
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x300u, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.status, 0u);
+    EXPECT_FALSE(snapshot.active);
+}
+
+TEST(DiagDtcOperationCycle, AgingResetsWhenFaultReoccurs)
+{
+    CycleContext c(1u, 5u);
+    ASSERT_NE(c.ctx, nullptr);
+    ASSERT_EQ(diag_dtc_register(c.ctx, 0x400u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x400u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x400u, &snapshot), DIAG_OK);
+    ASSERT_EQ(snapshot.aging_counter, 2u);
+
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x400u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x400u, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.aging_counter, 0u);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+}
+
+TEST_F(DtcFixture, ClearResetsOperationCycleState)
+{
+    ASSERT_EQ(diag_dtc_register(ctx, 0x500u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x500u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_clear(ctx, 0x500u), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    ASSERT_EQ(diag_dtc_get(ctx, 0x500u, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.status, 0u);
+    EXPECT_FALSE(snapshot.failed_this_cycle);
+    EXPECT_EQ(snapshot.failed_cycle_count, 0u);
+    EXPECT_EQ(snapshot.aging_counter, 0u);
+}
+
 } // namespace
