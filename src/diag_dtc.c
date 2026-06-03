@@ -49,8 +49,8 @@ enum diag_result diag_dtc_register(struct diag_context *ctx, diag_dtc_id_t id,
                                    enum diag_dtc_severity severity)
 {
     struct diag_dtc_snapshot *record;
-    enum diag_result result;
-    size_t ignored_index;
+    enum diag_result          result;
+    size_t                    ignored_index;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -83,8 +83,8 @@ enum diag_result diag_dtc_register(struct diag_context *ctx, diag_dtc_id_t id,
 enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id)
 {
     struct diag_dtc_snapshot *record;
-    enum diag_result result;
-    size_t index;
+    enum diag_result          result;
+    size_t                    index;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -112,7 +112,7 @@ enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id)
 enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t id)
 {
     enum diag_result result;
-    size_t index;
+    size_t           index;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -134,8 +134,8 @@ enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t i
 enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
 {
     struct diag_dtc_snapshot *record;
-    enum diag_result result;
-    size_t index;
+    enum diag_result          result;
+    size_t                    index;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -162,7 +162,7 @@ enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
 enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
 {
     enum diag_result result;
-    size_t i;
+    size_t           i;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -186,8 +186,8 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
 enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t id)
 {
     struct diag_dtc_snapshot *record;
-    enum diag_result result;
-    size_t index;
+    enum diag_result          result;
+    size_t                    index;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -213,7 +213,7 @@ enum diag_result diag_dtc_get(const struct diag_context *ctx, diag_dtc_id_t id,
                               struct diag_dtc_snapshot *out)
 {
     enum diag_result result;
-    size_t index;
+    size_t           index;
 
     if (out == 0)
     {
@@ -240,7 +240,7 @@ enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_s
                                size_t capacity, size_t *count)
 {
     enum diag_result result;
-    size_t i;
+    size_t           i;
 
     if (out == 0 || count == 0)
     {

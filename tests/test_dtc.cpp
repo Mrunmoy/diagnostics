@@ -12,9 +12,9 @@ namespace
 
 struct DtcFixture : public testing::Test
 {
-    struct diag_context_storage storage = {};
+    struct diag_context_storage             storage = {};
     std::array<struct diag_dtc_snapshot, 3> dtc_buffer = {};
-    struct diag_context *ctx = nullptr;
+    struct diag_context                    *ctx = nullptr;
 
     void SetUp() override
     {
@@ -33,7 +33,7 @@ struct DtcFixture : public testing::Test
 TEST(DiagDtc, RejectsInvalidArguments)
 {
     struct diag_dtc_snapshot snapshot = {};
-    size_t count = 0;
+    size_t                   count = 0;
 
     EXPECT_EQ(diag_dtc_register(nullptr, 1, DIAG_DTC_SEVERITY_ERROR), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_set_active(nullptr, 1), DIAG_ERROR_INVALID_ARGUMENT);
@@ -62,7 +62,7 @@ TEST_F(DtcFixture, RegistersAndGetsDtc)
 TEST_F(DtcFixture, RejectsNullOutputArguments)
 {
     struct diag_dtc_snapshot snapshot = {};
-    size_t count = 0;
+    size_t                   count = 0;
 
     EXPECT_EQ(diag_dtc_get(ctx, 1u, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_list(ctx, nullptr, 1, &count), DIAG_ERROR_INVALID_ARGUMENT);
@@ -81,7 +81,7 @@ TEST_F(DtcFixture, RejectsDuplicateAndCapacityOverflow)
 TEST_F(DtcFixture, ListsRegisteredDtcsInRegistrationOrder)
 {
     std::array<struct diag_dtc_snapshot, 3> out = {};
-    size_t count = 0;
+    size_t                                  count = 0;
 
     ASSERT_EQ(diag_dtc_register(ctx, 7u, DIAG_DTC_SEVERITY_INFO), DIAG_OK);
     ASSERT_EQ(diag_dtc_register(ctx, 3u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
@@ -95,7 +95,7 @@ TEST_F(DtcFixture, ListsRegisteredDtcsInRegistrationOrder)
 TEST_F(DtcFixture, ListReportsCapacityWhenOutputIsTooSmall)
 {
     std::array<struct diag_dtc_snapshot, 1> out = {};
-    size_t count = 0;
+    size_t                                  count = 0;
 
     ASSERT_EQ(diag_dtc_register(ctx, 7u, DIAG_DTC_SEVERITY_INFO), DIAG_OK);
     ASSERT_EQ(diag_dtc_register(ctx, 3u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);

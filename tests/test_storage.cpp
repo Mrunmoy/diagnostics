@@ -14,8 +14,8 @@ namespace
 
 struct FakeStorage
 {
-    uint8_t bytes[32];
-    size_t used;
+    uint8_t      bytes[32];
+    size_t       used;
     unsigned int load_calls;
     unsigned int save_calls;
     unsigned int clear_calls;
@@ -142,7 +142,7 @@ TEST(DiagStorageCapabilities, AcceptsValidCapabilityCombinations)
 
 TEST(DiagStorageValidate, RejectsMissingRequiredCallbacks)
 {
-    FakeStorage fake = {};
+    FakeStorage                   fake = {};
     const struct diag_storage_ops missing_save = {
         /* load  */ fake_load,
         /* save  */ nullptr,
@@ -166,11 +166,11 @@ TEST(DiagStorageValidate, RejectsMissingRequiredCallbacks)
 
 TEST(DiagStorageOps, SaveLoadAndClearCallAdapterExactlyOnce)
 {
-    FakeStorage fake = {};
+    FakeStorage         fake = {};
     struct diag_storage storage = make_storage(&fake);
-    const uint8_t payload[8] = {0x10u, 0x11u, 0x12u, 0x13u, 0x14u, 0x15u, 0x16u, 0x17u};
-    uint8_t loaded[8] = {};
-    size_t loaded_size = 99u;
+    const uint8_t       payload[8] = {0x10u, 0x11u, 0x12u, 0x13u, 0x14u, 0x15u, 0x16u, 0x17u};
+    uint8_t             loaded[8] = {};
+    size_t              loaded_size = 99u;
 
     EXPECT_EQ(diag_storage_save(&storage, payload, sizeof(payload)), DIAG_OK);
     EXPECT_EQ(fake.save_calls, 1u);
@@ -188,11 +188,11 @@ TEST(DiagStorageOps, SaveLoadAndClearCallAdapterExactlyOnce)
 
 TEST(DiagStorageOps, RejectsInvalidArgumentsBeforeCallingAdapter)
 {
-    FakeStorage fake = {};
+    FakeStorage         fake = {};
     struct diag_storage storage = make_storage(&fake);
-    const uint8_t payload[8] = {};
-    uint8_t loaded[8] = {};
-    size_t loaded_size = 0u;
+    const uint8_t       payload[8] = {};
+    uint8_t             loaded[8] = {};
+    size_t              loaded_size = 0u;
 
     EXPECT_EQ(diag_storage_save(&storage, nullptr, sizeof(payload)), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_storage_save(&storage, payload, 0u), DIAG_ERROR_INVALID_ARGUMENT);
@@ -212,8 +212,8 @@ TEST(DiagStorageOps, LoadClearsBytesReadBeforeAdapterFailure)
     FakeStorage fake = {};
     fake.used = 16u;
     struct diag_storage storage = make_storage(&fake);
-    uint8_t loaded[8] = {};
-    size_t loaded_size = 99u;
+    uint8_t             loaded[8] = {};
+    size_t              loaded_size = 99u;
 
     EXPECT_EQ(diag_storage_load(&storage, loaded, sizeof(loaded), &loaded_size),
               DIAG_ERROR_CAPACITY);

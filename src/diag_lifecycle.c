@@ -8,11 +8,13 @@ static bool diag_lifecycle_is_abnormal_reset(enum diag_reset_reason reason)
            reason == DIAG_RESET_REASON_FAULT;
 }
 
+// clang-format off
 enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
                                               enum diag_reset_reason reason)
+// clang-format on
 {
     enum diag_reset_counter_policy policy;
-    bool abnormal;
+    bool                           abnormal;
 
     if (ctx == 0)
     {
@@ -67,8 +69,10 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
     return DIAG_OK;
 }
 
+// clang-format off
 enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
                                     struct diag_lifecycle_snapshot *out)
+// clang-format on
 {
     if (ctx == 0 || out == 0)
     {

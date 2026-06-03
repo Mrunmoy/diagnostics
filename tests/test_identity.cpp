@@ -37,7 +37,7 @@ TEST(DiagIdentity, CopiesFixedWidthNumericFields)
 TEST(DiagIdentity, RejectsNullCopyArguments)
 {
     const struct diag_identity identity = {};
-    struct diag_identity copied = {};
+    struct diag_identity       copied = {};
 
     EXPECT_EQ(diag_identity_copy(nullptr, &copied), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_identity_copy(&identity, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
@@ -46,9 +46,10 @@ TEST(DiagIdentity, RejectsNullCopyArguments)
 TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
-    struct diag_dtc_snapshot dtc_buffer[1];
-    const struct diag_config config = {
+    struct diag_context        *ctx = nullptr;
+    struct diag_dtc_snapshot    dtc_buffer[1];
+    // clang-format off
+    const struct diag_config    config = {
         /* dtc_buffer   */ dtc_buffer,
         /* dtc_capacity */ 1,
         /* storage      */ {},
@@ -64,6 +65,7 @@ TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
             /* reserved           */ 0u,
         },
     };
+    // clang-format on
     struct diag_identity identity = {};
 
     ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
@@ -79,8 +81,8 @@ TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
 TEST(DiagIdentity, RejectsInvalidGetArguments)
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
-    struct diag_identity identity = {};
+    struct diag_context        *ctx = nullptr;
+    struct diag_identity        identity = {};
 
     EXPECT_EQ(diag_identity_get(nullptr, &identity), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_identity_get(ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);

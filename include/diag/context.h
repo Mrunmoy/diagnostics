@@ -18,11 +18,11 @@
 
 struct diag_config
 {
-    struct diag_dtc_snapshot *dtc_buffer;
-    size_t dtc_capacity;
-    struct diag_storage storage;
-    struct diag_transport transport;
-    struct diag_identity identity;
+    struct diag_dtc_snapshot    *dtc_buffer;
+    size_t                       dtc_capacity;
+    struct diag_storage          storage;
+    struct diag_transport        transport;
+    struct diag_identity         identity;
     struct diag_lifecycle_config lifecycle;
 };
 

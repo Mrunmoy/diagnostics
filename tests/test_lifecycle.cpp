@@ -11,8 +11,8 @@ namespace
 struct Fixture
 {
     struct diag_context_storage storage = {};
-    struct diag_context *ctx = nullptr;
-    struct diag_dtc_snapshot dtc_buffer[1] = {};
+    struct diag_context        *ctx = nullptr;
+    struct diag_dtc_snapshot    dtc_buffer[1] = {};
 };
 
 struct diag_config make_config(Fixture &fixture, enum diag_reset_counter_policy policy,
@@ -46,7 +46,7 @@ TEST(DiagLifecycle, RejectsNullArguments)
 
 TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
 {
-    Fixture fixture;
+    Fixture                  fixture;
     const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_DISABLED, 0);
 
     ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
@@ -73,7 +73,7 @@ TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
 
 TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
 {
-    Fixture fixture;
+    Fixture                  fixture;
     const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0);
 
     ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
@@ -91,7 +91,7 @@ TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
 
 TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
 {
-    Fixture fixture;
+    Fixture                  fixture;
     const struct diag_config config =
         make_config(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0);
 
@@ -114,7 +114,7 @@ TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
 
 TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
 {
-    Fixture fixture;
+    Fixture                  fixture;
     const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_EVERY_N, 3);
 
     ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
@@ -137,7 +137,7 @@ TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
 
 TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 {
-    Fixture fixture;
+    Fixture                  fixture;
     const struct diag_config config =
         make_config(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0);
 
@@ -154,7 +154,7 @@ TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 
 TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)
 {
-    Fixture fixture;
+    Fixture            fixture;
     struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0);
     config.lifecycle.platform_reset_count = 42;
 
@@ -171,7 +171,7 @@ TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)
 
 TEST(DiagLifecycle, PlatformPolicyDoesNotCountAbnormalResetsInLibrary)
 {
-    Fixture fixture;
+    Fixture            fixture;
     struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0);
 
     ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
@@ -189,7 +189,7 @@ TEST(DiagLifecycle, PlatformPolicyDoesNotCountAbnormalResetsInLibrary)
 
 TEST(DiagLifecycle, NonPlatformPolicyIgnoresConfiguredPlatformCounter)
 {
-    Fixture fixture;
+    Fixture            fixture;
     struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0);
     config.lifecycle.platform_reset_count = 42;
 

@@ -36,27 +36,29 @@ enum diag_lifecycle_dirty_flag
 struct diag_lifecycle_config
 {
     enum diag_reset_counter_policy reset_counter_policy;
-    uint32_t reset_count_interval;
-    uint32_t platform_reset_count;
+    uint32_t                       reset_count_interval;
+    uint32_t                       platform_reset_count;
 };
 
 struct diag_lifecycle_snapshot
 {
-    enum diag_reset_reason last_reset_reason;
+    enum diag_reset_reason         last_reset_reason;
     enum diag_reset_counter_policy reset_counter_policy;
-    uint32_t reset_count;
-    uint32_t abnormal_reset_count;
-    uint32_t dirty_flags;
-    bool persist_requested;
+    uint32_t                       reset_count;
+    uint32_t                       abnormal_reset_count;
+    uint32_t                       dirty_flags;
+    bool                           persist_requested;
 };
 
 struct diag_context;
 
+// clang-format off
 enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
                                               enum diag_reset_reason reason);
 
 enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
                                     struct diag_lifecycle_snapshot *out);
+// clang-format on
 
 enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t dirty_flags);
 

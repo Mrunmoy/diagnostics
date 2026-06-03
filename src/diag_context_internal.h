@@ -36,10 +36,12 @@ typedef char diag_context_storage_size_check
 
 // Caller-owned storage must also be aligned strictly enough for the private
 // context, not just large enough.
+// clang-format off
 typedef char diag_context_storage_align_check
     [(offsetof(struct diag_align_probe_context, member) <=
       offsetof(struct diag_align_probe_storage, member))
          ? 1
          : -1];
+// clang-format on
 
 #endif

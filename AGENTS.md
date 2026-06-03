@@ -92,6 +92,11 @@ Formatting is controlled by `.clang-format` and is the **same on the `c` and
   control structures.
 - **4-space indentation, no tabs.**
 - **100-column** limit, LLVM base style, right-aligned pointers.
+- **Consecutive declarations are aligned** so struct/union member names line up in
+  a column. clang-format applies this to wrapped function parameters too, which we
+  do not want, so multi-line function signatures are wrapped in
+  `// clang-format off` / `// clang-format on`. Add those guards when clang-format
+  would otherwise align the wrapped parameters or initializer elements.
 - **clang-format is pinned to version 14** (`CLANG_FORMAT_VERSION` in `build.py`)
   so local, Docker, and CI produce identical output. Install `clang-format-14`, or
   point `CLANG_FORMAT` at a matching binary.
