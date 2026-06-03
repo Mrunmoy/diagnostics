@@ -8,9 +8,22 @@
 #include "diag/result.h"
 
 typedef uint32_t diag_dtc_id_t;
+typedef uint32_t diag_local_fault_id_t;
 
 // Forward compatibility marker for host/catalog interpretation of DTC IDs.
 #define DIAG_DTC_NAMESPACE_VERSION (1u)
+
+enum diag_dtc_status_bit
+{
+    DIAG_DTC_STATUS_TEST_FAILED = 1u << 0u,
+    DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE = 1u << 1u,
+    DIAG_DTC_STATUS_PENDING = 1u << 2u,
+    DIAG_DTC_STATUS_CONFIRMED = 1u << 3u,
+    DIAG_DTC_STATUS_TEST_NOT_COMPLETED_SINCE_CLEAR = 1u << 4u,
+    DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR = 1u << 5u,
+    DIAG_DTC_STATUS_TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE = 1u << 6u,
+    DIAG_DTC_STATUS_WARNING_INDICATOR_REQUESTED = 1u << 7u
+};
 
 enum diag_dtc_severity
 {
@@ -23,8 +36,10 @@ enum diag_dtc_severity
 struct diag_dtc_snapshot
 {
     diag_dtc_id_t          id;
+    diag_local_fault_id_t  local_fault_id;
     enum diag_dtc_severity severity;
     bool                   active;
+    uint8_t                status;
     uint32_t               occurrence_count;
     uint32_t               active_count;
     uint32_t               clear_count;
@@ -35,14 +50,34 @@ struct diag_context;
 enum diag_result diag_dtc_register(struct diag_context *ctx, diag_dtc_id_t id,
                                    enum diag_dtc_severity severity);
 
+// clang-format off
+enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
+                                         diag_local_fault_id_t local_fault_id,
+                                         diag_dtc_id_t id,
+                                         enum diag_dtc_severity severity);
+// clang-format on
+
 enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id);
 enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t id);
+// clang-format off
+enum diag_result diag_dtc_set_fault_test_failed(struct diag_context *ctx,
+                                                diag_local_fault_id_t local_fault_id);
+enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
+                                                diag_local_fault_id_t local_fault_id);
+// clang-format on
 enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id);
 enum diag_result diag_dtc_clear_all(struct diag_context *ctx);
 enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t id);
 
 enum diag_result diag_dtc_get(const struct diag_context *ctx, diag_dtc_id_t id,
                               struct diag_dtc_snapshot *out);
+// clang-format off
+enum diag_result diag_dtc_get_by_fault(const struct diag_context *ctx,
+                                       diag_local_fault_id_t local_fault_id,
+                                       struct diag_dtc_snapshot *out);
+// clang-format on
+enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id_t id,
+                                     uint8_t *out_status);
 
 enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_snapshot *out,
                                size_t capacity, size_t *count);
