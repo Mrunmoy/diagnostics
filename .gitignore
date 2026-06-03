@@ -4,6 +4,8 @@ CMakeCache.txt
 cmake_install.cmake
 .cache/
 compile_commands.json
+__pycache__/
+*.py[cod]
 *.o
 *.a
 *.so
