@@ -52,8 +52,10 @@ TEST_F(DtcFixture, RegistersAndGetsDtc)
 
     EXPECT_EQ(diag_dtc_get(ctx, 0x1234u, &snapshot), DIAG_OK);
     EXPECT_EQ(snapshot.id, 0x1234u);
+    EXPECT_EQ(snapshot.local_fault_id, 0x1234u);
     EXPECT_EQ(snapshot.severity, DIAG_DTC_SEVERITY_CRITICAL);
     EXPECT_FALSE(snapshot.active);
+    EXPECT_EQ(snapshot.status, 0u);
     EXPECT_EQ(snapshot.occurrence_count, 0u);
     EXPECT_EQ(snapshot.active_count, 0u);
     EXPECT_EQ(snapshot.clear_count, 0u);
@@ -65,6 +67,8 @@ TEST_F(DtcFixture, RejectsNullOutputArguments)
     size_t                   count = 0;
 
     EXPECT_EQ(diag_dtc_get(ctx, 1u, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_get_by_fault(ctx, 1u, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_get_status(ctx, 1u, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_list(ctx, nullptr, 1, &count), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_list(ctx, &snapshot, 1, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
 }
@@ -76,6 +80,31 @@ TEST_F(DtcFixture, RejectsDuplicateAndCapacityOverflow)
     EXPECT_EQ(diag_dtc_register(ctx, 2u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
     EXPECT_EQ(diag_dtc_register(ctx, 3u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
     EXPECT_EQ(diag_dtc_register(ctx, 4u, DIAG_DTC_SEVERITY_CRITICAL), DIAG_ERROR_CAPACITY);
+}
+
+TEST_F(DtcFixture, RegistersLocalFaultMapping)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0A1234u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x0A1234u, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.id, 0x0A1234u);
+    EXPECT_EQ(snapshot.local_fault_id, 0x1001u);
+    EXPECT_EQ(snapshot.severity, DIAG_DTC_SEVERITY_WARNING);
+
+    ASSERT_EQ(diag_dtc_get_by_fault(ctx, 0x1001u, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.id, 0x0A1234u);
+}
+
+TEST_F(DtcFixture, RejectsDuplicateLocalFaultMappings)
+{
+    ASSERT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0A1234u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0B1234u, DIAG_DTC_SEVERITY_WARNING),
+              DIAG_ERROR_ALREADY_EXISTS);
+    EXPECT_EQ(diag_dtc_register_fault(ctx, 0x1002u, 0x0A1234u, DIAG_DTC_SEVERITY_WARNING),
+              DIAG_ERROR_ALREADY_EXISTS);
 }
 
 TEST_F(DtcFixture, ListsRegisteredDtcsInRegistrationOrder)
@@ -115,6 +144,49 @@ TEST_F(DtcFixture, SetActiveIsIdempotentWhileActive)
 
     ASSERT_EQ(diag_dtc_get(ctx, 1u, &snapshot), DIAG_OK);
     EXPECT_TRUE(snapshot.active);
+    EXPECT_EQ(snapshot.status,
+              static_cast<uint8_t>(
+                  DIAG_DTC_STATUS_TEST_FAILED | DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE |
+                  DIAG_DTC_STATUS_PENDING | DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR));
+    EXPECT_EQ(snapshot.occurrence_count, 1u);
+    EXPECT_EQ(snapshot.active_count, 1u);
+}
+
+TEST_F(DtcFixture, SetFaultTestFailedUpdatesMappedDtcStatus)
+{
+    struct diag_dtc_snapshot snapshot = {};
+    uint8_t                  status = 0u;
+
+    ASSERT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0A1234u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x1001u), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get_by_fault(ctx, 0x1001u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.active);
+    EXPECT_EQ(snapshot.status,
+              static_cast<uint8_t>(
+                  DIAG_DTC_STATUS_TEST_FAILED | DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE |
+                  DIAG_DTC_STATUS_PENDING | DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR));
+    EXPECT_EQ(snapshot.occurrence_count, 1u);
+    EXPECT_EQ(snapshot.active_count, 1u);
+
+    EXPECT_EQ(diag_dtc_get_status(ctx, 0x0A1234u, &status), DIAG_OK);
+    EXPECT_EQ(status, snapshot.status);
+}
+
+TEST_F(DtcFixture, SetFaultTestPassedClearsCurrentFailureAndPreservesHistory)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0A1234u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x1001u), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_set_fault_test_passed(ctx, 0x1001u), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 0x0A1234u, &snapshot), DIAG_OK);
+    EXPECT_FALSE(snapshot.active);
+    EXPECT_EQ(snapshot.status, static_cast<uint8_t>(DIAG_DTC_STATUS_PENDING |
+                                                    DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR));
     EXPECT_EQ(snapshot.occurrence_count, 1u);
     EXPECT_EQ(snapshot.active_count, 1u);
 }
@@ -148,12 +220,30 @@ TEST_F(DtcFixture, ClearDeactivatesAndIncrementsClearCountOncePerStateChange)
 
     ASSERT_EQ(diag_dtc_get(ctx, 1u, &snapshot), DIAG_OK);
     EXPECT_FALSE(snapshot.active);
+    EXPECT_EQ(snapshot.status, 0u);
     EXPECT_EQ(snapshot.occurrence_count, 1u);
     EXPECT_EQ(snapshot.active_count, 1u);
     EXPECT_EQ(snapshot.clear_count, 1u);
 }
 
-TEST_F(DtcFixture, ClearAllClearsOnlyActiveDtcs)
+TEST_F(DtcFixture, ClearCountsInactiveDtcWhenHistoricalStatusChanges)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register(ctx, 1u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_active(ctx, 1u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_inactive(ctx, 1u), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_clear(ctx, 1u), DIAG_OK);
+    EXPECT_EQ(diag_dtc_clear(ctx, 1u), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(ctx, 1u, &snapshot), DIAG_OK);
+    EXPECT_FALSE(snapshot.active);
+    EXPECT_EQ(snapshot.status, 0u);
+    EXPECT_EQ(snapshot.clear_count, 1u);
+}
+
+TEST_F(DtcFixture, ClearAllClearsObservableDtcState)
 {
     struct diag_dtc_snapshot first = {};
     struct diag_dtc_snapshot second = {};
@@ -161,14 +251,19 @@ TEST_F(DtcFixture, ClearAllClearsOnlyActiveDtcs)
     ASSERT_EQ(diag_dtc_register(ctx, 1u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
     ASSERT_EQ(diag_dtc_register(ctx, 2u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
     ASSERT_EQ(diag_dtc_set_active(ctx, 1u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_active(ctx, 2u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_inactive(ctx, 2u), DIAG_OK);
 
     EXPECT_EQ(diag_dtc_clear_all(ctx), DIAG_OK);
 
     ASSERT_EQ(diag_dtc_get(ctx, 1u, &first), DIAG_OK);
     ASSERT_EQ(diag_dtc_get(ctx, 2u, &second), DIAG_OK);
     EXPECT_FALSE(first.active);
+    EXPECT_EQ(first.status, 0u);
     EXPECT_EQ(first.clear_count, 1u);
-    EXPECT_EQ(second.clear_count, 0u);
+    EXPECT_FALSE(second.active);
+    EXPECT_EQ(second.status, 0u);
+    EXPECT_EQ(second.clear_count, 1u);
 }
 
 TEST_F(DtcFixture, UnknownDtcOperationsReturnNotFound)
@@ -178,6 +273,8 @@ TEST_F(DtcFixture, UnknownDtcOperationsReturnNotFound)
     EXPECT_EQ(diag_dtc_get(ctx, 9u, &snapshot), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_active(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_inactive(ctx, 9u), DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(diag_dtc_set_fault_test_failed(ctx, 9u), DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(diag_dtc_set_fault_test_passed(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_clear(ctx, 9u), DIAG_ERROR_NOT_FOUND);
 }
 
