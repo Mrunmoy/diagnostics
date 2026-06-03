@@ -29,6 +29,35 @@ struct diag_capsule_descriptor make_one_section_descriptor()
     return descriptor;
 }
 
+TEST(DiagCapsule, MapsSectionTypesToOwners)
+{
+    enum diag_capsule_section_owner owner = DIAG_CAPSULE_SECTION_OWNER_UNKNOWN;
+
+    ASSERT_EQ(diag_capsule_section_owner_from_type(DIAG_CAPSULE_SECTION_BOOTLOADER_DTC, &owner),
+              DIAG_OK);
+    EXPECT_EQ(owner, DIAG_CAPSULE_SECTION_OWNER_BOOTLOADER);
+
+    ASSERT_EQ(diag_capsule_section_owner_from_type(DIAG_CAPSULE_SECTION_APPLICATION_DTC, &owner),
+              DIAG_OK);
+    EXPECT_EQ(owner, DIAG_CAPSULE_SECTION_OWNER_APPLICATION);
+
+    ASSERT_EQ(diag_capsule_section_owner_from_type(DIAG_CAPSULE_SECTION_LIFECYCLE, &owner),
+              DIAG_OK);
+    EXPECT_EQ(owner, DIAG_CAPSULE_SECTION_OWNER_SHARED);
+
+    ASSERT_EQ(diag_capsule_section_owner_from_type(DIAG_CAPSULE_SECTION_RESERVED, &owner), DIAG_OK);
+    EXPECT_EQ(owner, DIAG_CAPSULE_SECTION_OWNER_RESERVED);
+
+    ASSERT_EQ(diag_capsule_section_owner_from_type(0x1234u, &owner), DIAG_OK);
+    EXPECT_EQ(owner, DIAG_CAPSULE_SECTION_OWNER_UNKNOWN);
+}
+
+TEST(DiagCapsule, SectionOwnerLookupRejectsNullOutput)
+{
+    EXPECT_EQ(diag_capsule_section_owner_from_type(DIAG_CAPSULE_SECTION_APPLICATION_DTC, nullptr),
+              DIAG_ERROR_INVALID_ARGUMENT);
+}
+
 TEST(DiagCapsule, EncodesHeaderAndSectionTableLittleEndian)
 {
     std::array<uint8_t, kCapsuleBytes> buffer = {};
@@ -113,6 +142,17 @@ TEST(DiagCapsule, ReportsMissingSectionByType)
     EXPECT_EQ(section, nullptr);
 }
 
+TEST(DiagCapsule, ReportsMissingSectionByOwner)
+{
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
+    const struct diag_capsule_section *section = nullptr;
+
+    EXPECT_EQ(diag_capsule_find_section_by_owner(&descriptor, DIAG_CAPSULE_SECTION_OWNER_BOOTLOADER,
+                                                 &section),
+              DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(section, nullptr);
+}
+
 TEST(DiagCapsule, FindsKnownSectionByOwner)
 {
     struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
@@ -180,7 +220,7 @@ TEST(DiagCapsule, RejectsPayloadCopyWhenCallerBufferIsTooSmall)
     EXPECT_EQ(copied, 0u);
 }
 
-TEST(DiagCapsule, HelperLookupRejectsOversizedDescriptorSectionCountBeforeIteration)
+TEST(DiagCapsule, FindByTypeRejectsOversizedDescriptorSectionCountBeforeIteration)
 {
     struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
     descriptor.section_count = DIAG_CAPSULE_MAX_SECTIONS + 1u;
@@ -188,6 +228,18 @@ TEST(DiagCapsule, HelperLookupRejectsOversizedDescriptorSectionCountBeforeIterat
     const struct diag_capsule_section *section = nullptr;
     EXPECT_EQ(diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_APPLICATION_DTC,
                                                 &section),
+              DIAG_ERROR_CORRUPT_DATA);
+    EXPECT_EQ(section, nullptr);
+}
+
+TEST(DiagCapsule, FindByOwnerRejectsOversizedDescriptorSectionCountBeforeIteration)
+{
+    struct diag_capsule_descriptor descriptor = make_one_section_descriptor();
+    descriptor.section_count = DIAG_CAPSULE_MAX_SECTIONS + 1u;
+
+    const struct diag_capsule_section *section = nullptr;
+    EXPECT_EQ(diag_capsule_find_section_by_owner(&descriptor,
+                                                 DIAG_CAPSULE_SECTION_OWNER_APPLICATION, &section),
               DIAG_ERROR_CORRUPT_DATA);
     EXPECT_EQ(section, nullptr);
 }
@@ -205,6 +257,24 @@ TEST(DiagCapsule, PayloadCopyRejectsShortCapsuleBuffer)
                   DIAG_CAPSULE_SECTION_APPLICATION_DTC, payload.data(), payload.size(), &copied),
               DIAG_ERROR_CORRUPT_DATA);
     EXPECT_EQ(copied, 0u);
+}
+
+TEST(DiagCapsule, PayloadCopyByTypeReportsMissingSectionBeforeTouchingPayload)
+{
+    std::array<uint8_t, kCapsuleBytes> buffer = {};
+    struct diag_capsule_descriptor     descriptor = make_one_section_descriptor();
+    std::array<uint8_t, 4u>            payload = {0xAAu, 0xBBu, 0xCCu, 0xDDu};
+    const std::array<uint8_t, 4u>      original = payload;
+    std::size_t                        copied = 99u;
+
+    ASSERT_EQ(diag_capsule_encode_v1(buffer.data(), buffer.size(), &descriptor, nullptr), DIAG_OK);
+
+    EXPECT_EQ(diag_capsule_copy_section_payload_by_type(buffer.data(), buffer.size(), &descriptor,
+                                                        DIAG_CAPSULE_SECTION_BOOTLOADER_DTC,
+                                                        payload.data(), payload.size(), &copied),
+              DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(copied, 0u);
+    EXPECT_EQ(payload, original);
 }
 
 TEST(DiagCapsule, RejectsUnsupportedSchemaVersion)
@@ -312,6 +382,20 @@ TEST(DiagCapsule, RejectsNullArguments)
     EXPECT_EQ(diag_capsule_decode(nullptr, buffer.size(), &descriptor),
               DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_capsule_decode(buffer.data(), buffer.size(), nullptr),
+              DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(
+        diag_capsule_find_section_by_type(nullptr, DIAG_CAPSULE_SECTION_APPLICATION_DTC, nullptr),
+        DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_capsule_find_section_by_owner(nullptr, DIAG_CAPSULE_SECTION_OWNER_APPLICATION,
+                                                 nullptr),
+              DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_capsule_validate_section_bounds(nullptr, &descriptor.sections[0]),
+              DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_capsule_validate_section_bounds(&descriptor, nullptr),
+              DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_capsule_copy_section_payload(nullptr, buffer.size(), &descriptor,
+                                                &descriptor.sections[0], buffer.data(),
+                                                buffer.size(), nullptr),
               DIAG_ERROR_INVALID_ARGUMENT);
 }
 

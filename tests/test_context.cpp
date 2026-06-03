@@ -50,6 +50,32 @@ TEST(DiagContextInit, AcceptsValidConfiguration)
     EXPECT_EQ(diag_deinit(ctx), DIAG_OK);
 }
 
+TEST(DiagContextLifetime, DeinitRejectsNullContext)
+{
+    EXPECT_EQ(diag_deinit(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+}
+
+TEST(DiagContextLifetime, DeinitInvalidatesContextForApiUse)
+{
+    struct diag_context_storage storage = {};
+    struct diag_context        *ctx = nullptr;
+    struct diag_dtc_snapshot    dtc_buffer[1];
+    // clang-format off
+    const struct diag_config    config = {
+        /* dtc_buffer   */ dtc_buffer,
+        /* dtc_capacity */ 1,
+        /* storage      */ {},
+        /* transport    */ {},
+    };
+    // clang-format on
+    struct diag_identity identity = {};
+
+    ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+    ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_identity_get(ctx, &identity), DIAG_ERROR_NOT_INITIALIZED);
+}
+
 TEST(DiagContextStorage, IsAlignedForOpaqueContext)
 {
     struct diag_context_storage storage = {};

@@ -10,6 +10,7 @@ extern "C"
 namespace
 {
 
+/** Initializes a small fixed-capacity DTC store for public API behavior tests. */
 struct DtcFixture : public testing::Test
 {
     struct diag_context_storage             storage = {};
@@ -34,13 +35,19 @@ TEST(DiagDtc, RejectsInvalidArguments)
 {
     struct diag_dtc_snapshot snapshot = {};
     size_t                   count = 0;
+    uint8_t                  status = 0u;
 
     EXPECT_EQ(diag_dtc_register(nullptr, 1, DIAG_DTC_SEVERITY_ERROR), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_register_fault(nullptr, 1u, 2u, DIAG_DTC_SEVERITY_ERROR),
+              DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_set_active(nullptr, 1), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_set_inactive(nullptr, 1), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_clear(nullptr, 1), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_clear_all(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_reset_counter(nullptr, 1), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_get(nullptr, 1, &snapshot), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_get_by_fault(nullptr, 1, &snapshot), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_get_status(nullptr, 1, &status), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_dtc_list(nullptr, &snapshot, 1, &count), DIAG_ERROR_INVALID_ARGUMENT);
 }
 
@@ -268,19 +275,23 @@ TEST_F(DtcFixture, ClearAllClearsObservableDtcState)
     EXPECT_EQ(second.clear_count, 1u);
 }
 
-TEST_F(DtcFixture, UnknownDtcOperationsReturnNotFound)
+TEST_F(DtcFixture, UnknownDtcAndFaultOperationsReturnNotFound)
 {
     struct diag_dtc_snapshot snapshot = {};
+    uint8_t                  status = 0u;
 
     EXPECT_EQ(diag_dtc_get(ctx, 9u, &snapshot), DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(diag_dtc_get_by_fault(ctx, 9u, &snapshot), DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(diag_dtc_get_status(ctx, 9u, &status), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_active(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_inactive(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_fault_test_failed(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_set_fault_test_passed(ctx, 9u), DIAG_ERROR_NOT_FOUND);
     EXPECT_EQ(diag_dtc_clear(ctx, 9u), DIAG_ERROR_NOT_FOUND);
+    EXPECT_EQ(diag_dtc_reset_counter(ctx, 9u), DIAG_ERROR_NOT_FOUND);
 }
 
-TEST_F(DtcFixture, ResetCounterClearsCountersButPreservesRegisteredDtc)
+TEST_F(DtcFixture, ResetCounterClearsDiagnosticCountersButPreservesRegistration)
 {
     struct diag_dtc_snapshot snapshot = {};
 
@@ -318,7 +329,7 @@ TEST_F(DtcFixture, CountersSaturateAtUint32Max)
 
 // ── Operation-cycle lifecycle ───────────────────────────────────────────────
 
-// Builds a context with explicit confirmation/aging thresholds.
+/** Builds a DTC context with explicit operation-cycle confirmation and aging thresholds. */
 struct CycleContext
 {
     struct diag_context_storage             storage = {};
