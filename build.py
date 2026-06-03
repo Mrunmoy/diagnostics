@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_PRESET = "linux-debug"
 DEFAULT_LIBRARY_PRESET = "linux-release"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
+DOXYFILE = ROOT / "Doxyfile"
 
 # Formatting must be reproducible across local, Docker, and CI, so clang-format
 # is pinned to one major version. Override with CLANG_FORMAT=/path/to/clang-format
@@ -91,6 +92,11 @@ def all_checks(args: argparse.Namespace) -> None:
 
 def install_library(args: argparse.Namespace) -> None:
     install_library_for_preset(args.preset, args.prefix, args.cmake_options)
+
+
+def docs(args: argparse.Namespace) -> None:
+    doxygen = resolve_doxygen()
+    run([doxygen, str(args.config)])
 
 
 def install_library_for_preset(preset: str, prefix: Path, extra_options: list[str]) -> None:
@@ -197,6 +203,17 @@ def resolve_clang_format() -> str:
     )
 
 
+def resolve_doxygen() -> str:
+    path = shutil.which("doxygen")
+    if path:
+        return path
+
+    raise SystemExit(
+        "doxygen is required to build API documentation. Install doxygen locally, "
+        "or rebuild the devcontainer/Docker image from tools/docker/Dockerfile."
+    )
+
+
 def format_code(args: argparse.Namespace) -> None:
     clang_format = resolve_clang_format()
 
@@ -292,6 +309,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help=f"Install output directory. Default: {DEFAULT_INSTALL_PREFIX}",
     )
     library_parser.set_defaults(func=install_library)
+
+    docs_parser = subcommands.add_parser("docs", help="Generate Doxygen API documentation")
+    docs_parser.add_argument(
+        "--config",
+        type=Path,
+        default=DOXYFILE,
+        help=f"Doxygen configuration file. Default: {DOXYFILE}",
+    )
+    docs_parser.set_defaults(func=docs)
 
     install_parser = subcommands.add_parser(
         "install",

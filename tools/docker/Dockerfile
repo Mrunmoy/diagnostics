@@ -7,6 +7,7 @@ RUN apt-get update \
         clang-format-14 \
         clang-tidy \
         cmake \
+        doxygen \
         gdb \
         git \
         ninja-build \
