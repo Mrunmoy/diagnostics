@@ -108,7 +108,6 @@ static void diag_dtc_mark_test_passed(struct diag_dtc_snapshot *record)
     record->status =
         (uint8_t)(record->status &
                   (uint8_t) ~(DIAG_DTC_STATUS_TEST_FAILED |
-                              DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE |
                               DIAG_DTC_STATUS_TEST_NOT_COMPLETED_SINCE_CLEAR |
                               DIAG_DTC_STATUS_TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE));
 }
@@ -344,6 +343,8 @@ enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t 
     record->occurrence_count = 0u;
     record->active_count = 0u;
     record->clear_count = 0u;
+    record->failed_cycle_count = 0u;
+    record->aging_counter = 0u;
 
     return DIAG_OK;
 }
@@ -507,7 +508,7 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
                 record->status = (uint8_t)(record->status | DIAG_DTC_STATUS_CONFIRMED);
             }
         }
-        else
+        else if (!record->active)
         {
             // Clean cycle: one clean cycle clears pending; a confirmed DTC ages.
             record->failed_cycle_count = 0u;
@@ -526,6 +527,13 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
                     continue;
                 }
             }
+        }
+        else
+        {
+            // Still active, but the monitor did not report another failure this
+            // cycle. This breaks consecutive-failure confirmation, but it is not a
+            // clean pass and must not clear pending or age confirmed DTCs.
+            record->failed_cycle_count = 0u;
         }
 
         // Start the next operation cycle: drop the per-cycle latch and bit, and

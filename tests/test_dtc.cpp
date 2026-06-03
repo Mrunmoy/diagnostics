@@ -185,8 +185,10 @@ TEST_F(DtcFixture, SetFaultTestPassedClearsCurrentFailureAndPreservesHistory)
 
     ASSERT_EQ(diag_dtc_get(ctx, 0x0A1234u, &snapshot), DIAG_OK);
     EXPECT_FALSE(snapshot.active);
-    EXPECT_EQ(snapshot.status, static_cast<uint8_t>(DIAG_DTC_STATUS_PENDING |
-                                                    DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR));
+    EXPECT_EQ(snapshot.status,
+              static_cast<uint8_t>(DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE |
+                                   DIAG_DTC_STATUS_PENDING |
+                                   DIAG_DTC_STATUS_TEST_FAILED_SINCE_CLEAR));
     EXPECT_EQ(snapshot.occurrence_count, 1u);
     EXPECT_EQ(snapshot.active_count, 1u);
 }
@@ -284,6 +286,9 @@ TEST_F(DtcFixture, ResetCounterClearsCountersButPreservesRegisteredDtc)
 
     ASSERT_EQ(diag_dtc_register(ctx, 1u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
     ASSERT_EQ(diag_dtc_set_active(ctx, 1u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(ctx, 1u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
     ASSERT_EQ(diag_dtc_clear(ctx, 1u), DIAG_OK);
 
     EXPECT_EQ(diag_dtc_reset_counter(ctx, 1u), DIAG_OK);
@@ -292,6 +297,8 @@ TEST_F(DtcFixture, ResetCounterClearsCountersButPreservesRegisteredDtc)
     EXPECT_EQ(snapshot.occurrence_count, 0u);
     EXPECT_EQ(snapshot.active_count, 0u);
     EXPECT_EQ(snapshot.clear_count, 0u);
+    EXPECT_EQ(snapshot.failed_cycle_count, 0u);
+    EXPECT_EQ(snapshot.aging_counter, 0u);
 }
 
 TEST_F(DtcFixture, CountersSaturateAtUint32Max)
@@ -367,7 +374,9 @@ TEST_F(DtcFixture, OperationCycleClearsPendingAfterCleanCycle)
     ASSERT_EQ(diag_dtc_get(ctx, 0x101u, &snapshot), DIAG_OK);
     EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
 
-    // A clean cycle (no failure reported) clears the pending bit.
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(ctx, 0x101u), DIAG_OK);
+
+    // A clean cycle after an explicit pass clears the pending bit.
     ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
 
     ASSERT_EQ(diag_dtc_get(ctx, 0x101u, &snapshot), DIAG_OK);
@@ -409,7 +418,9 @@ TEST_F(DtcFixture, OperationCyclePendingAndConfirmedCoexistThenPendingClears)
     EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
     EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
 
-    // A clean cycle clears PENDING but keeps CONFIRMED.
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(ctx, 0x150u), DIAG_OK);
+
+    // A clean cycle after an explicit pass clears PENDING but keeps CONFIRMED.
     ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
     ASSERT_EQ(diag_dtc_get(ctx, 0x150u, &snapshot), DIAG_OK);
     EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_PENDING);
@@ -427,6 +438,8 @@ TEST(DiagDtcOperationCycle, AgesOutConfirmedDtcAfterCleanCycles)
     ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
     ASSERT_EQ(diag_dtc_get(c.ctx, 0x300u, &snapshot), DIAG_OK);
     ASSERT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(c.ctx, 0x300u), DIAG_OK);
 
     for (int i = 0; i < 2; ++i)
     {
@@ -451,6 +464,7 @@ TEST(DiagDtcOperationCycle, AgingResetsWhenFaultReoccurs)
     struct diag_dtc_snapshot snapshot = {};
     ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x400u), DIAG_OK);
     ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(c.ctx, 0x400u), DIAG_OK);
     ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
     ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
     ASSERT_EQ(diag_dtc_get(c.ctx, 0x400u, &snapshot), DIAG_OK);
@@ -461,6 +475,52 @@ TEST(DiagDtcOperationCycle, AgingResetsWhenFaultReoccurs)
     ASSERT_EQ(diag_dtc_get(c.ctx, 0x400u, &snapshot), DIAG_OK);
     EXPECT_EQ(snapshot.aging_counter, 0u);
     EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+}
+
+TEST(DiagDtcOperationCycle, DoesNotAgeActiveDtcWithoutExplicitPass)
+{
+    CycleContext c(1u, 2u);
+    ASSERT_NE(c.ctx, nullptr);
+    ASSERT_EQ(diag_dtc_register(c.ctx, 0x450u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x450u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x450u, &snapshot), DIAG_OK);
+    ASSERT_TRUE(snapshot.active);
+    ASSERT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x450u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.active);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+    EXPECT_EQ(snapshot.aging_counter, 0u);
+}
+
+TEST(DiagDtcOperationCycle, FailedThenPassedCycleStillCountsAsFailedThisCycle)
+{
+    CycleContext c(1u, 3u);
+    ASSERT_NE(c.ctx, nullptr);
+    ASSERT_EQ(diag_dtc_register(c.ctx, 0x460u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+
+    struct diag_dtc_snapshot snapshot = {};
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(c.ctx, 0x460u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_passed(c.ctx, 0x460u), DIAG_OK);
+
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x460u, &snapshot), DIAG_OK);
+    EXPECT_FALSE(snapshot.active);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
+
+    ASSERT_EQ(diag_dtc_operation_cycle(c.ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(c.ctx, 0x460u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
+    EXPECT_FALSE(snapshot.failed_this_cycle);
 }
 
 TEST_F(DtcFixture, ClearResetsOperationCycleState)
