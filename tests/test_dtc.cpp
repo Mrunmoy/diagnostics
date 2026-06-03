@@ -395,6 +395,27 @@ TEST(DiagDtcOperationCycle, ConfirmsOnlyAfterConfiguredThreshold)
     EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
 }
 
+TEST_F(DtcFixture, OperationCyclePendingAndConfirmedCoexistThenPendingClears)
+{
+    struct diag_dtc_snapshot snapshot = {};
+
+    ASSERT_EQ(diag_dtc_register(ctx, 0x150u, DIAG_DTC_SEVERITY_ERROR), DIAG_OK);
+    ASSERT_EQ(diag_dtc_set_fault_test_failed(ctx, 0x150u), DIAG_OK);
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+
+    // Per ISO 14229, pendingDTC and confirmedDTC are not mutually exclusive: a
+    // confirmed DTC still failing this cycle is both.
+    ASSERT_EQ(diag_dtc_get(ctx, 0x150u, &snapshot), DIAG_OK);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+
+    // A clean cycle clears PENDING but keeps CONFIRMED.
+    ASSERT_EQ(diag_dtc_operation_cycle(ctx), DIAG_OK);
+    ASSERT_EQ(diag_dtc_get(ctx, 0x150u, &snapshot), DIAG_OK);
+    EXPECT_FALSE(snapshot.status & DIAG_DTC_STATUS_PENDING);
+    EXPECT_TRUE(snapshot.status & DIAG_DTC_STATUS_CONFIRMED);
+}
+
 TEST(DiagDtcOperationCycle, AgesOutConfirmedDtcAfterCleanCycles)
 {
     CycleContext c(1u, 3u);

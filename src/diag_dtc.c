@@ -500,6 +500,10 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
                 diag_dtc_increment_saturating_u8(record->failed_cycle_count);
             if (record->failed_cycle_count >= confirmation_threshold)
             {
+                // PENDING is intentionally left set: per ISO 14229, pendingDTC and
+                // confirmedDTC are not mutually exclusive. A confirmed DTC that is
+                // still failing this cycle is both. PENDING clears on the next clean
+                // cycle (see the else branch below), not at the moment of confirm.
                 record->status = (uint8_t)(record->status | DIAG_DTC_STATUS_CONFIRMED);
             }
         }
