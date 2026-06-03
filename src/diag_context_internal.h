@@ -7,13 +7,13 @@
 
 struct diag_context
 {
-    bool initialized;
     struct diag_config config;
     size_t dtc_count;
     enum diag_reset_reason last_reset_reason;
     uint32_t reset_count;
     uint32_t abnormal_reset_count;
     uint32_t lifecycle_dirty_flags;
+    bool initialized;
 };
 
 // Portable C99 alignment probe: the offset of a member placed after a single

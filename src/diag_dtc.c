@@ -5,7 +5,7 @@
 
 static enum diag_result diag_dtc_validate_context(const struct diag_context *ctx)
 {
-    if (ctx == 0)
+    if (ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -23,9 +23,11 @@ static enum diag_result diag_dtc_find_index(const struct diag_context *ctx, diag
 {
     size_t i;
 
-    for (i = 0u; i < ctx->dtc_count; i++)
+    for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        if (ctx->config.dtc_buffer[i].id == id)
+        const struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+
+        if (record->id == id)
         {
             *out_index = i;
             return DIAG_OK;
@@ -41,9 +43,11 @@ static enum diag_result diag_dtc_find_fault_index(const struct diag_context *ctx
 {
     size_t i;
 
-    for (i = 0u; i < ctx->dtc_count; i++)
+    for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        if (ctx->config.dtc_buffer[i].local_fault_id == local_fault_id)
+        const struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+
+        if (record->local_fault_id == local_fault_id)
         {
             *out_index = i;
             return DIAG_OK;
@@ -158,7 +162,7 @@ enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
     record->occurrence_count = 0u;
     record->active_count = 0u;
     record->clear_count = 0u;
-    ctx->dtc_count++;
+    ++ctx->dtc_count;
 
     return DIAG_OK;
 }
@@ -304,18 +308,19 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
         return result;
     }
 
-    for (i = 0u; i < ctx->dtc_count; i++)
+    for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        if (ctx->config.dtc_buffer[i].active || ctx->config.dtc_buffer[i].status != 0u)
+        struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+
+        if (record->active || record->status != 0u)
         {
-            ctx->config.dtc_buffer[i].active = false;
-            ctx->config.dtc_buffer[i].clear_count =
-                diag_dtc_increment_saturating_u32(ctx->config.dtc_buffer[i].clear_count);
+            record->active = false;
+            record->clear_count = diag_dtc_increment_saturating_u32(record->clear_count);
         }
-        ctx->config.dtc_buffer[i].status = 0u;
-        ctx->config.dtc_buffer[i].failed_this_cycle = false;
-        ctx->config.dtc_buffer[i].failed_cycle_count = 0u;
-        ctx->config.dtc_buffer[i].aging_counter = 0u;
+        record->status = 0u;
+        record->failed_this_cycle = false;
+        record->failed_cycle_count = 0u;
+        record->aging_counter = 0u;
     }
 
     return DIAG_OK;
@@ -355,7 +360,7 @@ enum diag_result diag_dtc_get(const struct diag_context *ctx, diag_dtc_id_t id,
     enum diag_result result;
     size_t           index;
 
-    if (out == 0)
+    if (out == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -385,7 +390,7 @@ enum diag_result diag_dtc_get_by_fault(const struct diag_context *ctx,
     enum diag_result result;
     size_t           index;
 
-    if (out == 0)
+    if (out == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -412,7 +417,7 @@ enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id
     enum diag_result result;
     size_t           index;
 
-    if (out_status == 0)
+    if (out_status == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -439,7 +444,7 @@ enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_s
     enum diag_result result;
     size_t           i;
 
-    if (out == 0 || count == 0)
+    if (out == NULL || count == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -456,7 +461,7 @@ enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_s
         return DIAG_ERROR_CAPACITY;
     }
 
-    for (i = 0u; i < ctx->dtc_count; i++)
+    for (i = 0u; i < ctx->dtc_count; ++i)
     {
         out[i] = ctx->config.dtc_buffer[i];
     }
@@ -489,7 +494,7 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
         aging_threshold = DIAG_DTC_DEFAULT_AGING_THRESHOLD;
     }
 
-    for (i = 0u; i < ctx->dtc_count; i++)
+    for (i = 0u; i < ctx->dtc_count; ++i)
     {
         struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
 

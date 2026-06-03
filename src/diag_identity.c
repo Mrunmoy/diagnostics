@@ -7,7 +7,7 @@ enum diag_result diag_identity_copy(const struct diag_identity *identity,
                                     struct diag_identity *out_identity)
 // clang-format on
 {
-    if (identity == 0 || out_identity == 0)
+    if (identity == NULL || out_identity == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -22,7 +22,7 @@ enum diag_result diag_identity_get(const struct diag_context *ctx,
                                    struct diag_identity *out_identity)
 // clang-format on
 {
-    if (ctx == 0 || out_identity == 0)
+    if (ctx == NULL || out_identity == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -37,7 +37,7 @@ enum diag_result diag_identity_get(const struct diag_context *ctx,
 
 bool diag_identity_equal(const struct diag_identity *left, const struct diag_identity *right)
 {
-    if (left == 0 || right == 0)
+    if (left == NULL || right == NULL)
     {
         return false;
     }

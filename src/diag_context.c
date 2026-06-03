@@ -14,13 +14,13 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
 
     // Clear the out-parameter up front so a failed init never leaves the caller
     // holding a stale context pointer from a previous successful call.
-    if (out_ctx != 0)
+    if (out_ctx != NULL)
     {
-        *out_ctx = 0;
+        *out_ctx = NULL;
     }
 
-    if (context_storage == 0 || config == 0 || out_ctx == 0 || config->dtc_buffer == 0 ||
-        config->dtc_capacity == 0)
+    if (context_storage == NULL || config == NULL || out_ctx == NULL ||
+        config->dtc_buffer == NULL || config->dtc_capacity == 0)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -33,7 +33,7 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
     ctx = (struct diag_context *)(void *)context_storage;
     ctx->initialized = true;
     ctx->config = *config;
-    ctx->dtc_count = 0;
+    ctx->dtc_count = 0u;
     ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
     if (config->lifecycle.reset_counter_policy == DIAG_RESET_COUNTER_POLICY_PLATFORM)
     {
@@ -41,9 +41,9 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
     }
     else
     {
-        ctx->reset_count = 0;
+        ctx->reset_count = 0u;
     }
-    ctx->abnormal_reset_count = 0;
+    ctx->abnormal_reset_count = 0u;
     ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
     *out_ctx = ctx;
 
@@ -52,16 +52,16 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
 
 enum diag_result diag_deinit(struct diag_context *ctx)
 {
-    if (ctx == 0)
+    if (ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
     ctx->initialized = false;
-    ctx->dtc_count = 0;
+    ctx->dtc_count = 0u;
     ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
-    ctx->reset_count = 0;
-    ctx->abnormal_reset_count = 0;
+    ctx->reset_count = 0u;
+    ctx->abnormal_reset_count = 0u;
     ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
 
     return DIAG_OK;

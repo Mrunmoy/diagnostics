@@ -16,7 +16,7 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
     enum diag_reset_counter_policy policy;
     bool                           abnormal;
 
-    if (ctx == 0)
+    if (ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -33,13 +33,13 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
     if (policy != DIAG_RESET_COUNTER_POLICY_DISABLED &&
         policy != DIAG_RESET_COUNTER_POLICY_PLATFORM)
     {
-        ctx->reset_count++;
+        ++ctx->reset_count;
     }
 
     if (policy != DIAG_RESET_COUNTER_POLICY_DISABLED &&
         policy != DIAG_RESET_COUNTER_POLICY_PLATFORM && abnormal)
     {
-        ctx->abnormal_reset_count++;
+        ++ctx->abnormal_reset_count;
     }
 
     switch (policy)
@@ -74,7 +74,7 @@ enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
                                     struct diag_lifecycle_snapshot *out)
 // clang-format on
 {
-    if (ctx == 0 || out == 0)
+    if (ctx == NULL || out == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -96,7 +96,7 @@ enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
 
 enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t dirty_flags)
 {
-    if (ctx == 0)
+    if (ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
