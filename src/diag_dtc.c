@@ -37,6 +37,7 @@ enum diag_result diag_dtc_attach(struct diag_context *ctx, const struct diag_dtc
 
     ctx->dtc = *config;
     ctx->dtc_count = 0u;
+    diag_context_clear_dirty(ctx, DIAG_DIRTY_DTC);
     diag_context_set_state(ctx, DIAG_CONTEXT_STATE_DTC_ATTACHED);
 
     return DIAG_OK;
@@ -109,6 +110,28 @@ static uint16_t diag_dtc_increment_saturating_u16(uint16_t value)
     }
 
     return (uint16_t)(value + 1u);
+}
+
+static bool diag_dtc_snapshot_equal(const struct diag_dtc_snapshot *left,
+                                    const struct diag_dtc_snapshot *right)
+{
+    return left->id == right->id && left->local_fault_id == right->local_fault_id &&
+           left->severity == right->severity && left->active == right->active &&
+           left->failed_this_cycle == right->failed_this_cycle && left->status == right->status &&
+           left->failed_cycle_count == right->failed_cycle_count &&
+           left->aging_counter == right->aging_counter &&
+           left->occurrence_count == right->occurrence_count &&
+           left->active_count == right->active_count && left->clear_count == right->clear_count;
+}
+
+static void diag_dtc_mark_dirty_if_changed(struct diag_context            *ctx,
+                                           const struct diag_dtc_snapshot *before,
+                                           const struct diag_dtc_snapshot *after)
+{
+    if (!diag_dtc_snapshot_equal(before, after))
+    {
+        diag_context_mark_dirty(ctx, DIAG_DIRTY_DTC);
+    }
 }
 
 static void diag_dtc_mark_test_failed(struct diag_dtc_snapshot *record)
@@ -187,6 +210,7 @@ enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
     record->active_count = 0u;
     record->clear_count = 0u;
     ++ctx->dtc_count;
+    diag_context_mark_dirty(ctx, DIAG_DIRTY_DTC);
 
     return DIAG_OK;
 }
@@ -196,6 +220,7 @@ enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id)
     struct diag_dtc_snapshot *record;
     enum diag_result          result;
     size_t                    index;
+    struct diag_dtc_snapshot  before;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -210,15 +235,18 @@ enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id)
     }
 
     record = &ctx->dtc.records[index];
+    before = *record;
     diag_dtc_mark_test_failed(record);
+    diag_dtc_mark_dirty_if_changed(ctx, &before, record);
 
     return DIAG_OK;
 }
 
 enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t id)
 {
-    enum diag_result result;
-    size_t           index;
+    enum diag_result         result;
+    size_t                   index;
+    struct diag_dtc_snapshot before;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -232,7 +260,9 @@ enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t i
         return result;
     }
 
+    before = ctx->dtc.records[index];
     diag_dtc_mark_test_passed(&ctx->dtc.records[index]);
+    diag_dtc_mark_dirty_if_changed(ctx, &before, &ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -242,8 +272,9 @@ enum diag_result diag_dtc_set_fault_test_failed(struct diag_context *ctx,
                                                 diag_local_fault_id_t local_fault_id)
 // clang-format on
 {
-    enum diag_result result;
-    size_t           index;
+    enum diag_result         result;
+    size_t                   index;
+    struct diag_dtc_snapshot before;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -257,7 +288,9 @@ enum diag_result diag_dtc_set_fault_test_failed(struct diag_context *ctx,
         return result;
     }
 
+    before = ctx->dtc.records[index];
     diag_dtc_mark_test_failed(&ctx->dtc.records[index]);
+    diag_dtc_mark_dirty_if_changed(ctx, &before, &ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -267,8 +300,9 @@ enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
                                                 diag_local_fault_id_t local_fault_id)
 // clang-format on
 {
-    enum diag_result result;
-    size_t           index;
+    enum diag_result         result;
+    size_t                   index;
+    struct diag_dtc_snapshot before;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -282,7 +316,9 @@ enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
         return result;
     }
 
+    before = ctx->dtc.records[index];
     diag_dtc_mark_test_passed(&ctx->dtc.records[index]);
+    diag_dtc_mark_dirty_if_changed(ctx, &before, &ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -290,6 +326,7 @@ enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
 enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
 {
     struct diag_dtc_snapshot *record;
+    struct diag_dtc_snapshot  before;
     enum diag_result          result;
     bool                      changed;
     size_t                    index;
@@ -307,6 +344,7 @@ enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
     }
 
     record = &ctx->dtc.records[index];
+    before = *record;
     changed = record->active || record->status != 0u;
     if (changed)
     {
@@ -317,6 +355,7 @@ enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
     record->failed_this_cycle = false;
     record->failed_cycle_count = 0u;
     record->aging_counter = 0u;
+    diag_dtc_mark_dirty_if_changed(ctx, &before, record);
 
     return DIAG_OK;
 }
@@ -335,6 +374,7 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
         struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
+        struct diag_dtc_snapshot  before = *record;
 
         if (record->active || record->status != 0u)
         {
@@ -345,6 +385,7 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
         record->failed_this_cycle = false;
         record->failed_cycle_count = 0u;
         record->aging_counter = 0u;
+        diag_dtc_mark_dirty_if_changed(ctx, &before, record);
     }
 
     return DIAG_OK;
@@ -369,11 +410,16 @@ enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t 
     }
 
     record = &ctx->dtc.records[index];
-    record->occurrence_count = 0u;
-    record->active_count = 0u;
-    record->clear_count = 0u;
-    record->failed_cycle_count = 0u;
-    record->aging_counter = 0u;
+    {
+        const struct diag_dtc_snapshot before = *record;
+
+        record->occurrence_count = 0u;
+        record->active_count = 0u;
+        record->clear_count = 0u;
+        record->failed_cycle_count = 0u;
+        record->aging_counter = 0u;
+        diag_dtc_mark_dirty_if_changed(ctx, &before, record);
+    }
 
     return DIAG_OK;
 }
@@ -499,6 +545,7 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
     uint8_t          confirmation_threshold;
     uint16_t         aging_threshold;
     size_t           i;
+    bool             changed = false;
 
     result = diag_dtc_validate_context(ctx);
     if (result != DIAG_OK)
@@ -521,6 +568,7 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
         struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
+        struct diag_dtc_snapshot  before = *record;
 
         if (record->failed_this_cycle)
         {
@@ -572,6 +620,15 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
             (uint8_t)(record->status & (uint8_t)~DIAG_DTC_STATUS_TEST_FAILED_THIS_OPERATION_CYCLE);
         record->status =
             (uint8_t)(record->status | DIAG_DTC_STATUS_TEST_NOT_COMPLETED_THIS_OPERATION_CYCLE);
+        if (!diag_dtc_snapshot_equal(&before, record))
+        {
+            changed = true;
+        }
+    }
+
+    if (changed)
+    {
+        diag_context_mark_dirty(ctx, DIAG_DIRTY_DTC);
     }
 
     return DIAG_OK;

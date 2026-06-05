@@ -28,7 +28,9 @@ enum diag_result
     /// A transport adapter operation failed or could not be accepted.
     DIAG_ERROR_TRANSPORT,
     /// Untrusted serialized data failed validation.
-    DIAG_ERROR_CORRUPT_DATA
+    DIAG_ERROR_CORRUPT_DATA,
+    /// Requested behavior is valid but not implemented by this build or MVP stage.
+    DIAG_ERROR_NOT_SUPPORTED
 };
 
 #endif

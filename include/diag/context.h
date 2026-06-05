@@ -46,6 +46,17 @@ struct diag_context_storage
     uint8_t bytes[DIAG_CONTEXT_STORAGE_SIZE] DIAG_ALIGNAS_SUFFIX(DIAG_CONTEXT_STORAGE_ALIGN);
 };
 
+/// Dirty state classes that may require an explicit persistence step.
+enum diag_dirty_flag
+{
+    /// No persistent diagnostic state is dirty.
+    DIAG_DIRTY_NONE = 0u,
+    /// DTC registration, status, or counter state has changed.
+    DIAG_DIRTY_DTC = 1u << 0u,
+    /// Lifecycle state has crossed a configured persistence policy.
+    DIAG_DIRTY_LIFECYCLE = 1u << 1u
+};
+
 /// Initialize a diagnostics context in caller-owned storage.
 ///
 /// On success, `*out_ctx` points into `context_storage`. On failure, `*out_ctx`
@@ -59,5 +70,12 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
 /// This clears library runtime state in the private context. It does not free or
 /// modify adapter-owned resources and does not write persistent storage.
 enum diag_result diag_deinit(struct diag_context *ctx);
+
+/// Read the context dirty-state bitmask.
+///
+/// `*out_dirty_flags` is composed from `enum diag_dirty_flag` values. Dirty
+/// flags are set by runtime mutations but are not written to storage until an
+/// explicit save/policy path is called.
+enum diag_result diag_get_dirty_flags(const struct diag_context *ctx, uint32_t *out_dirty_flags);
 
 #endif

@@ -103,6 +103,7 @@ TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
 TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
 {
     LifecycleFixture fixture;
+    uint32_t         dirty_flags = UINT32_MAX;
 
     init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
@@ -115,11 +116,15 @@ TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
     EXPECT_EQ(snapshot.abnormal_reset_count, 0u);
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
     EXPECT_FALSE(snapshot.persist_requested);
+
+    ASSERT_EQ(diag_get_dirty_flags(fixture.ctx, &dirty_flags), DIAG_OK);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
 }
 
 TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
 {
     LifecycleFixture fixture;
+    uint32_t         dirty_flags = UINT32_MAX;
 
     init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
@@ -136,6 +141,9 @@ TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
     EXPECT_EQ(snapshot.abnormal_reset_count, 1u);
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_RESET_COUNTER);
     EXPECT_TRUE(snapshot.persist_requested);
+
+    ASSERT_EQ(diag_get_dirty_flags(fixture.ctx, &dirty_flags), DIAG_OK);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_LIFECYCLE);
 }
 
 TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
@@ -163,6 +171,7 @@ TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
 TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 {
     LifecycleFixture fixture;
+    uint32_t         dirty_flags = UINT32_MAX;
 
     init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_FAULT), DIAG_OK);
@@ -173,6 +182,9 @@ TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
     EXPECT_FALSE(snapshot.persist_requested);
+
+    ASSERT_EQ(diag_get_dirty_flags(fixture.ctx, &dirty_flags), DIAG_OK);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
 }
 
 TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)

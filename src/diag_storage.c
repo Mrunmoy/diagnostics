@@ -135,7 +135,12 @@ enum diag_result diag_save(struct diag_context *ctx)
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
-    return DIAG_ERROR_NOT_INITIALIZED;
+    if (ctx->dirty_flags == DIAG_DIRTY_NONE)
+    {
+        return DIAG_OK;
+    }
+
+    return DIAG_ERROR_NOT_SUPPORTED;
 }
 
 enum diag_result diag_load(struct diag_context *ctx)
@@ -151,5 +156,5 @@ enum diag_result diag_load(struct diag_context *ctx)
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
-    return DIAG_ERROR_NOT_INITIALIZED;
+    return DIAG_ERROR_NOT_SUPPORTED;
 }

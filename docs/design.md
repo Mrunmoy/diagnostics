@@ -57,6 +57,14 @@ Diagnostics are separated by lifetime and storage cost:
 Only persistent DTCs and lifecycle records may dirty persistent storage.
 Runtime and volatile updates must not write flash.
 
+Persistent mutations update caller-owned RAM first and set context dirty flags.
+`diag_get_dirty_flags()` exposes those flags so firmware can decide when to
+batch, defer, or suppress storage work. The current C MVP treats a clean
+`diag_save()` as a no-op success and returns `DIAG_ERROR_NOT_SUPPORTED` for dirty
+state until the capsule serializer is implemented. `diag_load()` also returns
+`DIAG_ERROR_NOT_SUPPORTED` once context and storage preconditions are satisfied.
+No DTC hot path may call a storage adapter directly.
+
 Internal diagnostic checks and external DTCs are related but not identical. A
 project may have many local checks, monitor points, or fault paths feeding one
 visible DTC. The core should therefore support a fixed `local_fault_id -> dtc_id`

@@ -38,6 +38,10 @@ if(DIAG_FEATURE_STORAGE)
     target_sources(diag_tests PRIVATE test_storage.cpp)
 endif()
 
+if(DIAG_FEATURE_DTC AND DIAG_FEATURE_STORAGE)
+    target_sources(diag_tests PRIVATE test_persistence.cpp)
+endif()
+
 target_link_libraries(diag_tests
     PRIVATE
         diag::diag

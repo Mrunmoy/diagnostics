@@ -41,6 +41,7 @@ enum diag_context_state_flag
 struct diag_context
 {
     uint32_t state_flags;
+    uint32_t dirty_flags;
 #if DIAG_FEATURE_DTC
     struct diag_dtc_config dtc;
     size_t dtc_count;
@@ -76,6 +77,16 @@ static inline void diag_context_set_state(struct diag_context *ctx, uint32_t sta
 static inline void diag_context_clear_state(struct diag_context *ctx, uint32_t state_flags)
 {
     ctx->state_flags &= ~state_flags;
+}
+
+static inline void diag_context_mark_dirty(struct diag_context *ctx, uint32_t dirty_flags)
+{
+    ctx->dirty_flags |= dirty_flags;
+}
+
+static inline void diag_context_clear_dirty(struct diag_context *ctx, uint32_t dirty_flags)
+{
+    ctx->dirty_flags &= ~dirty_flags;
 }
 
 // Portable C99 alignment probe: the offset of a member placed after a single

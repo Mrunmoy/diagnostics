@@ -51,6 +51,33 @@ TEST(DiagContextLifetime, DeinitRejectsNullContext)
     EXPECT_EQ(diag_deinit(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
 }
 
+TEST(DiagContextDirtyFlags, ReportsCleanInitialState)
+{
+    ContextFixture           fixture;
+    const struct diag_config config = make_valid_config(fixture);
+    uint32_t                 dirty_flags = UINT32_MAX;
+
+    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_get_dirty_flags(fixture.ctx, &dirty_flags), DIAG_OK);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
+}
+
+TEST(DiagContextDirtyFlags, RejectsInvalidOrUninitializedContext)
+{
+    ContextFixture           fixture;
+    const struct diag_config config = make_valid_config(fixture);
+    uint32_t                 dirty_flags = UINT32_MAX;
+
+    EXPECT_EQ(diag_get_dirty_flags(nullptr, &dirty_flags), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_get_dirty_flags(fixture.ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+
+    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    ASSERT_EQ(diag_deinit(fixture.ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_get_dirty_flags(fixture.ctx, &dirty_flags), DIAG_ERROR_NOT_INITIALIZED);
+}
+
 TEST(DiagContextStorage, IsAlignedForOpaqueContext)
 {
     struct diag_context_storage storage = {};

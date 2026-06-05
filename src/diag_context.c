@@ -32,6 +32,7 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
     ctx = (struct diag_context *)(void *)context_storage;
     (void)config;
     ctx->state_flags = DIAG_CONTEXT_STATE_INITIALIZED;
+    ctx->dirty_flags = DIAG_DIRTY_NONE;
 #if DIAG_FEATURE_DTC
     ctx->dtc.records = NULL;
     ctx->dtc.capacity = 0u;
@@ -68,6 +69,7 @@ enum diag_result diag_deinit(struct diag_context *ctx)
     }
 
     ctx->state_flags = 0u;
+    ctx->dirty_flags = DIAG_DIRTY_NONE;
 #if DIAG_FEATURE_DTC
     ctx->dtc.records = NULL;
     ctx->dtc.capacity = 0u;
@@ -91,6 +93,23 @@ enum diag_result diag_deinit(struct diag_context *ctx)
 #if DIAG_FEATURE_TRANSPORT
     ctx->transport = (struct diag_transport){0};
 #endif
+
+    return DIAG_OK;
+}
+
+enum diag_result diag_get_dirty_flags(const struct diag_context *ctx, uint32_t *out_dirty_flags)
+{
+    if (ctx == NULL || out_dirty_flags == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    *out_dirty_flags = ctx->dirty_flags;
 
     return DIAG_OK;
 }

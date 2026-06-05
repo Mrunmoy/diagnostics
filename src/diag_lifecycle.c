@@ -35,6 +35,7 @@ enum diag_result diag_lifecycle_attach(struct diag_context *ctx,
     }
     ctx->abnormal_reset_count = 0u;
     ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
+    diag_context_clear_dirty(ctx, DIAG_DIRTY_LIFECYCLE);
     diag_context_set_state(ctx, DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED);
 
     return DIAG_OK;
@@ -85,6 +86,7 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
             if (abnormal)
             {
                 ctx->lifecycle_dirty_flags |= DIAG_LIFECYCLE_DIRTY_RESET_COUNTER;
+                diag_context_mark_dirty(ctx, DIAG_DIRTY_LIFECYCLE);
             }
             break;
 
@@ -93,6 +95,7 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
                 (ctx->reset_count % ctx->lifecycle.reset_count_interval) == 0u)
             {
                 ctx->lifecycle_dirty_flags |= DIAG_LIFECYCLE_DIRTY_RESET_COUNTER;
+                diag_context_mark_dirty(ctx, DIAG_DIRTY_LIFECYCLE);
             }
             break;
 
@@ -154,6 +157,10 @@ enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t d
     }
 
     ctx->lifecycle_dirty_flags &= ~dirty_flags;
+    if (ctx->lifecycle_dirty_flags == DIAG_LIFECYCLE_DIRTY_NONE)
+    {
+        diag_context_clear_dirty(ctx, DIAG_DIRTY_LIFECYCLE);
+    }
 
     return DIAG_OK;
 }
