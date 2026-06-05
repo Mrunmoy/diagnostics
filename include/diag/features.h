@@ -1,10 +1,12 @@
 /// @file
 /// Compile-time feature switches for the diagnostics C API.
 ///
-/// These switches shape public API declarations, public configuration layout,
-/// private context layout, and compiled source files. Build the diagnostics
-/// library and every including application translation unit with the same
-/// values.
+/// These switches shape the umbrella `<diag/diag.h>` API surface, private
+/// context layout, and compiled source files. Narrow module headers such as
+/// `<diag/dtc.h>` remain direct declarations for that module; include the
+/// umbrella header when application code should see only enabled features.
+/// Build the diagnostics library and every including application translation
+/// unit with the same values.
 
 #ifndef DIAG_FEATURES_H
 #define DIAG_FEATURES_H

@@ -94,14 +94,18 @@ enum diag_result diag_storage_clear(const struct diag_storage *storage);
 
 /// Save persistent diagnostic state through the attached storage adapter.
 ///
-/// The current C MVP does not yet implement context-level persistence and
-/// returns `DIAG_ERROR_NOT_INITIALIZED`.
+/// Returns `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null. Returns
+/// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized, storage has
+/// not been attached, or context-level persistence is not implemented yet in the
+/// current C MVP.
 enum diag_result diag_save(struct diag_context *ctx);
 
 /// Load persistent diagnostic state through the attached storage adapter.
 ///
-/// The current C MVP does not yet implement context-level persistence and
-/// returns `DIAG_ERROR_NOT_INITIALIZED`.
+/// Returns `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null. Returns
+/// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized, storage has
+/// not been attached, or context-level persistence is not implemented yet in the
+/// current C MVP.
 enum diag_result diag_load(struct diag_context *ctx);
 
 #endif
