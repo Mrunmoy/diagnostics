@@ -293,4 +293,15 @@ TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
     EXPECT_EQ(fake.fake_flash_writes, 0u);
 }
 
+TEST_F(StorageContextFixture, LoadAttachedContextReportsFeatureSpecificBoundary)
+{
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_INVALID_ARGUMENT);
+#else
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_SUPPORTED);
+#endif
+
+    EXPECT_EQ(fake.load_calls, 0u);
+}
+
 } // namespace

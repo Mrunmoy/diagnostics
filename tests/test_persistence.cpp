@@ -172,6 +172,17 @@ TEST_F(PersistenceFixture, SaveDirtyDtcRequiresCallerOwnedCapsuleBuffer)
     EXPECT_EQ(local_fake.save_calls, 0u);
 }
 
+TEST_F(PersistenceFixture, LoadEmptyStorageIsNoPersistedState)
+{
+    uint32_t dirty_flags = UINT32_MAX;
+
+    ASSERT_EQ(diag_load(ctx), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(fake.load_calls, 1u);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
+}
+
 TEST_F(PersistenceFixture, LoadSavedDtcCapsuleRestoresRegisteredRecords)
 {
     ASSERT_EQ(diag_dtc_register_fault(ctx, 0x1001u, 0x0A2203u, DIAG_DTC_SEVERITY_CRITICAL),

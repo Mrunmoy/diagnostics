@@ -262,6 +262,11 @@ static enum diag_result diag_storage_load_dtc_capsule(struct diag_context *ctx)
         return result;
     }
 
+    if (bytes_read == 0u)
+    {
+        return DIAG_OK;
+    }
+
     result = diag_capsule_decode(ctx->storage.capsule_buffer, bytes_read, &descriptor);
     if (result != DIAG_OK)
     {
