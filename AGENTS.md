@@ -62,6 +62,7 @@ Use `build.py` as the preferred entry point:
 ./build.py test               # build and run the GoogleTest suite
 ./build.py test --preset linux-asan
 ./build.py size               # build release library and print resource usage
+./build.py size --dtc-capacity 16 --write-alignment 16
 ./build.py format             # apply clang-format
 ./build.py format --check     # verify formatting
 ./build.py clean              # remove one preset build directory
@@ -218,5 +219,7 @@ serialized capsule, never raw C structs.
 
 Efficiency must stay visible through `./build.py all` and `./build.py size`.
 Size reports cover `.text`, `.rodata`, `.data`, `.bss`, feature switches, and
-fixed diagnostic layout constants. Future reports should also cover configured
-RAM buffers, lookup strategy, and worst-case flash writes per operation.
+fixed diagnostic layout constants. Pass `--dtc-capacity`, `--write-alignment`,
+and `--sections` to estimate caller-owned RAM and minimum capsule staging for a
+product configuration. Future reports should also cover lookup strategy and
+worst-case flash writes per operation.
