@@ -295,7 +295,7 @@ TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
 
 TEST_F(StorageContextFixture, LoadAttachedContextReportsFeatureSpecificBoundary)
 {
-#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+#if DIAG_FEATURE_CAPSULE && (DIAG_FEATURE_DTC || DIAG_FEATURE_LIFECYCLE)
     EXPECT_EQ(diag_load(ctx), DIAG_ERROR_INVALID_ARGUMENT);
 #else
     EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_SUPPORTED);

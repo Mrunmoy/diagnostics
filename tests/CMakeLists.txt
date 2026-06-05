@@ -42,6 +42,10 @@ if(DIAG_FEATURE_DTC AND DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
     target_sources(diag_tests PRIVATE test_persistence.cpp)
 endif()
 
+if(DIAG_FEATURE_LIFECYCLE AND DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
+    target_sources(diag_tests PRIVATE test_lifecycle_persistence.cpp)
+endif()
+
 target_link_libraries(diag_tests
     PRIVATE
         diag::diag

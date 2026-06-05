@@ -104,15 +104,24 @@ struct PersistenceFixture : public testing::Test
     {
         const struct diag_config config = {};
         struct diag_dtc_config   dtc_config = {};
+#if DIAG_FEATURE_LIFECYCLE
+        struct diag_lifecycle_config lifecycle_config = {};
+#endif
 
         dtc_config.records = dtc_buffer.data();
         dtc_config.capacity = dtc_buffer.size();
+#if DIAG_FEATURE_LIFECYCLE
+        lifecycle_config.reset_counter_policy = DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY;
+#endif
         storage.capsule_buffer = capsule_buffer.data();
         storage.capsule_buffer_size = capsule_buffer.size();
 
         ASSERT_EQ(diag_init(&context_storage, &config, &ctx), DIAG_OK);
         ASSERT_EQ(diag_storage_attach(ctx, &storage), DIAG_OK);
         ASSERT_EQ(diag_dtc_attach(ctx, &dtc_config), DIAG_OK);
+#if DIAG_FEATURE_LIFECYCLE
+        ASSERT_EQ(diag_lifecycle_attach(ctx, &lifecycle_config), DIAG_OK);
+#endif
     }
 };
 
@@ -197,16 +206,25 @@ TEST_F(PersistenceFixture, LoadSavedDtcCapsuleRestoresRegisteredRecords)
     struct diag_context                    *restored_ctx = nullptr;
     struct diag_storage                     restored_storage = make_storage(&fake);
     struct diag_dtc_config                  restored_dtc_config = {};
-    const struct diag_config                config = {};
+#if DIAG_FEATURE_LIFECYCLE
+    struct diag_lifecycle_config restored_lifecycle_config = {};
+#endif
+    const struct diag_config config = {};
 
     restored_storage.capsule_buffer = restored_capsule_buffer.data();
     restored_storage.capsule_buffer_size = restored_capsule_buffer.size();
     restored_dtc_config.records = restored_dtc_buffer.data();
     restored_dtc_config.capacity = restored_dtc_buffer.size();
+#if DIAG_FEATURE_LIFECYCLE
+    restored_lifecycle_config.reset_counter_policy = DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY;
+#endif
 
     ASSERT_EQ(diag_init(&restored_context_storage, &config, &restored_ctx), DIAG_OK);
     ASSERT_EQ(diag_storage_attach(restored_ctx, &restored_storage), DIAG_OK);
     ASSERT_EQ(diag_dtc_attach(restored_ctx, &restored_dtc_config), DIAG_OK);
+#if DIAG_FEATURE_LIFECYCLE
+    ASSERT_EQ(diag_lifecycle_attach(restored_ctx, &restored_lifecycle_config), DIAG_OK);
+#endif
 
     ASSERT_EQ(diag_load(restored_ctx), DIAG_OK);
 
@@ -219,6 +237,115 @@ TEST_F(PersistenceFixture, LoadSavedDtcCapsuleRestoresRegisteredRecords)
     EXPECT_EQ(snapshot.occurrence_count, 1u);
     EXPECT_EQ(snapshot.active_count, 1u);
 }
+
+#if DIAG_FEATURE_LIFECYCLE
+TEST_F(PersistenceFixture, LifecycleMutationMarksDirtyWithoutCallingStorage)
+{
+    uint32_t dirty_flags = DIAG_DIRTY_NONE;
+
+    ASSERT_EQ(diag_lifecycle_observe_reset(ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_LIFECYCLE);
+    EXPECT_EQ(fake.load_calls, 0u);
+    EXPECT_EQ(fake.save_calls, 0u);
+    EXPECT_EQ(fake.clear_calls, 0u);
+}
+
+TEST_F(PersistenceFixture, SaveDirtyLifecycleWritesCapsuleAndClearsDirtyFlag)
+{
+    uint32_t dirty_flags = DIAG_DIRTY_NONE;
+
+    ASSERT_EQ(diag_lifecycle_observe_reset(ctx, DIAG_RESET_REASON_BROWNOUT), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+    ASSERT_EQ(dirty_flags, DIAG_DIRTY_LIFECYCLE);
+
+    ASSERT_EQ(diag_save(ctx), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
+    EXPECT_EQ(fake.save_calls, 1u);
+    EXPECT_GT(fake.used, 0u);
+}
+
+TEST_F(PersistenceFixture, LoadSavedLifecycleCapsuleRestoresCounters)
+{
+    ASSERT_EQ(diag_lifecycle_observe_reset(ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+    ASSERT_EQ(diag_save(ctx), DIAG_OK);
+
+    struct diag_context_storage  restored_context_storage = {};
+    std::array<uint8_t, 256>     restored_capsule_buffer = {};
+    struct diag_context         *restored_ctx = nullptr;
+    struct diag_storage          restored_storage = make_storage(&fake);
+    struct diag_lifecycle_config restored_lifecycle_config = {};
+    const struct diag_config     config = {};
+
+    restored_storage.capsule_buffer = restored_capsule_buffer.data();
+    restored_storage.capsule_buffer_size = restored_capsule_buffer.size();
+    restored_lifecycle_config.reset_counter_policy = DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY;
+
+    ASSERT_EQ(diag_init(&restored_context_storage, &config, &restored_ctx), DIAG_OK);
+    ASSERT_EQ(diag_storage_attach(restored_ctx, &restored_storage), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_attach(restored_ctx, &restored_lifecycle_config), DIAG_OK);
+
+    ASSERT_EQ(diag_load(restored_ctx), DIAG_OK);
+
+    struct diag_lifecycle_snapshot snapshot = {};
+    ASSERT_EQ(diag_lifecycle_get(restored_ctx, &snapshot), DIAG_OK);
+    EXPECT_EQ(snapshot.last_reset_reason, DIAG_RESET_REASON_WATCHDOG);
+    EXPECT_EQ(snapshot.reset_counter_policy, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY);
+    EXPECT_EQ(snapshot.reset_count, 1u);
+    EXPECT_EQ(snapshot.abnormal_reset_count, 1u);
+    EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
+    EXPECT_FALSE(snapshot.persist_requested);
+}
+
+TEST_F(PersistenceFixture, SaveDirtyDtcAndLifecycleWritesOneCapsuleWithBothSections)
+{
+    struct diag_capsule_descriptor     descriptor = {};
+    const struct diag_capsule_section *dtc_section = nullptr;
+    const struct diag_capsule_section *lifecycle_section = nullptr;
+
+    ASSERT_EQ(diag_dtc_register(ctx, 0x2206u, DIAG_DTC_SEVERITY_WARNING), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_observe_reset(ctx, DIAG_RESET_REASON_FAULT), DIAG_OK);
+
+    ASSERT_EQ(diag_save(ctx), DIAG_OK);
+    ASSERT_EQ(diag_capsule_decode(fake.bytes.data(), fake.used, &descriptor), DIAG_OK);
+
+    EXPECT_EQ(descriptor.section_count, 2u);
+    EXPECT_EQ(diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_APPLICATION_DTC,
+                                                &dtc_section),
+              DIAG_OK);
+    EXPECT_EQ(diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_LIFECYCLE,
+                                                &lifecycle_section),
+              DIAG_OK);
+}
+
+TEST_F(PersistenceFixture, LoadRejectsCorruptLifecyclePayloadAfterCapsuleCrcPasses)
+{
+    ASSERT_EQ(diag_lifecycle_observe_reset(ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+    ASSERT_EQ(diag_save(ctx), DIAG_OK);
+
+    struct diag_capsule_descriptor     descriptor = {};
+    const struct diag_capsule_section *section = nullptr;
+    std::size_t                        encoded_length = 0u;
+
+    ASSERT_EQ(diag_capsule_decode(fake.bytes.data(), fake.used, &descriptor), DIAG_OK);
+    ASSERT_EQ(
+        diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_LIFECYCLE, &section),
+        DIAG_OK);
+    ASSERT_NE(section, nullptr);
+
+    constexpr std::size_t kReservedByteOffset = 15u;
+    fake.bytes[section->offset + kReservedByteOffset] = 0x5Au;
+    ASSERT_EQ(
+        diag_capsule_encode_v1(fake.bytes.data(), fake.bytes.size(), &descriptor, &encoded_length),
+        DIAG_OK);
+    fake.used = encoded_length;
+
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_CORRUPT_DATA);
+}
+#endif
 
 TEST_F(PersistenceFixture, LoadRejectsCorruptDtcPayloadAfterCapsuleCrcPasses)
 {
