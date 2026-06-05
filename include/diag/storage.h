@@ -64,6 +64,10 @@ struct diag_storage
     void *user;
     /// Medium and adapter capabilities used for validation.
     struct diag_storage_capabilities capabilities;
+    /// Caller-owned staging buffer used by context-level capsule save/load.
+    uint8_t *capsule_buffer;
+    /// Size of `capsule_buffer` in bytes.
+    size_t capsule_buffer_size;
 };
 
 /// Opaque diagnostics context initialized with `diag_init()`.
@@ -97,16 +101,16 @@ enum diag_result diag_storage_clear(const struct diag_storage *storage);
 /// Returns `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null. Returns
 /// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized or storage
 /// has not been attached. Returns `DIAG_OK` when no persistent state is dirty.
-/// Returns `DIAG_ERROR_NOT_SUPPORTED` when dirty state exists but context-level
-/// persistence is not implemented yet in the current C MVP.
+/// DTC persistence requires `struct diag_storage::capsule_buffer`. Unsupported
+/// dirty feature bits return `DIAG_ERROR_NOT_SUPPORTED`.
 enum diag_result diag_save(struct diag_context *ctx);
 
 /// Load persistent diagnostic state through the attached storage adapter.
 ///
 /// Returns `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null. Returns
 /// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized, storage has
-/// not been attached. Returns `DIAG_ERROR_NOT_SUPPORTED` when context-level
-/// persistence is not implemented yet in the current C MVP.
+/// not been attached. DTC persistence requires
+/// `struct diag_storage::capsule_buffer`.
 enum diag_result diag_load(struct diag_context *ctx);
 
 #endif

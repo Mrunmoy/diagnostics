@@ -2,10 +2,298 @@
 
 #include "diag_context_internal.h"
 
+#if DIAG_FEATURE_CAPSULE
+#include "diag/capsule.h"
+#endif
+
+#include <string.h>
+
+#define DIAG_DTC_CAPSULE_SECTION_VERSION (1u)
+#define DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE (4u)
+#define DIAG_DTC_CAPSULE_RECORD_SIZE (28u)
+
 static int diag_storage_size_is_aligned(size_t size, size_t alignment)
 {
     return (size % alignment) == 0u;
 }
+
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+static size_t diag_storage_align_up_size(size_t value, size_t alignment)
+{
+    const size_t remainder = value % alignment;
+
+    if (remainder == 0u)
+    {
+        return value;
+    }
+
+    return value + (alignment - remainder);
+}
+
+static int diag_storage_context_buffer_is_valid(const struct diag_storage *storage)
+{
+    return storage->capsule_buffer != NULL && storage->capsule_buffer_size != 0u;
+}
+
+static void diag_storage_write_u16_le(uint8_t *buffer, uint16_t value)
+{
+    buffer[0] = (uint8_t)(value & 0xFFu);
+    buffer[1] = (uint8_t)((value >> 8u) & 0xFFu);
+}
+
+static void diag_storage_write_u32_le(uint8_t *buffer, uint32_t value)
+{
+    buffer[0] = (uint8_t)(value & 0xFFu);
+    buffer[1] = (uint8_t)((value >> 8u) & 0xFFu);
+    buffer[2] = (uint8_t)((value >> 16u) & 0xFFu);
+    buffer[3] = (uint8_t)((value >> 24u) & 0xFFu);
+}
+
+static uint16_t diag_storage_read_u16_le(const uint8_t *buffer)
+{
+    return (uint16_t)((uint16_t)buffer[0] | ((uint16_t)buffer[1] << 8u));
+}
+
+static uint32_t diag_storage_read_u32_le(const uint8_t *buffer)
+{
+    return (uint32_t)((uint32_t)buffer[0] | ((uint32_t)buffer[1] << 8u) |
+                      ((uint32_t)buffer[2] << 16u) | ((uint32_t)buffer[3] << 24u));
+}
+
+// clang-format off
+static enum diag_result diag_storage_encode_dtc_payload(struct diag_context *ctx,
+                                                        uint8_t *payload,
+                                                        size_t payload_capacity,
+                                                        size_t *out_used_length)
+// clang-format on
+{
+    size_t i = 0u;
+    size_t required = DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE;
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_DTC_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    required += ctx->dtc_count * (size_t)DIAG_DTC_CAPSULE_RECORD_SIZE;
+    if (payload_capacity < required || ctx->dtc_count > UINT16_MAX)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    diag_storage_write_u16_le(&payload[0], (uint16_t)ctx->dtc_count);
+    diag_storage_write_u16_le(&payload[2], DIAG_DTC_CAPSULE_RECORD_SIZE);
+
+    for (i = 0u; i < ctx->dtc_count; ++i)
+    {
+        const struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
+        const size_t                    offset =
+            DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE + (i * DIAG_DTC_CAPSULE_RECORD_SIZE);
+
+        diag_storage_write_u32_le(&payload[offset], record->id);
+        diag_storage_write_u32_le(&payload[offset + 4u], record->local_fault_id);
+        payload[offset + 8u] = (uint8_t)record->severity;
+        payload[offset + 9u] = record->active ? 1u : 0u;
+        payload[offset + 10u] = record->failed_this_cycle ? 1u : 0u;
+        payload[offset + 11u] = record->status;
+        payload[offset + 12u] = record->failed_cycle_count;
+        payload[offset + 13u] = 0u;
+        diag_storage_write_u16_le(&payload[offset + 14u], record->aging_counter);
+        diag_storage_write_u32_le(&payload[offset + 16u], record->occurrence_count);
+        diag_storage_write_u32_le(&payload[offset + 20u], record->active_count);
+        diag_storage_write_u32_le(&payload[offset + 24u], record->clear_count);
+    }
+
+    *out_used_length = required;
+
+    return DIAG_OK;
+}
+
+// clang-format off
+static enum diag_result diag_storage_decode_dtc_payload(struct diag_context *ctx,
+                                                        const uint8_t *payload,
+                                                        size_t payload_length)
+// clang-format on
+{
+    uint16_t count = 0u;
+    uint16_t record_size = 0u;
+    size_t   expected_length = 0u;
+    size_t   i = 0u;
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_DTC_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    if (payload_length < DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    count = diag_storage_read_u16_le(&payload[0]);
+    record_size = diag_storage_read_u16_le(&payload[2]);
+    if (record_size != DIAG_DTC_CAPSULE_RECORD_SIZE)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    expected_length =
+        DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE + ((size_t)count * DIAG_DTC_CAPSULE_RECORD_SIZE);
+    if (payload_length != expected_length)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    if ((size_t)count > ctx->dtc.capacity)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    for (i = 0u; i < count; ++i)
+    {
+        struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
+        const size_t              offset =
+            DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE + (i * DIAG_DTC_CAPSULE_RECORD_SIZE);
+
+        if (payload[offset + 8u] > (uint8_t)DIAG_DTC_SEVERITY_CRITICAL ||
+            payload[offset + 9u] > 1u || payload[offset + 10u] > 1u || payload[offset + 13u] != 0u)
+        {
+            return DIAG_ERROR_CORRUPT_DATA;
+        }
+
+        record->id = diag_storage_read_u32_le(&payload[offset]);
+        record->local_fault_id = diag_storage_read_u32_le(&payload[offset + 4u]);
+        record->severity = (enum diag_dtc_severity)payload[offset + 8u];
+        record->active = payload[offset + 9u] != 0u;
+        record->failed_this_cycle = payload[offset + 10u] != 0u;
+        record->status = payload[offset + 11u];
+        record->failed_cycle_count = payload[offset + 12u];
+        record->aging_counter = diag_storage_read_u16_le(&payload[offset + 14u]);
+        record->occurrence_count = diag_storage_read_u32_le(&payload[offset + 16u]);
+        record->active_count = diag_storage_read_u32_le(&payload[offset + 20u]);
+        record->clear_count = diag_storage_read_u32_le(&payload[offset + 24u]);
+    }
+
+    ctx->dtc_count = count;
+    diag_context_clear_dirty(ctx, DIAG_DIRTY_DTC);
+
+    return DIAG_OK;
+}
+
+static enum diag_result diag_storage_save_dtc_capsule(struct diag_context *ctx)
+{
+    struct diag_capsule_descriptor descriptor = {0};
+    uint8_t                       *buffer = ctx->storage.capsule_buffer;
+    size_t           payload_offset = DIAG_CAPSULE_HEADER_SIZE + DIAG_CAPSULE_SECTION_ENTRY_SIZE;
+    size_t           payload_used_length = 0u;
+    size_t           payload_length = 0u;
+    size_t           total_length = 0u;
+    enum diag_result result = DIAG_OK;
+
+    if (!diag_storage_context_buffer_is_valid(&ctx->storage))
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (ctx->storage.capsule_buffer_size < payload_offset)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    memset(buffer, ctx->storage.capabilities.erase_value, ctx->storage.capsule_buffer_size);
+    result = diag_storage_encode_dtc_payload(ctx, &buffer[payload_offset],
+                                             ctx->storage.capsule_buffer_size - payload_offset,
+                                             &payload_used_length);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    total_length = diag_storage_align_up_size(payload_offset + payload_used_length,
+                                              ctx->storage.capabilities.write_alignment);
+    payload_length = total_length - payload_offset;
+    if (total_length > ctx->storage.capsule_buffer_size || total_length > UINT32_MAX ||
+        payload_length > UINT32_MAX || payload_used_length > UINT32_MAX)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    descriptor.schema_version = DIAG_CAPSULE_SCHEMA_VERSION;
+    descriptor.section_count = 1u;
+    descriptor.total_length = (uint32_t)total_length;
+    descriptor.generation = 0u;
+    descriptor.sections[0].type = DIAG_CAPSULE_SECTION_APPLICATION_DTC;
+    descriptor.sections[0].version = DIAG_DTC_CAPSULE_SECTION_VERSION;
+    descriptor.sections[0].offset = (uint32_t)payload_offset;
+    descriptor.sections[0].length = (uint32_t)payload_length;
+    descriptor.sections[0].used_length = (uint32_t)payload_used_length;
+
+    result = diag_capsule_encode_v1(buffer, ctx->storage.capsule_buffer_size, &descriptor, NULL);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    result = diag_storage_save(&ctx->storage, buffer, total_length);
+    if (result == DIAG_OK)
+    {
+        diag_context_clear_dirty(ctx, DIAG_DIRTY_DTC);
+    }
+
+    return result;
+}
+
+static enum diag_result diag_storage_load_dtc_capsule(struct diag_context *ctx)
+{
+    struct diag_capsule_descriptor     descriptor = {0};
+    const struct diag_capsule_section *section = NULL;
+    size_t                             bytes_read = 0u;
+    enum diag_result                   result = DIAG_OK;
+
+    if (!diag_storage_context_buffer_is_valid(&ctx->storage))
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    result = diag_storage_load(&ctx->storage, ctx->storage.capsule_buffer,
+                               ctx->storage.capsule_buffer_size, &bytes_read);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (bytes_read == 0u)
+    {
+        return DIAG_OK;
+    }
+
+    result = diag_capsule_decode(ctx->storage.capsule_buffer, bytes_read, &descriptor);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    result = diag_capsule_find_section_by_type(&descriptor, DIAG_CAPSULE_SECTION_APPLICATION_DTC,
+                                               &section);
+    if (result == DIAG_ERROR_NOT_FOUND)
+    {
+        return DIAG_OK;
+    }
+
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (section->version != DIAG_DTC_CAPSULE_SECTION_VERSION)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    return diag_storage_decode_dtc_payload(ctx, &ctx->storage.capsule_buffer[section->offset],
+                                           section->used_length);
+}
+#endif
 
 enum diag_result diag_storage_attach(struct diag_context *ctx, const struct diag_storage *storage)
 {
@@ -124,6 +412,8 @@ enum diag_result diag_storage_clear(const struct diag_storage *storage)
 
 enum diag_result diag_save(struct diag_context *ctx)
 {
+    uint32_t supported_dirty_flags = DIAG_DIRTY_NONE;
+
     if (ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
@@ -139,6 +429,22 @@ enum diag_result diag_save(struct diag_context *ctx)
     {
         return DIAG_OK;
     }
+
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+    supported_dirty_flags |= DIAG_DIRTY_DTC;
+#endif
+
+    if ((ctx->dirty_flags & ~supported_dirty_flags) != 0u)
+    {
+        return DIAG_ERROR_NOT_SUPPORTED;
+    }
+
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+    if ((ctx->dirty_flags & DIAG_DIRTY_DTC) != 0u)
+    {
+        return diag_storage_save_dtc_capsule(ctx);
+    }
+#endif
 
     return DIAG_ERROR_NOT_SUPPORTED;
 }
@@ -156,5 +462,9 @@ enum diag_result diag_load(struct diag_context *ctx)
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_CAPSULE
+    return diag_storage_load_dtc_capsule(ctx);
+#else
     return DIAG_ERROR_NOT_SUPPORTED;
+#endif
 }

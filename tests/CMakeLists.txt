@@ -38,7 +38,7 @@ if(DIAG_FEATURE_STORAGE)
     target_sources(diag_tests PRIVATE test_storage.cpp)
 endif()
 
-if(DIAG_FEATURE_DTC AND DIAG_FEATURE_STORAGE)
+if(DIAG_FEATURE_DTC AND DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
     target_sources(diag_tests PRIVATE test_persistence.cpp)
 endif()
 
