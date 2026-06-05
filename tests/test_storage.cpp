@@ -267,19 +267,22 @@ TEST(DiagStorageOps, LoadClearsBytesReadBeforeAdapterFailure)
     EXPECT_EQ(loaded_size, 0u);
 }
 
-TEST(DiagContextSave, RejectsInvalidOrUnattachedContext)
+TEST(DiagContextPersistence, RejectsInvalidOrUnattachedContext)
 {
     struct diag_context_storage context_storage = {};
     struct diag_context        *ctx = nullptr;
     const struct diag_config    config = {};
 
     EXPECT_EQ(diag_save(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_load(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
 
     ASSERT_EQ(diag_init(&context_storage, &config, &ctx), DIAG_OK);
     EXPECT_EQ(diag_save(ctx), DIAG_ERROR_NOT_INITIALIZED);
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_INITIALIZED);
 
     ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
     EXPECT_EQ(diag_save(ctx), DIAG_ERROR_NOT_INITIALIZED);
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_INITIALIZED);
 }
 
 TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
@@ -292,7 +295,7 @@ TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
 
 TEST_F(StorageContextFixture, LoadRemainsUnsupportedForContextCapsule)
 {
-    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_INITIALIZED);
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_SUPPORTED);
 
     EXPECT_EQ(fake.load_calls, 0u);
 }

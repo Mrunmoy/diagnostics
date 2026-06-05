@@ -156,5 +156,5 @@ enum diag_result diag_load(struct diag_context *ctx)
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
-    return DIAG_ERROR_NOT_INITIALIZED;
+    return DIAG_ERROR_NOT_SUPPORTED;
 }

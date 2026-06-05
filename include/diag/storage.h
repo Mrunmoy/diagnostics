@@ -105,8 +105,8 @@ enum diag_result diag_save(struct diag_context *ctx);
 ///
 /// Returns `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null. Returns
 /// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized, storage has
-/// not been attached, or context-level persistence is not implemented yet in the
-/// current C MVP.
+/// not been attached. Returns `DIAG_ERROR_NOT_SUPPORTED` when context-level
+/// persistence is not implemented yet in the current C MVP.
 enum diag_result diag_load(struct diag_context *ctx);
 
 #endif
