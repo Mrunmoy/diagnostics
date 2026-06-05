@@ -293,11 +293,4 @@ TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
     EXPECT_EQ(fake.fake_flash_writes, 0u);
 }
 
-TEST_F(StorageContextFixture, LoadRemainsUnsupportedForContextCapsule)
-{
-    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_SUPPORTED);
-
-    EXPECT_EQ(fake.load_calls, 0u);
-}
-
 } // namespace

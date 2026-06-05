@@ -59,11 +59,11 @@ Runtime and volatile updates must not write flash.
 
 Persistent mutations update caller-owned RAM first and set context dirty flags.
 `diag_get_dirty_flags()` exposes those flags so firmware can decide when to
-batch, defer, or suppress storage work. The current C MVP treats a clean
-`diag_save()` as a no-op success and returns `DIAG_ERROR_NOT_SUPPORTED` for dirty
-state until the capsule serializer is implemented. `diag_load()` also returns
-`DIAG_ERROR_NOT_SUPPORTED` once context and storage preconditions are satisfied.
-No DTC hot path may call a storage adapter directly.
+batch, defer, or suppress storage work. Context-level save/load uses a
+caller-owned capsule staging buffer supplied through the storage adapter; the
+library never allocates this buffer. A clean `diag_save()` is a no-op success.
+Supported dirty sections are serialized into the capsule only at explicit
+save/load boundaries. No DTC hot path may call a storage adapter directly.
 
 Internal diagnostic checks and external DTCs are related but not identical. A
 project may have many local checks, monitor points, or fault paths feeding one
@@ -134,9 +134,12 @@ Sizing targets:
 minimum capsule:      256 bytes
 small default:        512 bytes
 recommended product:  1024 bytes
-persistent DTC:       about 16 bytes serialized
+persistent DTC:       28 bytes serialized in the C MVP
 section count:        <= 8
 ```
+
+The first C implementation stores DTC records in an explicit little-endian
+section format. It is intentionally not a raw `struct diag_dtc_snapshot` dump.
 
 ## Bootloader And Application Sharing
 
