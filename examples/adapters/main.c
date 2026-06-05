@@ -1,5 +1,7 @@
 #include "diag/diag.h"
 
+#include <stdio.h>
+
 static enum diag_result example_load(void *user, uint8_t *buffer, size_t buffer_size,
                                      size_t *bytes_read)
 {
@@ -74,18 +76,27 @@ int main(void)
 
     if (diag_init(&storage, &config, &ctx) != DIAG_OK)
     {
+        fprintf(stderr, "diag_init failed\n");
         return 1;
     }
 
     if (diag_storage_attach(ctx, &diag_storage) != DIAG_OK)
     {
+        fprintf(stderr, "diag_storage_attach failed\n");
         return 1;
     }
 
     if (diag_transport_attach(ctx, &transport) != DIAG_OK)
     {
+        fprintf(stderr, "diag_transport_attach failed\n");
         return 1;
     }
 
-    return diag_deinit(ctx) == DIAG_OK ? 0 : 1;
+    if (diag_deinit(ctx) != DIAG_OK)
+    {
+        fprintf(stderr, "diag_deinit failed\n");
+        return 1;
+    }
+
+    return 0;
 }

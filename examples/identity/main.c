@@ -1,5 +1,7 @@
 #include "diag/diag.h"
 
+#include <stdio.h>
+
 int main(void)
 {
     struct diag_context_storage storage = {0};
@@ -18,23 +20,33 @@ int main(void)
 
     if (diag_init(&storage, &config, &ctx) != DIAG_OK)
     {
+        fprintf(stderr, "diag_init failed\n");
         return 1;
     }
 
     if (diag_identity_attach(ctx, &identity) != DIAG_OK)
     {
+        fprintf(stderr, "diag_identity_attach failed\n");
         return 1;
     }
 
     if (diag_identity_get(ctx, &out) != DIAG_OK)
     {
+        fprintf(stderr, "diag_identity_get failed\n");
         return 1;
     }
 
     if (!diag_identity_equal(&identity, &out))
     {
+        fprintf(stderr, "identity readback mismatch\n");
         return 1;
     }
 
-    return diag_deinit(ctx) == DIAG_OK ? 0 : 1;
+    if (diag_deinit(ctx) != DIAG_OK)
+    {
+        fprintf(stderr, "diag_deinit failed\n");
+        return 1;
+    }
+
+    return 0;
 }
