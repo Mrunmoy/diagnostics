@@ -350,14 +350,17 @@ Use `build.py` for local, Docker, and CI workflows:
 
 ```sh
 ./build.py all
+./build.py size
 ./build.py test --preset linux-asan
 ./build.py build -- DIAG_BUILD_EXAMPLES=OFF
 docker compose run --rm diagnostics-dev
 ```
 
 `./build.py all` runs formatting, debug tests, ASAN/UBSAN tests, release library
-install to `build/install/diag`, and a generated CMake package-consumption smoke
-test. Generated artifacts must stay under `build/`.
+install to `build/install/diag`, a size/resource report, and a generated CMake
+package-consumption smoke test. `./build.py size` builds the release library and
+prints `.text`, `.rodata`, `.data`, `.bss`, enabled feature switches, and fixed
+diagnostic layout constants. Generated artifacts must stay under `build/`.
 
 CI runs on PRs and pushes targeting `c` and `cpp`. Protected branches require PR
 review and passing CI before merge.

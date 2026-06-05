@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,59 @@ DEFAULT_PRESET = "linux-debug"
 DEFAULT_LIBRARY_PRESET = "linux-release"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 DOXYFILE = ROOT / "Doxyfile"
+FEATURE_NAMES = [
+    "DTC",
+    "LIFECYCLE",
+    "IDENTITY",
+    "STORAGE",
+    "TRANSPORT",
+    "CAPSULE",
+]
+SIZE_SECTIONS = [
+    ".text",
+    ".rodata",
+    ".data",
+    ".bss",
+]
+LAYOUT_MACROS = [
+    (
+        "context storage",
+        ROOT / "include" / "diag" / "context.h",
+        "DIAG_CONTEXT_STORAGE_SIZE",
+    ),
+    (
+        "context alignment",
+        ROOT / "include" / "diag" / "context.h",
+        "DIAG_CONTEXT_STORAGE_ALIGN",
+    ),
+    (
+        "identity encoded",
+        ROOT / "include" / "diag" / "identity.h",
+        "DIAG_IDENTITY_ENCODED_SIZE",
+    ),
+    ("capsule header", ROOT / "include" / "diag" / "capsule.h", "DIAG_CAPSULE_HEADER_SIZE"),
+    (
+        "capsule section entry",
+        ROOT / "include" / "diag" / "capsule.h",
+        "DIAG_CAPSULE_SECTION_ENTRY_SIZE",
+    ),
+    (
+        "capsule max sections",
+        ROOT / "include" / "diag" / "capsule.h",
+        "DIAG_CAPSULE_MAX_SECTIONS",
+    ),
+    (
+        "DTC payload header",
+        ROOT / "src" / "diag_storage.c",
+        "DIAG_DTC_CAPSULE_PAYLOAD_HEADER_SIZE",
+    ),
+    ("DTC record", ROOT / "src" / "diag_storage.c", "DIAG_DTC_CAPSULE_RECORD_SIZE"),
+    (
+        "lifecycle payload",
+        ROOT / "src" / "diag_storage.c",
+        "DIAG_LIFECYCLE_CAPSULE_PAYLOAD_SIZE",
+    ),
+]
 
 # Formatting must be reproducible across local, Docker, and CI, so clang-format
 # is pinned to one major version. Override with CLANG_FORMAT=/path/to/clang-format
@@ -30,6 +84,22 @@ def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
     if env is not None:
         merged_env.update(env)
     subprocess.run(command, cwd=ROOT, check=True, env=merged_env)
+
+
+def capture(command: list[str], *, env: dict[str, str] | None = None) -> str:
+    print("+ " + " ".join(command), flush=True)
+    merged_env = os.environ.copy()
+    if env is not None:
+        merged_env.update(env)
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+        env=merged_env,
+        text=True,
+    )
+    return completed.stdout
 
 
 def cmake_options(options: list[str]) -> list[str]:
@@ -82,16 +152,23 @@ def all_checks(args: argparse.Namespace) -> None:
     format_code(argparse.Namespace(check=True))
     test_preset(f"{family}-debug", args.cmake_options)
     test_preset(f"{family}-asan", args.cmake_options)
+    release_preset = f"{family}-release"
     install_library_for_preset(
-        f"{family}-release",
+        release_preset,
         DEFAULT_INSTALL_PREFIX,
         args.cmake_options,
     )
+    print_size_report(release_preset)
     package_test(DEFAULT_INSTALL_PREFIX)
 
 
 def install_library(args: argparse.Namespace) -> None:
     install_library_for_preset(args.preset, args.prefix, args.cmake_options)
+
+
+def size(args: argparse.Namespace) -> None:
+    build_library_for_size_report(args.preset, args.cmake_options)
+    print_size_report(args.preset)
 
 
 def docs(args: argparse.Namespace) -> None:
@@ -113,6 +190,107 @@ def install_library_for_preset(preset: str, prefix: Path, extra_options: list[st
     configure(preset, options)
     run(["cmake", "--build", "--preset", preset])
     run(["cmake", "--install", str(build_dir_for_preset(preset))])
+
+
+def build_library_for_size_report(preset: str, extra_options: list[str]) -> None:
+    options = [
+        *extra_options,
+        "DIAG_BUILD_TESTS=OFF",
+        "DIAG_BUILD_EXAMPLES=OFF",
+    ]
+
+    configure(preset, options)
+    run(["cmake", "--build", "--preset", preset])
+
+
+def print_size_report(preset: str) -> None:
+    build_dir = build_dir_for_preset(preset)
+    archive = build_dir / "libdiag.a"
+
+    if not archive.exists():
+        raise SystemExit(
+            f"library archive was not found at {archive.relative_to(ROOT)}; build preset "
+            f"'{preset}' first"
+        )
+
+    sections = archive_sections(archive)
+    features = configured_features(build_dir)
+    layout = diagnostic_layout()
+
+    print("")
+    print(f"Size report ({preset})")
+    print(f"Library: {archive.relative_to(ROOT)}")
+    print("")
+    print("Sections (bytes)")
+    for section in SIZE_SECTIONS:
+        print(f"  {section:<8} {sections.get(section, 0):>8}")
+    print(f"  {'total':<8} {sum(sections.values()):>8}")
+    print("")
+    print("Diagnostic layout (bytes)")
+    for name, value in layout:
+        unit = "count" if name == "capsule max sections" else "bytes"
+        print(f"  {name:<24} {value:>8} {unit}")
+    print("")
+    print("Configured features")
+    for name in FEATURE_NAMES:
+        print(f"  {name:<10} {features.get(name, 'UNKNOWN')}")
+    print("")
+    print("Notes")
+    print("  DTC RAM is caller-owned: capacity * sizeof(struct diag_dtc_snapshot).")
+    print("  Capsule staging RAM is caller-owned and provided by the storage adapter.")
+
+
+def archive_sections(archive: Path) -> dict[str, int]:
+    size_tool = resolve_size_tool()
+    output = capture([size_tool, "-A", str(archive)])
+    sections = {section: 0 for section in SIZE_SECTIONS}
+
+    for line in output.splitlines():
+        columns = line.split()
+        if len(columns) < 2:
+            continue
+        bucket = section_bucket(columns[0])
+        if bucket:
+            sections[bucket] += int(columns[1])
+
+    return sections
+
+
+def section_bucket(section: str) -> str | None:
+    for name in SIZE_SECTIONS:
+        if section == name or section.startswith(f"{name}."):
+            return name
+    return None
+
+
+def configured_features(build_dir: Path) -> dict[str, str]:
+    cache = build_dir / "CMakeCache.txt"
+    if not cache.exists():
+        raise SystemExit(f"CMake cache was not found at {cache.relative_to(ROOT)}")
+
+    values: dict[str, str] = {}
+    for line in cache.read_text(encoding="utf-8").splitlines():
+        for name in FEATURE_NAMES:
+            prefix = f"DIAG_FEATURE_{name}:BOOL="
+            if line.startswith(prefix):
+                values[name] = line.removeprefix(prefix)
+
+    return values
+
+
+def diagnostic_layout() -> list[tuple[str, int]]:
+    return [(name, read_macro_u32(path, macro)) for name, path, macro in LAYOUT_MACROS]
+
+
+def read_macro_u32(path: Path, name: str) -> int:
+    pattern = re.compile(rf"^\s*#\s*define\s+{re.escape(name)}\s+\(?([0-9]+)u?\)?\s*$")
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = pattern.match(line)
+        if match:
+            return int(match.group(1))
+
+    raise SystemExit(f"could not read numeric macro {name} from {path.relative_to(ROOT)}")
 
 
 def package_test(prefix: Path) -> None:
@@ -214,6 +392,17 @@ def resolve_doxygen() -> str:
     )
 
 
+def resolve_size_tool() -> str:
+    path = shutil.which(os.environ.get("SIZE") or "size")
+    if path:
+        return path
+
+    raise SystemExit(
+        "GNU size is required to print the resource report. Install binutils, "
+        "or set SIZE to a compatible size tool."
+    )
+
+
 def format_code(args: argparse.Namespace) -> None:
     clang_format = resolve_clang_format()
 
@@ -309,6 +498,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help=f"Install output directory. Default: {DEFAULT_INSTALL_PREFIX}",
     )
     library_parser.set_defaults(func=install_library)
+
+    size_parser = subcommands.add_parser(
+        "size",
+        help="Build the release library and print code/data/layout sizes",
+    )
+    add_common_build_args(size_parser, DEFAULT_LIBRARY_PRESET)
+    size_parser.set_defaults(func=size)
 
     docs_parser = subcommands.add_parser("docs", help="Generate Doxygen API documentation")
     docs_parser.add_argument(
