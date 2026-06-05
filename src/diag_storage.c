@@ -268,6 +268,7 @@ static enum diag_result diag_storage_save_context_capsule(struct diag_context *c
     size_t                         section_index = 0u;
     size_t                         used_length = 0u;
     size_t                         length = 0u;
+    size_t                         total_length = 0u;
     enum diag_result               result = DIAG_OK;
 
     if (!diag_storage_context_buffer_is_valid(&ctx->storage))
@@ -362,13 +363,16 @@ static enum diag_result diag_storage_save_context_capsule(struct diag_context *c
     }
 #endif
 
-    if (payload_offset > UINT32_MAX || section_index > UINT16_MAX)
+    total_length =
+        diag_storage_align_up_size(payload_offset, ctx->storage.capabilities.write_alignment);
+    if (total_length > ctx->storage.capsule_buffer_size || total_length > UINT32_MAX ||
+        section_index > UINT16_MAX)
     {
         return DIAG_ERROR_CAPACITY;
     }
 
     descriptor.section_count = (uint16_t)section_index;
-    descriptor.total_length = (uint32_t)payload_offset;
+    descriptor.total_length = (uint32_t)total_length;
 
     result = diag_capsule_encode_v1(buffer, ctx->storage.capsule_buffer_size, &descriptor, NULL);
     if (result != DIAG_OK)
@@ -376,7 +380,7 @@ static enum diag_result diag_storage_save_context_capsule(struct diag_context *c
         return result;
     }
 
-    result = diag_storage_save(&ctx->storage, buffer, payload_offset);
+    result = diag_storage_save(&ctx->storage, buffer, total_length);
     if (result == DIAG_OK)
     {
 #if DIAG_FEATURE_DTC

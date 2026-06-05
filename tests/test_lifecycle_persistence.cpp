@@ -72,7 +72,7 @@ const struct diag_storage_ops kFakeOps = {
 };
 
 struct diag_storage make_storage(FakeStorage *fake, uint8_t *capsule_buffer,
-                                 std::size_t capsule_buffer_size)
+                                 std::size_t capsule_buffer_size, uint32_t write_alignment)
 {
     const struct diag_storage storage = {
         /* ops          */ &kFakeOps,
@@ -80,7 +80,7 @@ struct diag_storage make_storage(FakeStorage *fake, uint8_t *capsule_buffer,
         /* capabilities */
         {
             /* erase_value     */ 0xFFu,
-            /* write_alignment */ 4u,
+            /* write_alignment */ write_alignment,
             /* atomic_commit   */ DIAG_STORAGE_ATOMIC_COMMIT_ADAPTER,
             /* wear_leveling   */ DIAG_STORAGE_WEAR_LEVELING_ADAPTER,
         },
@@ -89,6 +89,12 @@ struct diag_storage make_storage(FakeStorage *fake, uint8_t *capsule_buffer,
     };
 
     return storage;
+}
+
+struct diag_storage make_storage(FakeStorage *fake, uint8_t *capsule_buffer,
+                                 std::size_t capsule_buffer_size)
+{
+    return make_storage(fake, capsule_buffer, capsule_buffer_size, 4u);
 }
 
 struct LifecyclePersistenceFixture : public testing::Test
@@ -140,6 +146,33 @@ TEST_F(LifecyclePersistenceFixture, SaveAndLoadLifecycleWithoutDtcFeatureDepende
     EXPECT_EQ(snapshot.abnormal_reset_count, 1u);
     EXPECT_EQ(snapshot.dirty_flags, DIAG_LIFECYCLE_DIRTY_NONE);
     EXPECT_EQ(fake.save_calls, 1u);
+}
+
+TEST_F(LifecyclePersistenceFixture, SavePadsCapsuleToAdapterWriteAlignment)
+{
+    struct diag_context_storage aligned_context_storage = {};
+    std::array<uint8_t, 128>    aligned_capsule_buffer = {};
+    FakeStorage                 aligned_fake = {};
+    struct diag_context        *aligned_ctx = nullptr;
+    struct diag_storage aligned_storage = make_storage(&aligned_fake, aligned_capsule_buffer.data(),
+                                                       aligned_capsule_buffer.size(), 16u);
+    const struct diag_config     config = {};
+    struct diag_lifecycle_config lifecycle_config = {};
+
+    lifecycle_config.reset_counter_policy = DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY;
+
+    ASSERT_EQ(diag_init(&aligned_context_storage, &config, &aligned_ctx), DIAG_OK);
+    ASSERT_EQ(diag_storage_attach(aligned_ctx, &aligned_storage), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_attach(aligned_ctx, &lifecycle_config), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_observe_reset(aligned_ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
+
+    ASSERT_EQ(diag_save(aligned_ctx), DIAG_OK);
+
+    struct diag_capsule_descriptor descriptor = {};
+    ASSERT_EQ(diag_capsule_decode(aligned_fake.bytes.data(), aligned_fake.used, &descriptor),
+              DIAG_OK);
+    EXPECT_EQ(aligned_fake.used % 16u, 0u);
+    EXPECT_EQ(aligned_fake.used, descriptor.total_length);
 }
 
 } // namespace
