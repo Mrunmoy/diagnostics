@@ -63,7 +63,9 @@ batch, defer, or suppress storage work. Context-level save/load uses a
 caller-owned capsule staging buffer supplied through the storage adapter; the
 library never allocates this buffer. A clean `diag_save()` is a no-op success.
 Supported dirty sections are serialized into the capsule only at explicit
-save/load boundaries. No DTC hot path may call a storage adapter directly.
+save/load boundaries. A single `diag_save()` may write multiple dirty sections
+into one capsule commit. No DTC or lifecycle hot path may call a storage adapter
+directly.
 
 Internal diagnostic checks and external DTCs are related but not identical. A
 project may have many local checks, monitor points, or fault paths feeding one
@@ -135,11 +137,14 @@ minimum capsule:      256 bytes
 small default:        512 bytes
 recommended product:  1024 bytes
 persistent DTC:       28 bytes serialized in the C MVP
+lifecycle payload:    16 bytes serialized in the C MVP
 section count:        <= 8
 ```
 
 The first C implementation stores DTC records in an explicit little-endian
-section format. It is intentionally not a raw `struct diag_dtc_snapshot` dump.
+section format and lifecycle/reset counter state in a separate 16-byte
+little-endian section with reserved bytes for future expansion. Neither section
+is a raw C structure dump.
 
 ## Bootloader And Application Sharing
 
@@ -166,7 +171,9 @@ platform-owned mailbox, not in flash by default.
 
 Reset counter persistence must not imply one flash write per boot by default.
 Supported policies should include RAM-only, abnormal-reset-only, every-N resets,
-platform-provided counters, and adapter-managed wear leveling.
+platform-provided counters, and adapter-managed wear leveling. When lifecycle
+state is persisted, a successful load restores the counters as clean RAM state;
+dirty flags are not themselves persisted.
 
 ## Platform Abstraction
 
