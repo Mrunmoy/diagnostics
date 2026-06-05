@@ -184,6 +184,41 @@ Storage APIs should distinguish RAM staging from physical commit. A persistent
 mutation marks state dirty; a save request may return accepted, busy, not accepted,
 failed, or pending depending on the adapter.
 
+## Feature Model
+
+The library is built as a tiny core plus optional feature modules. `diag_init()`
+only creates the core context in caller-owned storage. Feature modules are attached
+afterward:
+
+```c
+struct diag_config config = {0};
+struct diag_context_storage storage = {0};
+struct diag_context *ctx = NULL;
+
+diag_init(&storage, &config, &ctx);
+diag_dtc_attach(ctx, &dtc_config);
+diag_lifecycle_attach(ctx, &lifecycle_config);
+diag_identity_attach(ctx, &identity);
+diag_storage_attach(ctx, &storage_adapter);
+diag_transport_attach(ctx, &transport_adapter);
+```
+
+This keeps `struct diag_config` stable and small. DTC buffers, lifecycle policy,
+identity, storage, and transport resources live with the module that uses them.
+An all-zero module config may be valid, so attached state is tracked explicitly in
+the private context using one `state_flags` bitmask.
+
+Compile-time feature switches remove unused code and private context fields:
+
+```sh
+./build.py test -- DIAG_FEATURE_DTC=OFF DIAG_FEATURE_TRANSPORT=OFF
+```
+
+All features default on. `#if DIAG_FEATURE_*` is intentionally limited to CMake
+source selection, the umbrella header, private context layout, and core
+init/deinit of optional slots. Module algorithms and module public headers should
+stay ordinary C whenever possible.
+
 ## Protocol Boundary
 
 The library owns diagnostic behavior. Protocol parsing and framing sit above or

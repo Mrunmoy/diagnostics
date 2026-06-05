@@ -9,6 +9,38 @@ static bool diag_lifecycle_is_abnormal_reset(enum diag_reset_reason reason)
 }
 
 // clang-format off
+enum diag_result diag_lifecycle_attach(struct diag_context *ctx,
+                                       const struct diag_lifecycle_config *config)
+// clang-format on
+{
+    if (ctx == NULL || config == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    ctx->lifecycle = *config;
+    ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
+    if (config->reset_counter_policy == DIAG_RESET_COUNTER_POLICY_PLATFORM)
+    {
+        ctx->reset_count = config->platform_reset_count;
+    }
+    else
+    {
+        ctx->reset_count = 0u;
+    }
+    ctx->abnormal_reset_count = 0u;
+    ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
+    diag_context_set_state(ctx, DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED);
+
+    return DIAG_OK;
+}
+
+// clang-format off
 enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
                                               enum diag_reset_reason reason)
 // clang-format on
@@ -21,12 +53,17 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    if (!ctx->initialized)
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
     {
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
-    policy = ctx->config.lifecycle.reset_counter_policy;
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    policy = ctx->lifecycle.reset_counter_policy;
     abnormal = diag_lifecycle_is_abnormal_reset(reason);
     ctx->last_reset_reason = reason;
 
@@ -52,8 +89,8 @@ enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
             break;
 
         case DIAG_RESET_COUNTER_POLICY_EVERY_N:
-            if (ctx->config.lifecycle.reset_count_interval != 0u &&
-                (ctx->reset_count % ctx->config.lifecycle.reset_count_interval) == 0u)
+            if (ctx->lifecycle.reset_count_interval != 0u &&
+                (ctx->reset_count % ctx->lifecycle.reset_count_interval) == 0u)
             {
                 ctx->lifecycle_dirty_flags |= DIAG_LIFECYCLE_DIRTY_RESET_COUNTER;
             }
@@ -79,13 +116,18 @@ enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    if (!ctx->initialized)
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED))
     {
         return DIAG_ERROR_NOT_INITIALIZED;
     }
 
     out->last_reset_reason = ctx->last_reset_reason;
-    out->reset_counter_policy = ctx->config.lifecycle.reset_counter_policy;
+    out->reset_counter_policy = ctx->lifecycle.reset_counter_policy;
     out->reset_count = ctx->reset_count;
     out->abnormal_reset_count = ctx->abnormal_reset_count;
     out->dirty_flags = ctx->lifecycle_dirty_flags;
@@ -101,7 +143,12 @@ enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t d
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    if (!ctx->initialized)
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED))
     {
         return DIAG_ERROR_NOT_INITIALIZED;
     }

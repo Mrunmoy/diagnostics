@@ -1,8 +1,36 @@
 #include "diag/storage.h"
 
+#include "diag_context_internal.h"
+
 static int diag_storage_size_is_aligned(size_t size, size_t alignment)
 {
     return (size % alignment) == 0u;
+}
+
+enum diag_result diag_storage_attach(struct diag_context *ctx, const struct diag_storage *storage)
+{
+    enum diag_result result;
+
+    if (ctx == NULL || storage == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    result = diag_storage_validate(storage);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    ctx->storage = *storage;
+    diag_context_set_state(ctx, DIAG_CONTEXT_STATE_STORAGE_ATTACHED);
+
+    return DIAG_OK;
 }
 
 enum diag_result
@@ -92,4 +120,36 @@ enum diag_result diag_storage_clear(const struct diag_storage *storage)
     }
 
     return storage->ops->clear(storage->user);
+}
+
+enum diag_result diag_save(struct diag_context *ctx)
+{
+    if (ctx == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED |
+                                         DIAG_CONTEXT_STATE_STORAGE_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    return DIAG_ERROR_NOT_INITIALIZED;
+}
+
+enum diag_result diag_load(struct diag_context *ctx)
+{
+    if (ctx == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED |
+                                         DIAG_CONTEXT_STATE_STORAGE_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    return DIAG_ERROR_NOT_INITIALIZED;
 }

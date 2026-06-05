@@ -11,6 +11,12 @@ include(GNUInstallDirs)
 
 option(DIAG_BUILD_TESTS "Build diagnostics tests" ON)
 option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
+option(DIAG_FEATURE_DTC "Enable Diagnostic Trouble Code APIs" ON)
+option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
+option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
+option(DIAG_FEATURE_STORAGE "Enable storage adapter APIs" ON)
+option(DIAG_FEATURE_TRANSPORT "Enable transport adapter APIs" ON)
+option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
 
 # The diagnostics core is C99. C++17 is enabled only when building the test
 # suite, which uses GoogleTest. Cross/embedded builds with -DDIAG_BUILD_TESTS=OFF
@@ -19,16 +25,11 @@ if(DIAG_BUILD_TESTS)
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    enable_testing()
 endif()
 
 add_library(diag
-    src/diag_capsule.c
     src/diag_context.c
-    src/diag_dtc.c
-    src/diag_identity.c
-    src/diag_lifecycle.c
-    src/diag_storage.c
-    src/diag_transport.c
 )
 
 add_library(diag::diag ALIAS diag)
@@ -46,6 +47,45 @@ target_include_directories(diag
 
 target_compile_features(diag PUBLIC c_std_99)
 
+foreach(feature
+    DTC
+    LIFECYCLE
+    IDENTITY
+    STORAGE
+    TRANSPORT
+    CAPSULE
+)
+    if(DIAG_FEATURE_${feature})
+        target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=1)
+    else()
+        target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=0)
+    endif()
+endforeach()
+
+if(DIAG_FEATURE_CAPSULE)
+    target_sources(diag PRIVATE src/diag_capsule.c)
+endif()
+
+if(DIAG_FEATURE_DTC)
+    target_sources(diag PRIVATE src/diag_dtc.c)
+endif()
+
+if(DIAG_FEATURE_IDENTITY)
+    target_sources(diag PRIVATE src/diag_identity.c)
+endif()
+
+if(DIAG_FEATURE_LIFECYCLE)
+    target_sources(diag PRIVATE src/diag_lifecycle.c)
+endif()
+
+if(DIAG_FEATURE_STORAGE)
+    target_sources(diag PRIVATE src/diag_storage.c)
+endif()
+
+if(DIAG_FEATURE_TRANSPORT)
+    target_sources(diag PRIVATE src/diag_transport.c)
+endif()
+
 if(MSVC)
     target_compile_options(diag PRIVATE /W4)
 else()
@@ -57,7 +97,6 @@ if(DIAG_BUILD_EXAMPLES)
 endif()
 
 if(DIAG_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
 

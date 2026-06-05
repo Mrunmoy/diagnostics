@@ -8,38 +8,32 @@ extern "C"
 namespace
 {
 
-/** Test harness for reset-policy cases that only need one DTC slot to initialize context. */
+/** Test harness for reset-policy cases using a core context plus lifecycle attach. */
 struct LifecycleFixture
 {
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
-    struct diag_dtc_snapshot    dtc_buffer[1] = {};
 };
 
-struct diag_config make_config(LifecycleFixture &fixture, enum diag_reset_counter_policy policy,
-                               uint32_t every_n)
+void init_lifecycle(LifecycleFixture &fixture, enum diag_reset_counter_policy policy,
+                    uint32_t every_n, uint32_t platform_reset_count = 0u)
 {
-    struct diag_config config = {
-        /* dtc_buffer       */ fixture.dtc_buffer,
-        /* dtc_capacity     */ 1,
-        /* storage          */ {},
-        /* transport        */ {},
-        /* identity         */ {},
-        /* lifecycle        */
-        {
-            /* reset_counter_policy */ policy,
-            /* reset_count_interval */ every_n,
-            /* platform_reset_count */ 0,
-        },
+    const struct diag_config           config = {};
+    const struct diag_lifecycle_config lifecycle_config = {
+        /* reset_counter_policy */ policy,
+        /* reset_count_interval */ every_n,
+        /* platform_reset_count */ platform_reset_count,
     };
 
-    return config;
+    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    ASSERT_EQ(diag_lifecycle_attach(fixture.ctx, &lifecycle_config), DIAG_OK);
 }
 
 TEST(DiagLifecycle, RejectsNullArguments)
 {
     struct diag_lifecycle_snapshot snapshot = {};
 
+    EXPECT_EQ(diag_lifecycle_attach(nullptr, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_lifecycle_observe_reset(nullptr, DIAG_RESET_REASON_POWER_ON),
               DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_lifecycle_get(nullptr, &snapshot), DIAG_ERROR_INVALID_ARGUMENT);
@@ -48,12 +42,28 @@ TEST(DiagLifecycle, RejectsNullArguments)
               DIAG_ERROR_INVALID_ARGUMENT);
 }
 
-TEST(DiagLifecycle, RejectsNullSnapshotWithoutChangingLifecycleState)
+TEST(DiagLifecycle, RejectsAttachAndUseBeforeValidContext)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0);
+    LifecycleFixture                   fixture;
+    const struct diag_config           config = {};
+    const struct diag_lifecycle_config lifecycle_config = {};
+    struct diag_lifecycle_snapshot     snapshot = {};
 
     ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_lifecycle_attach(nullptr, &lifecycle_config), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_lifecycle_attach(fixture.ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_lifecycle_get(fixture.ctx, &snapshot), DIAG_ERROR_NOT_INITIALIZED);
+
+    ASSERT_EQ(diag_deinit(fixture.ctx), DIAG_OK);
+    EXPECT_EQ(diag_lifecycle_attach(fixture.ctx, &lifecycle_config), DIAG_ERROR_NOT_INITIALIZED);
+}
+
+TEST(DiagLifecycle, RejectsNullSnapshotWithoutChangingLifecycleState)
+{
+    LifecycleFixture fixture;
+
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
 
     EXPECT_EQ(diag_lifecycle_get(fixture.ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
@@ -66,10 +76,9 @@ TEST(DiagLifecycle, RejectsNullSnapshotWithoutChangingLifecycleState)
 
 TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_DISABLED, 0);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_DISABLED, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
 
     struct diag_lifecycle_snapshot snapshot = {};
@@ -93,10 +102,9 @@ TEST(DiagLifecycle, DisabledPolicyTracksReasonWithoutDirtyStorage)
 
 TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_SOFTWARE), DIAG_OK);
 
@@ -111,11 +119,9 @@ TEST(DiagLifecycle, RamOnlyPolicyCountsWithoutDirtyStorage)
 
 TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config =
-        make_config(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
 
     struct diag_lifecycle_snapshot snapshot = {};
@@ -134,10 +140,9 @@ TEST(DiagLifecycle, AbnormalOnlyPolicyMarksDirtyForAbnormalReset)
 
 TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_EVERY_N, 3);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_EVERY_N, 3u);
 
     struct diag_lifecycle_snapshot snapshot = {};
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_POWER_ON), DIAG_OK);
@@ -157,11 +162,9 @@ TEST(DiagLifecycle, EveryNPolicyMarksDirtyOnlyAtInterval)
 
 TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 {
-    LifecycleFixture         fixture;
-    const struct diag_config config =
-        make_config(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_ABNORMAL_ONLY, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_FAULT), DIAG_OK);
     ASSERT_EQ(diag_lifecycle_clear_dirty(fixture.ctx, DIAG_LIFECYCLE_DIRTY_RESET_COUNTER), DIAG_OK);
 
@@ -174,11 +177,9 @@ TEST(DiagLifecycle, ClearDirtyResetsPersistenceRequest)
 
 TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)
 {
-    LifecycleFixture   fixture;
-    struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0);
-    config.lifecycle.platform_reset_count = 42;
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0u, 42u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_SOFTWARE), DIAG_OK);
 
     struct diag_lifecycle_snapshot snapshot = {};
@@ -191,10 +192,9 @@ TEST(DiagLifecycle, PlatformPolicyUsesConfiguredPlatformCounter)
 
 TEST(DiagLifecycle, PlatformPolicyDoesNotCountAbnormalResetsInLibrary)
 {
-    LifecycleFixture   fixture;
-    struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0);
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_PLATFORM, 0u);
     ASSERT_EQ(diag_lifecycle_observe_reset(fixture.ctx, DIAG_RESET_REASON_WATCHDOG), DIAG_OK);
 
     struct diag_lifecycle_snapshot snapshot = {};
@@ -209,11 +209,9 @@ TEST(DiagLifecycle, PlatformPolicyDoesNotCountAbnormalResetsInLibrary)
 
 TEST(DiagLifecycle, NonPlatformPolicyIgnoresConfiguredPlatformCounter)
 {
-    LifecycleFixture   fixture;
-    struct diag_config config = make_config(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0);
-    config.lifecycle.platform_reset_count = 42;
+    LifecycleFixture fixture;
 
-    ASSERT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    init_lifecycle(fixture, DIAG_RESET_COUNTER_POLICY_RAM_ONLY, 0u, 42u);
 
     struct diag_lifecycle_snapshot snapshot = {};
     ASSERT_EQ(diag_lifecycle_get(fixture.ctx, &snapshot), DIAG_OK);

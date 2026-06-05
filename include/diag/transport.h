@@ -32,4 +32,11 @@ struct diag_transport
     void *user;
 };
 
+/// Opaque diagnostics context initialized with `diag_init()`.
+struct diag_context;
+
+/// Attach a transport adapter to an initialized diagnostics context.
+enum diag_result diag_transport_attach(struct diag_context         *ctx,
+                                       const struct diag_transport *transport);
+
 #endif
