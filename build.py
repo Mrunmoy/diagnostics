@@ -18,6 +18,9 @@ DEFAULT_PRESET = "linux-debug"
 DEFAULT_LIBRARY_PRESET = "linux-release"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 DOXYFILE = ROOT / "Doxyfile"
+DEFAULT_SIZE_DTC_CAPACITY = 8
+DEFAULT_SIZE_WRITE_ALIGNMENT = 4
+DEFAULT_SIZE_SECTIONS = "dtc,lifecycle"
 FEATURE_NAMES = [
     "DTC",
     "LIFECYCLE",
@@ -158,7 +161,7 @@ def all_checks(args: argparse.Namespace) -> None:
         DEFAULT_INSTALL_PREFIX,
         args.cmake_options,
     )
-    print_size_report(release_preset)
+    print_size_report(release_preset, default_size_config())
     package_test(DEFAULT_INSTALL_PREFIX)
 
 
@@ -168,7 +171,7 @@ def install_library(args: argparse.Namespace) -> None:
 
 def size(args: argparse.Namespace) -> None:
     build_library_for_size_report(args.preset, args.cmake_options)
-    print_size_report(args.preset)
+    print_size_report(args.preset, size_config_from_args(args))
 
 
 def docs(args: argparse.Namespace) -> None:
@@ -203,7 +206,7 @@ def build_library_for_size_report(preset: str, extra_options: list[str]) -> None
     run(["cmake", "--build", "--preset", preset])
 
 
-def print_size_report(preset: str) -> None:
+def print_size_report(preset: str, config: dict[str, object]) -> None:
     build_dir = build_dir_for_preset(preset)
     archive = build_dir / "libdiag.a"
 
@@ -216,6 +219,8 @@ def print_size_report(preset: str) -> None:
     sections = archive_sections(archive)
     features = configured_features(build_dir)
     layout = diagnostic_layout()
+    abi_sizes = host_abi_sizes(build_dir)
+    estimates = resource_estimates(config, features, layout, abi_sizes)
 
     print("")
     print(f"Size report ({preset})")
@@ -231,12 +236,20 @@ def print_size_report(preset: str) -> None:
         unit = "count" if name == "capsule max sections" else "bytes"
         print(f"  {name:<24} {value:>8} {unit}")
     print("")
+    print("Host ABI sizes (bytes)")
+    for name, value in abi_sizes:
+        print(f"  {name:<32} {value:>8}")
+    print("")
+    print("Configured resource estimate")
+    for name, value, unit in estimates:
+        print(f"  {name:<32} {value:>8} {unit}")
+    print("")
     print("Configured features")
     for name in FEATURE_NAMES:
         print(f"  {name:<10} {features.get(name, 'UNKNOWN')}")
     print("")
     print("Notes")
-    print("  DTC RAM is caller-owned: capacity * sizeof(struct diag_dtc_snapshot).")
+    print("  DTC RAM is caller-owned: capacity * host sizeof(struct diag_dtc_snapshot).")
     print("  Capsule staging RAM is caller-owned and provided by the storage adapter.")
 
 
@@ -280,6 +293,134 @@ def configured_features(build_dir: Path) -> dict[str, str]:
 
 def diagnostic_layout() -> list[tuple[str, int]]:
     return [(name, read_macro_u32(path, macro)) for name, path, macro in LAYOUT_MACROS]
+
+
+def host_abi_sizes(build_dir: Path) -> list[tuple[str, int]]:
+    probe = build_dir / "diag_size_probe.c"
+    executable = build_dir / "diag_size_probe"
+    compiler = cmake_cache_value(build_dir, "CMAKE_C_COMPILER") or "cc"
+
+    probe.write_text(
+        textwrap.dedent(
+            """
+            #include <stdio.h>
+
+            #include "diag/context.h"
+            #include "diag/dtc.h"
+            #include "diag/lifecycle.h"
+            #include "diag/storage.h"
+
+            int main(void)
+            {
+                printf("context_storage %zu\\n", sizeof(struct diag_context_storage));
+                printf("dtc_snapshot %zu\\n", sizeof(struct diag_dtc_snapshot));
+                printf("dtc_config %zu\\n", sizeof(struct diag_dtc_config));
+                printf("lifecycle_config %zu\\n", sizeof(struct diag_lifecycle_config));
+                printf("lifecycle_snapshot %zu\\n", sizeof(struct diag_lifecycle_snapshot));
+                printf("storage_adapter %zu\\n", sizeof(struct diag_storage));
+                return 0;
+            }
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+
+    run([compiler, "-std=c99", "-I", str(ROOT / "include"), str(probe), "-o", str(executable)])
+    output = capture([str(executable)])
+
+    sizes: list[tuple[str, int]] = []
+    for line in output.splitlines():
+        name, value = line.split()
+        sizes.append((name.replace("_", " "), int(value)))
+    return sizes
+
+
+def resource_estimates(
+    config: dict[str, object],
+    features: dict[str, str],
+    layout: list[tuple[str, int]],
+    abi_sizes: list[tuple[str, int]],
+) -> list[tuple[str, int, str]]:
+    layout_values = dict(layout)
+    abi_values = dict(abi_sizes)
+    dtc_capacity = int(config["dtc_capacity"])
+    write_alignment = int(config["write_alignment"])
+    requested_sections = set(config["sections"])
+    has_dtc_section = features.get("DTC") == "ON" and "dtc" in requested_sections
+    has_lifecycle_section = features.get("LIFECYCLE") == "ON" and "lifecycle" in requested_sections
+    section_count = int(has_dtc_section) + int(has_lifecycle_section)
+    dtc_payload = (
+        layout_values["DTC payload header"] + (dtc_capacity * layout_values["DTC record"])
+        if has_dtc_section
+        else 0
+    )
+    lifecycle_payload = layout_values["lifecycle payload"] if has_lifecycle_section else 0
+    dtc_runtime_buffer = (
+        dtc_capacity * abi_values["dtc snapshot"] if features.get("DTC") == "ON" else 0
+    )
+    capsule_minimum = layout_values["capsule header"]
+    capsule_minimum += section_count * layout_values["capsule section entry"]
+    capsule_minimum += align_up(dtc_payload, write_alignment)
+    capsule_minimum += align_up(lifecycle_payload, write_alignment)
+    caller_ram = abi_values["context storage"]
+    caller_ram += dtc_runtime_buffer
+
+    return [
+        ("DTC capacity", dtc_capacity, "records"),
+        ("write alignment", write_alignment, "bytes"),
+        ("persisted sections", section_count, "sections"),
+        ("DTC runtime buffer", dtc_runtime_buffer, "bytes"),
+        ("context storage", abi_values["context storage"], "bytes"),
+        ("minimum capsule staging", capsule_minimum, "bytes"),
+        ("estimated caller RAM", caller_ram + capsule_minimum, "bytes"),
+    ]
+
+
+def align_up(value: int, alignment: int) -> int:
+    if alignment <= 1:
+        return value
+    return ((value + alignment - 1) // alignment) * alignment
+
+
+def default_size_config() -> dict[str, object]:
+    return {
+        "dtc_capacity": DEFAULT_SIZE_DTC_CAPACITY,
+        "write_alignment": DEFAULT_SIZE_WRITE_ALIGNMENT,
+        "sections": parse_size_sections(DEFAULT_SIZE_SECTIONS),
+    }
+
+
+def size_config_from_args(args: argparse.Namespace) -> dict[str, object]:
+    if args.dtc_capacity < 0:
+        raise SystemExit("--dtc-capacity must be >= 0")
+    if args.write_alignment < 1:
+        raise SystemExit("--write-alignment must be >= 1")
+
+    return {
+        "dtc_capacity": args.dtc_capacity,
+        "write_alignment": args.write_alignment,
+        "sections": parse_size_sections(args.sections),
+    }
+
+
+def parse_size_sections(value: str) -> list[str]:
+    sections = [section.strip().lower() for section in value.split(",") if section.strip()]
+    valid = {"dtc", "lifecycle"}
+    invalid = sorted(set(sections) - valid)
+    if invalid:
+        raise SystemExit(f"unsupported size report section(s): {', '.join(invalid)}")
+    return sections
+
+
+def cmake_cache_value(build_dir: Path, key: str) -> str | None:
+    cache = build_dir / "CMakeCache.txt"
+    if not cache.exists():
+        return None
+
+    for line in cache.read_text(encoding="utf-8").splitlines():
+        if line.startswith(f"{key}:"):
+            return line.split("=", 1)[1]
+    return None
 
 
 def read_macro_u32(path: Path, name: str) -> int:
@@ -502,6 +643,29 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     size_parser = subcommands.add_parser(
         "size",
         help="Build the release library and print code/data/layout sizes",
+    )
+    size_parser.add_argument(
+        "--dtc-capacity",
+        type=int,
+        default=DEFAULT_SIZE_DTC_CAPACITY,
+        help=f"DTC records to use for RAM/capsule estimates. Default: {DEFAULT_SIZE_DTC_CAPACITY}",
+    )
+    size_parser.add_argument(
+        "--write-alignment",
+        type=int,
+        default=DEFAULT_SIZE_WRITE_ALIGNMENT,
+        help=(
+            "Storage write alignment used for capsule estimates. "
+            f"Default: {DEFAULT_SIZE_WRITE_ALIGNMENT}"
+        ),
+    )
+    size_parser.add_argument(
+        "--sections",
+        default=DEFAULT_SIZE_SECTIONS,
+        help=(
+            "Comma-separated persisted sections to estimate: dtc,lifecycle. "
+            f"Default: {DEFAULT_SIZE_SECTIONS}"
+        ),
     )
     add_common_build_args(size_parser, DEFAULT_LIBRARY_PRESET)
     size_parser.set_defaults(func=size)
