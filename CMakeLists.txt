@@ -25,16 +25,11 @@ if(DIAG_BUILD_TESTS)
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    enable_testing()
 endif()
 
 add_library(diag
-    src/diag_capsule.c
     src/diag_context.c
-    src/diag_dtc.c
-    src/diag_identity.c
-    src/diag_lifecycle.c
-    src/diag_storage.c
-    src/diag_transport.c
 )
 
 add_library(diag::diag ALIAS diag)
@@ -67,6 +62,30 @@ foreach(feature
     endif()
 endforeach()
 
+if(DIAG_FEATURE_CAPSULE)
+    target_sources(diag PRIVATE src/diag_capsule.c)
+endif()
+
+if(DIAG_FEATURE_DTC)
+    target_sources(diag PRIVATE src/diag_dtc.c)
+endif()
+
+if(DIAG_FEATURE_IDENTITY)
+    target_sources(diag PRIVATE src/diag_identity.c)
+endif()
+
+if(DIAG_FEATURE_LIFECYCLE)
+    target_sources(diag PRIVATE src/diag_lifecycle.c)
+endif()
+
+if(DIAG_FEATURE_STORAGE)
+    target_sources(diag PRIVATE src/diag_storage.c)
+endif()
+
+if(DIAG_FEATURE_TRANSPORT)
+    target_sources(diag PRIVATE src/diag_transport.c)
+endif()
+
 if(MSVC)
     target_compile_options(diag PRIVATE /W4)
 else()
@@ -78,7 +97,6 @@ if(DIAG_BUILD_EXAMPLES)
 endif()
 
 if(DIAG_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
 

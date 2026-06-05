@@ -10,6 +10,16 @@ extern "C"
 namespace
 {
 
+struct diag_dtc_config make_dtc_config(struct diag_dtc_snapshot *records, size_t capacity)
+{
+    struct diag_dtc_config config = {};
+
+    config.records = records;
+    config.capacity = capacity;
+
+    return config;
+}
+
 /** Initializes a small fixed-capacity DTC store for public API behavior tests. */
 struct DtcFixture : public testing::Test
 {
@@ -19,17 +29,48 @@ struct DtcFixture : public testing::Test
 
     void SetUp() override
     {
-        const struct diag_config config = {
-            /* dtc_buffer   */ dtc_buffer.data(),
-            /* dtc_capacity */ dtc_buffer.size(),
-            /* storage      */ {},
-            /* transport    */ {},
-        };
+        const struct diag_config     config = {};
+        const struct diag_dtc_config dtc_config =
+            make_dtc_config(dtc_buffer.data(), dtc_buffer.size());
 
         ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+        ASSERT_EQ(diag_dtc_attach(ctx, &dtc_config), DIAG_OK);
         ASSERT_NE(ctx, nullptr);
     }
 };
+
+TEST(DiagDtcAttach, RejectsInvalidArguments)
+{
+    struct diag_context_storage             storage = {};
+    struct diag_context                    *ctx = nullptr;
+    std::array<struct diag_dtc_snapshot, 1> dtc_buffer = {};
+    const struct diag_config                config = {};
+    const struct diag_dtc_config missing_buffer = make_dtc_config(nullptr, dtc_buffer.size());
+    const struct diag_dtc_config missing_capacity = make_dtc_config(dtc_buffer.data(), 0u);
+    const struct diag_dtc_config valid_config =
+        make_dtc_config(dtc_buffer.data(), dtc_buffer.size());
+
+    ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_attach(nullptr, &valid_config), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_attach(ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_attach(ctx, &missing_buffer), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_dtc_attach(ctx, &missing_capacity), DIAG_ERROR_INVALID_ARGUMENT);
+
+    ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
+    EXPECT_EQ(diag_dtc_attach(ctx, &valid_config), DIAG_ERROR_NOT_INITIALIZED);
+}
+
+TEST(DiagDtc, RejectsUseBeforeAttach)
+{
+    struct diag_context_storage storage = {};
+    struct diag_context        *ctx = nullptr;
+    const struct diag_config    config = {};
+
+    ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_dtc_register(ctx, 1u, DIAG_DTC_SEVERITY_ERROR), DIAG_ERROR_NOT_INITIALIZED);
+}
 
 TEST(DiagDtc, RejectsInvalidArguments)
 {
@@ -338,12 +379,14 @@ struct CycleContext
 
     CycleContext(uint8_t confirmation_threshold, uint16_t aging_threshold)
     {
-        struct diag_config config = {};
-        config.dtc_buffer = buffer.data();
-        config.dtc_capacity = buffer.size();
-        config.dtc.confirmation_threshold = confirmation_threshold;
-        config.dtc.aging_threshold = aging_threshold;
+        struct diag_config     config = {};
+        struct diag_dtc_config dtc_config = {};
+        dtc_config.records = buffer.data();
+        dtc_config.capacity = buffer.size();
+        dtc_config.confirmation_threshold = confirmation_threshold;
+        dtc_config.aging_threshold = aging_threshold;
         EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+        EXPECT_EQ(diag_dtc_attach(ctx, &dtc_config), DIAG_OK);
     }
 };
 

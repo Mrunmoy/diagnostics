@@ -47,28 +47,20 @@ TEST(DiagIdentity, GetsIdentityConfiguredOnContext)
 {
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
-    struct diag_dtc_snapshot    dtc_buffer[1];
-    // clang-format off
-    const struct diag_config    config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-        /* identity */
-        {
-            /* ecosystem_id       */ 0x0001u,
-            /* product_id         */ 0x0002u,
-            /* device_type        */ 0x0003u,
-            /* device_instance    */ 0x04u,
-            /* firmware_stage     */ 0x05u,
-            /* firmware_component */ 0x06u,
-            /* reserved           */ 0u,
-        },
+    const struct diag_config    config = {};
+    const struct diag_identity  configured_identity = {
+         /* ecosystem_id       */ 0x0001u,
+        /* product_id         */ 0x0002u,
+        /* device_type        */ 0x0003u,
+        /* device_instance    */ 0x04u,
+        /* firmware_stage     */ 0x05u,
+        /* firmware_component */ 0x06u,
+        /* reserved           */ 0u,
     };
-    // clang-format on
     struct diag_identity identity = {};
 
     ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+    ASSERT_EQ(diag_identity_attach(ctx, &configured_identity), DIAG_OK);
     EXPECT_EQ(diag_identity_get(ctx, &identity), DIAG_OK);
     EXPECT_EQ(identity.ecosystem_id, 0x0001u);
     EXPECT_EQ(identity.product_id, 0x0002u);
@@ -87,18 +79,29 @@ TEST(DiagIdentity, RejectsInvalidGetArguments)
     EXPECT_EQ(diag_identity_get(nullptr, &identity), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(diag_identity_get(ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
 
-    struct diag_dtc_snapshot dtc_buffer[1];
-    const struct diag_config config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-        /* identity     */ {},
-    };
+    const struct diag_config config = {};
 
     ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
     EXPECT_EQ(diag_deinit(ctx), DIAG_OK);
     EXPECT_EQ(diag_identity_get(ctx, &identity), DIAG_ERROR_NOT_INITIALIZED);
+}
+
+TEST(DiagIdentity, RejectsAttachAndGetBeforeValidContext)
+{
+    struct diag_context_storage storage = {};
+    struct diag_context        *ctx = nullptr;
+    const struct diag_config    config = {};
+    const struct diag_identity  identity = {};
+    struct diag_identity        out = {};
+
+    ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
+
+    EXPECT_EQ(diag_identity_attach(nullptr, &identity), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_identity_attach(ctx, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_identity_get(ctx, &out), DIAG_ERROR_NOT_INITIALIZED);
+
+    ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
+    EXPECT_EQ(diag_identity_attach(ctx, &identity), DIAG_ERROR_NOT_INITIALIZED);
 }
 
 TEST(DiagIdentity, ComparesAllFields)

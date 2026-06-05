@@ -12,68 +12,43 @@ extern "C"
 namespace
 {
 
-TEST(DiagContextInit, RejectsNullArguments)
+struct ContextFixture
 {
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = nullptr;
-    struct diag_dtc_snapshot    dtc_buffer[1];
-    // clang-format off
-    const struct diag_config    config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-    // clang-format on
+};
 
-    EXPECT_EQ(diag_init(nullptr, &config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
-    EXPECT_EQ(diag_init(&storage, nullptr, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
-    EXPECT_EQ(diag_init(&storage, &config, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+struct diag_config make_valid_config(ContextFixture &fixture)
+{
+    struct diag_config config = {};
+    (void)fixture;
+
+    return config;
+}
+
+TEST(DiagContextInit, RejectsNullArguments)
+{
+    ContextFixture           fixture;
+    const struct diag_config config = make_valid_config(fixture);
+
+    EXPECT_EQ(diag_init(nullptr, &config, &fixture.ctx), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_init(&fixture.storage, nullptr, &fixture.ctx), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_init(&fixture.storage, &config, nullptr), DIAG_ERROR_INVALID_ARGUMENT);
 }
 
 TEST(DiagContextInit, AcceptsValidConfiguration)
 {
-    struct diag_context_storage storage = {};
-    struct diag_context        *ctx = nullptr;
-    struct diag_dtc_snapshot    dtc_buffer[2];
-    // clang-format off
-    const struct diag_config    config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 2,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-    // clang-format on
+    ContextFixture           fixture;
+    const struct diag_config config = make_valid_config(fixture);
 
-    EXPECT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
-    EXPECT_NE(ctx, nullptr);
-    EXPECT_EQ(diag_deinit(ctx), DIAG_OK);
+    EXPECT_EQ(diag_init(&fixture.storage, &config, &fixture.ctx), DIAG_OK);
+    EXPECT_NE(fixture.ctx, nullptr);
+    EXPECT_EQ(diag_deinit(fixture.ctx), DIAG_OK);
 }
 
 TEST(DiagContextLifetime, DeinitRejectsNullContext)
 {
     EXPECT_EQ(diag_deinit(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
-}
-
-TEST(DiagContextLifetime, DeinitInvalidatesContextForApiUse)
-{
-    struct diag_context_storage storage = {};
-    struct diag_context        *ctx = nullptr;
-    struct diag_dtc_snapshot    dtc_buffer[1];
-    // clang-format off
-    const struct diag_config    config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-    // clang-format on
-    struct diag_identity identity = {};
-
-    ASSERT_EQ(diag_init(&storage, &config, &ctx), DIAG_OK);
-    ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
-
-    EXPECT_EQ(diag_identity_get(ctx, &identity), DIAG_ERROR_NOT_INITIALIZED);
 }
 
 TEST(DiagContextStorage, IsAlignedForOpaqueContext)
@@ -91,14 +66,9 @@ TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
     alignas(DIAG_CONTEXT_STORAGE_ALIGN)
         uint8_t raw[sizeof(struct diag_context_storage) + DIAG_CONTEXT_STORAGE_ALIGN] = {};
     // clang-format on
+    ContextFixture           fixture;
     struct diag_context     *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
-    struct diag_dtc_snapshot dtc_buffer[1];
-    const struct diag_config config = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
+    const struct diag_config config = make_valid_config(fixture);
 
     auto *misaligned_storage = reinterpret_cast<struct diag_context_storage *>(&raw[1]);
 
@@ -108,46 +78,14 @@ TEST(DiagContextInit, RejectsMisalignedStorageWithoutDereferencingIt)
     EXPECT_EQ(ctx, nullptr);
 }
 
-TEST(DiagContextInit, RejectsInvalidDtcStorage)
-{
-    struct diag_context_storage storage = {};
-    struct diag_context        *ctx = nullptr;
-
-    const struct diag_config missing_buffer = {
-        /* dtc_buffer   */ nullptr,
-        /* dtc_capacity */ 1,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-
-    struct diag_dtc_snapshot dtc_buffer[1];
-    const struct diag_config missing_capacity = {
-        /* dtc_buffer   */ dtc_buffer,
-        /* dtc_capacity */ 0,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-
-    EXPECT_EQ(diag_init(&storage, &missing_buffer, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
-    EXPECT_EQ(diag_init(&storage, &missing_capacity, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
-}
-
 TEST(DiagContextInit, ClearsOutContextOnFailure)
 {
     // A failed init must leave the out-parameter in a known state so a stale
     // pointer from a previous successful init cannot be reused by accident.
     struct diag_context_storage storage = {};
     struct diag_context        *ctx = reinterpret_cast<struct diag_context *>(0xDEADBEEF);
-    // clang-format off
-    const struct diag_config    bad_config = {
-        /* dtc_buffer   */ nullptr,
-        /* dtc_capacity */ 0,
-        /* storage      */ {},
-        /* transport    */ {},
-    };
-    // clang-format on
 
-    EXPECT_EQ(diag_init(&storage, &bad_config, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
+    EXPECT_EQ(diag_init(&storage, nullptr, &ctx), DIAG_ERROR_INVALID_ARGUMENT);
     EXPECT_EQ(ctx, nullptr);
 }
 

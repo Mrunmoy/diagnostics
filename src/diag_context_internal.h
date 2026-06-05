@@ -2,19 +2,81 @@
 #define DIAG_CONTEXT_INTERNAL_H
 
 #include <stddef.h>
+#include <stdint.h>
+
+#include "diag/features.h"
+
+#if DIAG_FEATURE_DTC
+#include "diag/dtc.h"
+#endif
+
+#if DIAG_FEATURE_IDENTITY
+#include "diag/identity.h"
+#endif
+
+#if DIAG_FEATURE_LIFECYCLE
+#include "diag/lifecycle.h"
+#endif
+
+#if DIAG_FEATURE_STORAGE
+#include "diag/storage.h"
+#endif
+
+#if DIAG_FEATURE_TRANSPORT
+#include "diag/transport.h"
+#endif
 
 #include "diag/context.h"
 
+enum diag_context_state_flag
+{
+    DIAG_CONTEXT_STATE_INITIALIZED = 1u << 0u,
+    DIAG_CONTEXT_STATE_DTC_ATTACHED = 1u << 1u,
+    DIAG_CONTEXT_STATE_IDENTITY_ATTACHED = 1u << 2u,
+    DIAG_CONTEXT_STATE_LIFECYCLE_ATTACHED = 1u << 3u,
+    DIAG_CONTEXT_STATE_STORAGE_ATTACHED = 1u << 4u,
+    DIAG_CONTEXT_STATE_TRANSPORT_ATTACHED = 1u << 5u
+};
+
 struct diag_context
 {
-    struct diag_config config;
+    uint32_t state_flags;
+#if DIAG_FEATURE_DTC
+    struct diag_dtc_config dtc;
     size_t dtc_count;
+#endif
+#if DIAG_FEATURE_IDENTITY
+    struct diag_identity identity;
+#endif
+#if DIAG_FEATURE_LIFECYCLE
+    struct diag_lifecycle_config lifecycle;
     enum diag_reset_reason last_reset_reason;
     uint32_t reset_count;
     uint32_t abnormal_reset_count;
     uint32_t lifecycle_dirty_flags;
-    bool initialized;
+#endif
+#if DIAG_FEATURE_STORAGE
+    struct diag_storage storage;
+#endif
+#if DIAG_FEATURE_TRANSPORT
+    struct diag_transport transport;
+#endif
 };
+
+static inline int diag_context_has_state(const struct diag_context *ctx, uint32_t state_flags)
+{
+    return (ctx->state_flags & state_flags) == state_flags;
+}
+
+static inline void diag_context_set_state(struct diag_context *ctx, uint32_t state_flags)
+{
+    ctx->state_flags |= state_flags;
+}
+
+static inline void diag_context_clear_state(struct diag_context *ctx, uint32_t state_flags)
+{
+    ctx->state_flags &= ~state_flags;
+}
 
 // Portable C99 alignment probe: the offset of a member placed after a single
 // char equals that member type's alignment. Avoids __alignof__, which is a

@@ -66,6 +66,12 @@ struct diag_storage
     struct diag_storage_capabilities capabilities;
 };
 
+/// Opaque diagnostics context initialized with `diag_init()`.
+struct diag_context;
+
+/// Attach a storage adapter to an initialized diagnostics context.
+enum diag_result diag_storage_attach(struct diag_context *ctx, const struct diag_storage *storage);
+
 /// Validate storage capability values.
 enum diag_result
 diag_storage_validate_capabilities(const struct diag_storage_capabilities *capabilities);
@@ -85,5 +91,17 @@ enum diag_result diag_storage_save(const struct diag_storage *storage, const uin
 
 /// Invoke the adapter clear callback after validating the adapter.
 enum diag_result diag_storage_clear(const struct diag_storage *storage);
+
+/// Save persistent diagnostic state through the attached storage adapter.
+///
+/// The current C MVP does not yet implement context-level persistence and
+/// returns `DIAG_ERROR_NOT_INITIALIZED`.
+enum diag_result diag_save(struct diag_context *ctx);
+
+/// Load persistent diagnostic state through the attached storage adapter.
+///
+/// The current C MVP does not yet implement context-level persistence and
+/// returns `DIAG_ERROR_NOT_INITIALIZED`.
+enum diag_result diag_load(struct diag_context *ctx);
 
 #endif

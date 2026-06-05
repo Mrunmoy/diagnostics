@@ -1,5 +1,10 @@
 /// @file
 /// Compile-time feature switches for the diagnostics C API.
+///
+/// These switches shape public API declarations, public configuration layout,
+/// private context layout, and compiled source files. Build the diagnostics
+/// library and every including application translation unit with the same
+/// values.
 
 #ifndef DIAG_FEATURES_H
 #define DIAG_FEATURES_H

@@ -19,8 +19,7 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
         *out_ctx = NULL;
     }
 
-    if (context_storage == NULL || config == NULL || out_ctx == NULL ||
-        config->dtc_buffer == NULL || config->dtc_capacity == 0)
+    if (context_storage == NULL || config == NULL || out_ctx == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
@@ -31,20 +30,31 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
     }
 
     ctx = (struct diag_context *)(void *)context_storage;
-    ctx->initialized = true;
-    ctx->config = *config;
+    (void)config;
+    ctx->state_flags = DIAG_CONTEXT_STATE_INITIALIZED;
+#if DIAG_FEATURE_DTC
+    ctx->dtc.records = NULL;
+    ctx->dtc.capacity = 0u;
+    ctx->dtc.confirmation_threshold = 0u;
+    ctx->dtc.aging_threshold = 0u;
     ctx->dtc_count = 0u;
+#endif
+#if DIAG_FEATURE_IDENTITY
+    ctx->identity = (struct diag_identity){0};
+#endif
+#if DIAG_FEATURE_LIFECYCLE
+    ctx->lifecycle = (struct diag_lifecycle_config){0};
     ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
-    if (config->lifecycle.reset_counter_policy == DIAG_RESET_COUNTER_POLICY_PLATFORM)
-    {
-        ctx->reset_count = config->lifecycle.platform_reset_count;
-    }
-    else
-    {
-        ctx->reset_count = 0u;
-    }
+    ctx->reset_count = 0u;
     ctx->abnormal_reset_count = 0u;
     ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
+#endif
+#if DIAG_FEATURE_STORAGE
+    ctx->storage = (struct diag_storage){0};
+#endif
+#if DIAG_FEATURE_TRANSPORT
+    ctx->transport = (struct diag_transport){0};
+#endif
     *out_ctx = ctx;
 
     return DIAG_OK;
@@ -57,24 +67,30 @@ enum diag_result diag_deinit(struct diag_context *ctx)
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    ctx->initialized = false;
+    ctx->state_flags = 0u;
+#if DIAG_FEATURE_DTC
+    ctx->dtc.records = NULL;
+    ctx->dtc.capacity = 0u;
+    ctx->dtc.confirmation_threshold = 0u;
+    ctx->dtc.aging_threshold = 0u;
     ctx->dtc_count = 0u;
+#endif
+#if DIAG_FEATURE_IDENTITY
+    ctx->identity = (struct diag_identity){0};
+#endif
+#if DIAG_FEATURE_LIFECYCLE
+    ctx->lifecycle = (struct diag_lifecycle_config){0};
     ctx->last_reset_reason = DIAG_RESET_REASON_UNKNOWN;
     ctx->reset_count = 0u;
     ctx->abnormal_reset_count = 0u;
     ctx->lifecycle_dirty_flags = DIAG_LIFECYCLE_DIRTY_NONE;
+#endif
+#if DIAG_FEATURE_STORAGE
+    ctx->storage = (struct diag_storage){0};
+#endif
+#if DIAG_FEATURE_TRANSPORT
+    ctx->transport = (struct diag_transport){0};
+#endif
 
     return DIAG_OK;
-}
-
-enum diag_result diag_save(struct diag_context *ctx)
-{
-    (void)ctx;
-    return DIAG_ERROR_NOT_INITIALIZED;
-}
-
-enum diag_result diag_load(struct diag_context *ctx)
-{
-    (void)ctx;
-    return DIAG_ERROR_NOT_INITIALIZED;
 }

@@ -14,14 +14,29 @@ FetchContent_MakeAvailable(googletest)
 
 # Test files are C++ (GoogleTest) and link the C99 library under test.
 add_executable(diag_tests
-    test_capsule.cpp
     test_context.cpp
     test_features.cpp
-    test_storage.cpp
-    test_dtc.cpp
-    test_identity.cpp
-    test_lifecycle.cpp
 )
+
+if(DIAG_FEATURE_CAPSULE)
+    target_sources(diag_tests PRIVATE test_capsule.cpp)
+endif()
+
+if(DIAG_FEATURE_DTC)
+    target_sources(diag_tests PRIVATE test_dtc.cpp)
+endif()
+
+if(DIAG_FEATURE_IDENTITY)
+    target_sources(diag_tests PRIVATE test_identity.cpp)
+endif()
+
+if(DIAG_FEATURE_LIFECYCLE)
+    target_sources(diag_tests PRIVATE test_lifecycle.cpp)
+endif()
+
+if(DIAG_FEATURE_STORAGE)
+    target_sources(diag_tests PRIVATE test_storage.cpp)
+endif()
 
 target_link_libraries(diag_tests
     PRIVATE

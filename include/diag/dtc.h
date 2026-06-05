@@ -37,6 +37,10 @@ typedef uint32_t diag_local_fault_id_t;
 /// `struct diag_dtc_config` keeps standard behavior.
 struct diag_dtc_config
 {
+    /// Fixed array used by the context for registered DTC records.
+    struct diag_dtc_snapshot *records;
+    /// Number of entries available in `records`; must be nonzero.
+    size_t capacity;
     /// Consecutive failed operation cycles needed to set `DIAG_DTC_STATUS_CONFIRMED`.
     uint8_t confirmation_threshold;
     /// Consecutive clean operation cycles needed to age a confirmed DTC back to clear.
@@ -110,6 +114,13 @@ struct diag_dtc_snapshot
 
 /// Opaque diagnostics context initialized with `diag_init()`.
 struct diag_context;
+
+/// Attach caller-owned DTC storage and thresholds to an initialized context.
+///
+/// Registration consumes entries from `config->records`. The array must remain
+/// valid and writable until `diag_deinit()` completes or DTC storage is attached
+/// again with a different buffer.
+enum diag_result diag_dtc_attach(struct diag_context *ctx, const struct diag_dtc_config *config);
 
 /// Register a DTC using the DTC ID as its local fault ID.
 ///

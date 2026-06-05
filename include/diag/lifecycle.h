@@ -86,6 +86,10 @@ struct diag_lifecycle_snapshot
 struct diag_context;
 
 // clang-format off
+/// Attach lifecycle/reset counter policy to an initialized diagnostics context.
+enum diag_result diag_lifecycle_attach(struct diag_context *ctx,
+                                       const struct diag_lifecycle_config *config);
+
 /// Record one platform-observed reset reason.
 ///
 /// The function updates RAM counters and dirty flags according to policy. It

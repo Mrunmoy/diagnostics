@@ -10,10 +10,34 @@ static enum diag_result diag_dtc_validate_context(const struct diag_context *ctx
         return DIAG_ERROR_INVALID_ARGUMENT;
     }
 
-    if (!ctx->initialized)
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
     {
         return DIAG_ERROR_NOT_INITIALIZED;
     }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_DTC_ATTACHED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    return DIAG_OK;
+}
+
+enum diag_result diag_dtc_attach(struct diag_context *ctx, const struct diag_dtc_config *config)
+{
+    if (ctx == NULL || config == NULL || config->records == NULL || config->capacity == 0u)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (!diag_context_has_state(ctx, DIAG_CONTEXT_STATE_INITIALIZED))
+    {
+        return DIAG_ERROR_NOT_INITIALIZED;
+    }
+
+    ctx->dtc = *config;
+    ctx->dtc_count = 0u;
+    diag_context_set_state(ctx, DIAG_CONTEXT_STATE_DTC_ATTACHED);
 
     return DIAG_OK;
 }
@@ -25,7 +49,7 @@ static enum diag_result diag_dtc_find_index(const struct diag_context *ctx, diag
 
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        const struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+        const struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
 
         if (record->id == id)
         {
@@ -45,7 +69,7 @@ static enum diag_result diag_dtc_find_fault_index(const struct diag_context *ctx
 
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        const struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+        const struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
 
         if (record->local_fault_id == local_fault_id)
         {
@@ -145,12 +169,12 @@ enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
         return DIAG_ERROR_ALREADY_EXISTS;
     }
 
-    if (ctx->dtc_count >= ctx->config.dtc_capacity)
+    if (ctx->dtc_count >= ctx->dtc.capacity)
     {
         return DIAG_ERROR_CAPACITY;
     }
 
-    record = &ctx->config.dtc_buffer[ctx->dtc_count];
+    record = &ctx->dtc.records[ctx->dtc_count];
     record->id = id;
     record->local_fault_id = local_fault_id;
     record->severity = severity;
@@ -185,7 +209,7 @@ enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id)
         return result;
     }
 
-    record = &ctx->config.dtc_buffer[index];
+    record = &ctx->dtc.records[index];
     diag_dtc_mark_test_failed(record);
 
     return DIAG_OK;
@@ -208,7 +232,7 @@ enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t i
         return result;
     }
 
-    diag_dtc_mark_test_passed(&ctx->config.dtc_buffer[index]);
+    diag_dtc_mark_test_passed(&ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -233,7 +257,7 @@ enum diag_result diag_dtc_set_fault_test_failed(struct diag_context *ctx,
         return result;
     }
 
-    diag_dtc_mark_test_failed(&ctx->config.dtc_buffer[index]);
+    diag_dtc_mark_test_failed(&ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -258,7 +282,7 @@ enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
         return result;
     }
 
-    diag_dtc_mark_test_passed(&ctx->config.dtc_buffer[index]);
+    diag_dtc_mark_test_passed(&ctx->dtc.records[index]);
 
     return DIAG_OK;
 }
@@ -282,7 +306,7 @@ enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id)
         return result;
     }
 
-    record = &ctx->config.dtc_buffer[index];
+    record = &ctx->dtc.records[index];
     changed = record->active || record->status != 0u;
     if (changed)
     {
@@ -310,7 +334,7 @@ enum diag_result diag_dtc_clear_all(struct diag_context *ctx)
 
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+        struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
 
         if (record->active || record->status != 0u)
         {
@@ -344,7 +368,7 @@ enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t 
         return result;
     }
 
-    record = &ctx->config.dtc_buffer[index];
+    record = &ctx->dtc.records[index];
     record->occurrence_count = 0u;
     record->active_count = 0u;
     record->clear_count = 0u;
@@ -377,7 +401,7 @@ enum diag_result diag_dtc_get(const struct diag_context *ctx, diag_dtc_id_t id,
         return result;
     }
 
-    *out = ctx->config.dtc_buffer[index];
+    *out = ctx->dtc.records[index];
     return DIAG_OK;
 }
 
@@ -407,7 +431,7 @@ enum diag_result diag_dtc_get_by_fault(const struct diag_context *ctx,
         return result;
     }
 
-    *out = ctx->config.dtc_buffer[index];
+    *out = ctx->dtc.records[index];
     return DIAG_OK;
 }
 
@@ -434,7 +458,7 @@ enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id
         return result;
     }
 
-    *out_status = ctx->config.dtc_buffer[index].status;
+    *out_status = ctx->dtc.records[index].status;
     return DIAG_OK;
 }
 
@@ -463,7 +487,7 @@ enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_s
 
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        out[i] = ctx->config.dtc_buffer[i];
+        out[i] = ctx->dtc.records[i];
     }
 
     return DIAG_OK;
@@ -482,13 +506,13 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
         return result;
     }
 
-    confirmation_threshold = ctx->config.dtc.confirmation_threshold;
+    confirmation_threshold = ctx->dtc.confirmation_threshold;
     if (confirmation_threshold == 0u)
     {
         confirmation_threshold = DIAG_DTC_DEFAULT_CONFIRMATION_THRESHOLD;
     }
 
-    aging_threshold = ctx->config.dtc.aging_threshold;
+    aging_threshold = ctx->dtc.aging_threshold;
     if (aging_threshold == 0u)
     {
         aging_threshold = DIAG_DTC_DEFAULT_AGING_THRESHOLD;
@@ -496,7 +520,7 @@ enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx)
 
     for (i = 0u; i < ctx->dtc_count; ++i)
     {
-        struct diag_dtc_snapshot *record = &ctx->config.dtc_buffer[i];
+        struct diag_dtc_snapshot *record = &ctx->dtc.records[i];
 
         if (record->failed_this_cycle)
         {

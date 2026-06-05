@@ -50,6 +50,10 @@ extern "C"
     enum diag_result diag_identity_copy(const struct diag_identity *identity,
                                         struct diag_identity *out_identity);
 
+    /// Attach compact numeric identity to an initialized diagnostics context.
+    enum diag_result diag_identity_attach(struct diag_context *ctx,
+                                          const struct diag_identity *identity);
+
     /// Copy the identity configured for an initialized diagnostics context.
     enum diag_result diag_identity_get(const struct diag_context *ctx,
                                        struct diag_identity *out_identity);

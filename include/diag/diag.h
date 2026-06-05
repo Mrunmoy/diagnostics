@@ -16,15 +16,33 @@
 #ifndef DIAG_DIAG_H
 #define DIAG_DIAG_H
 
-#include "diag/capsule.h"
 #include "diag/compiler.h"
-#include "diag/context.h"
-#include "diag/dtc.h"
 #include "diag/features.h"
-#include "diag/identity.h"
-#include "diag/lifecycle.h"
+#include "diag/context.h"
 #include "diag/result.h"
+
+#if DIAG_FEATURE_CAPSULE
+#include "diag/capsule.h"
+#endif
+
+#if DIAG_FEATURE_DTC
+#include "diag/dtc.h"
+#endif
+
+#if DIAG_FEATURE_IDENTITY
+#include "diag/identity.h"
+#endif
+
+#if DIAG_FEATURE_LIFECYCLE
+#include "diag/lifecycle.h"
+#endif
+
+#if DIAG_FEATURE_STORAGE
 #include "diag/storage.h"
+#endif
+
+#if DIAG_FEATURE_TRANSPORT
 #include "diag/transport.h"
+#endif
 
 #endif
