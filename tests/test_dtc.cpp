@@ -109,6 +109,38 @@ TEST_F(DtcFixture, RegistersAndGetsDtc)
     EXPECT_EQ(snapshot.clear_count, 0u);
 }
 
+TEST_F(DtcFixture, AttachStartsWithCleanPersistentState)
+{
+    uint32_t dirty_flags = UINT32_MAX;
+
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
+}
+
+TEST_F(DtcFixture, RegisterMarksDtcDirty)
+{
+    uint32_t dirty_flags = DIAG_DIRTY_NONE;
+
+    ASSERT_EQ(diag_dtc_register(ctx, 0x1234u, DIAG_DTC_SEVERITY_CRITICAL), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_DTC);
+}
+
+TEST_F(DtcFixture, ReadOnlyListDoesNotDirtyCleanContext)
+{
+    std::array<struct diag_dtc_snapshot, 1> out = {};
+    size_t                                  count = 99u;
+    uint32_t                                dirty_flags = UINT32_MAX;
+
+    ASSERT_EQ(diag_dtc_list(ctx, out.data(), out.size(), &count), DIAG_OK);
+    ASSERT_EQ(diag_get_dirty_flags(ctx, &dirty_flags), DIAG_OK);
+
+    EXPECT_EQ(count, 0u);
+    EXPECT_EQ(dirty_flags, DIAG_DIRTY_NONE);
+}
+
 TEST_F(DtcFixture, RejectsNullOutputArguments)
 {
     struct diag_dtc_snapshot snapshot = {};

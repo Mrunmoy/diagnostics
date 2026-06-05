@@ -92,6 +92,23 @@ struct diag_storage make_storage(FakeStorage *fake)
     return storage;
 }
 
+/** Initializes a context with a fake storage adapter for context-level save/load tests. */
+struct StorageContextFixture : public testing::Test
+{
+    FakeStorage                 fake = {};
+    struct diag_context_storage context_storage = {};
+    struct diag_context        *ctx = nullptr;
+    struct diag_storage         storage = make_storage(&fake);
+
+    void SetUp() override
+    {
+        const struct diag_config config = {};
+
+        ASSERT_EQ(diag_init(&context_storage, &config, &ctx), DIAG_OK);
+        ASSERT_EQ(diag_storage_attach(ctx, &storage), DIAG_OK);
+    }
+};
+
 TEST(DiagStorageCapabilities, RejectsInvalidArguments)
 {
     const struct diag_storage_capabilities zero_alignment = {
@@ -248,6 +265,36 @@ TEST(DiagStorageOps, LoadClearsBytesReadBeforeAdapterFailure)
               DIAG_ERROR_CAPACITY);
     EXPECT_EQ(fake.load_calls, 1u);
     EXPECT_EQ(loaded_size, 0u);
+}
+
+TEST(DiagContextSave, RejectsInvalidOrUnattachedContext)
+{
+    struct diag_context_storage context_storage = {};
+    struct diag_context        *ctx = nullptr;
+    const struct diag_config    config = {};
+
+    EXPECT_EQ(diag_save(nullptr), DIAG_ERROR_INVALID_ARGUMENT);
+
+    ASSERT_EQ(diag_init(&context_storage, &config, &ctx), DIAG_OK);
+    EXPECT_EQ(diag_save(ctx), DIAG_ERROR_NOT_INITIALIZED);
+
+    ASSERT_EQ(diag_deinit(ctx), DIAG_OK);
+    EXPECT_EQ(diag_save(ctx), DIAG_ERROR_NOT_INITIALIZED);
+}
+
+TEST_F(StorageContextFixture, SaveCleanContextDoesNotCallAdapter)
+{
+    EXPECT_EQ(diag_save(ctx), DIAG_OK);
+
+    EXPECT_EQ(fake.save_calls, 0u);
+    EXPECT_EQ(fake.fake_flash_writes, 0u);
+}
+
+TEST_F(StorageContextFixture, LoadRemainsUnsupportedForContextCapsule)
+{
+    EXPECT_EQ(diag_load(ctx), DIAG_ERROR_NOT_INITIALIZED);
+
+    EXPECT_EQ(fake.load_calls, 0u);
 }
 
 } // namespace
