@@ -34,6 +34,7 @@ Use the build wrapper for common workflows:
 ./build.py test --preset linux-asan
 ./build.py all
 ./build.py all --dtc-capacity 16 --write-alignment 16
+./build.py feature-matrix
 ./build.py format --check
 ./build.py clean
 ```
@@ -41,7 +42,8 @@ Use the build wrapper for common workflows:
 `./build.py all` is the main local gate. It runs format checking, debug tests,
 ASAN/UBSAN tests, release library installation, and a generated CMake package
 consumption smoke test. Its size report accepts the same product-sizing options
-as `./build.py size`.
+as `./build.py size`. It also runs the feature matrix, which builds supported
+feature profiles and checks disabled feature symbols are not exported from `libdiag.a`.
 
 Pass CMake cache options after `--`:
 

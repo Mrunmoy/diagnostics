@@ -353,6 +353,7 @@ Use `build.py` for local, Docker, and CI workflows:
 ./build.py all --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
 ./build.py size
 ./build.py size --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
+./build.py feature-matrix
 ./build.py test --preset linux-asan
 ./build.py build -- DIAG_BUILD_EXAMPLES=OFF
 docker compose run --rm diagnostics-dev
@@ -365,7 +366,10 @@ prints `.text`, `.rodata`, `.data`, `.bss`, enabled feature switches, and fixed
 diagnostic layout constants. The size command also estimates caller-owned DTC RAM
 and minimum capsule staging bytes from `--dtc-capacity`, `--write-alignment`, and
 `--sections`; `./build.py all` uses the same options for its final report.
-Generated artifacts must stay under `build/`.
+`./build.py feature-matrix` builds representative core-only, runtime-DTC,
+persistent-diagnostics, and full profiles. Each profile runs the applicable tests
+and examples, prints a release size report, and fails if disabled feature symbols
+remain exported from `libdiag.a`. Generated artifacts must stay under `build/`.
 
 CI runs on PRs and pushes targeting `c` and `cpp`. Protected branches require PR
 review and passing CI before merge.

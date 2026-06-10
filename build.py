@@ -30,6 +30,76 @@ FEATURE_NAMES = [
     "TRANSPORT",
     "CAPSULE",
 ]
+FEATURE_SOURCE_SYMBOLS = {
+    "CAPSULE": ["diag_capsule_"],
+    "DTC": ["diag_dtc_"],
+    "IDENTITY": ["diag_identity_"],
+    "LIFECYCLE": ["diag_lifecycle_"],
+    "STORAGE": ["diag_storage_"],
+    "TRANSPORT": ["diag_transport_"],
+}
+FEATURE_REQUIRED_SYMBOLS = {
+    "CAPSULE": ["diag_capsule_crc32"],
+    "DTC": ["diag_dtc_attach"],
+    "IDENTITY": ["diag_identity_attach"],
+    "LIFECYCLE": ["diag_lifecycle_attach"],
+    "STORAGE": ["diag_storage_attach"],
+    "TRANSPORT": ["diag_transport_attach"],
+}
+FEATURE_MATRIX_PROFILES = [
+    {
+        "name": "core-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "TRANSPORT": False,
+            "CAPSULE": False,
+        },
+        "dtc_capacity": 0,
+        "sections": "",
+    },
+    {
+        "name": "runtime-dtc",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "TRANSPORT": False,
+            "CAPSULE": False,
+        },
+        "dtc_capacity": 8,
+        "sections": "",
+    },
+    {
+        "name": "persistent-diagnostics",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": True,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "TRANSPORT": False,
+            "CAPSULE": True,
+        },
+        "dtc_capacity": 8,
+        "sections": "dtc,lifecycle",
+    },
+    {
+        "name": "full",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": True,
+            "IDENTITY": True,
+            "STORAGE": True,
+            "TRANSPORT": True,
+            "CAPSULE": True,
+        },
+        "dtc_capacity": 8,
+        "sections": "dtc,lifecycle",
+    },
+]
 SIZE_SECTIONS = [
     ".text",
     ".rodata",
@@ -164,6 +234,12 @@ def all_checks(args: argparse.Namespace) -> None:
     )
     print_size_report(release_preset, size_config_from_args(args))
     package_test(DEFAULT_INSTALL_PREFIX)
+    feature_matrix(
+        argparse.Namespace(
+            preset=args.preset,
+            cmake_options=args.cmake_options,
+        )
+    )
 
 
 def install_library(args: argparse.Namespace) -> None:
@@ -173,6 +249,26 @@ def install_library(args: argparse.Namespace) -> None:
 def size(args: argparse.Namespace) -> None:
     build_library_for_size_report(args.preset, args.cmake_options)
     print_size_report(args.preset, size_config_from_args(args))
+
+
+def feature_matrix(args: argparse.Namespace) -> None:
+    family = preset_family(args.preset)
+
+    print("")
+    print("Feature matrix")
+    for profile in FEATURE_MATRIX_PROFILES:
+        name = str(profile["name"])
+        profile_options = feature_profile_options(profile)
+        debug_preset = f"{family}-debug"
+        release_preset = f"{family}-release"
+        options = [*args.cmake_options, *profile_options]
+
+        print("")
+        print(f"Profile: {name}")
+        test_preset(debug_preset, options)
+        build_library_for_size_report(release_preset, options)
+        assert_feature_symbols_match_profile(release_preset, profile)
+        print_size_report(release_preset, size_config_from_profile(profile))
 
 
 def docs(args: argparse.Namespace) -> None:
@@ -273,6 +369,58 @@ def archive_sections(archive: Path) -> dict[str, int]:
             sections[bucket] += int(columns[1])
 
     return sections
+
+
+def archive_symbols(archive: Path) -> list[str]:
+    nm_tool = resolve_nm_tool()
+    output = capture([nm_tool, "-g", str(archive)])
+    symbols: list[str] = []
+
+    for line in output.splitlines():
+        columns = line.split()
+        if len(columns) >= 3:
+            symbols.append(columns[-1])
+
+    return symbols
+
+
+def assert_feature_symbols_match_profile(preset: str, profile: dict[str, object]) -> None:
+    archive = build_dir_for_preset(preset) / "libdiag.a"
+    symbols = archive_symbols(archive)
+    features = profile["features"]
+    assert isinstance(features, dict)
+
+    for feature in FEATURE_NAMES:
+        if features.get(feature) is True:
+            assert_enabled_feature_symbols_present(symbols, feature, profile)
+            continue
+        assert_disabled_feature_symbols_absent(archive, symbols, feature, profile)
+
+
+def assert_enabled_feature_symbols_present(
+    symbols: list[str], feature: str, profile: dict[str, object]
+) -> None:
+    missing = [symbol for symbol in FEATURE_REQUIRED_SYMBOLS[feature] if symbol not in symbols]
+    if missing:
+        joined = ", ".join(missing)
+        raise SystemExit(
+            f"profile '{profile['name']}' enabled {feature}, but libdiag.a does not export {joined}"
+        )
+
+
+def assert_disabled_feature_symbols_absent(
+    archive: Path, symbols: list[str], feature: str, profile: dict[str, object]
+) -> None:
+    prefixes = FEATURE_SOURCE_SYMBOLS[feature]
+    leaked = sorted(
+        {symbol for symbol in symbols for prefix in prefixes if symbol.startswith(prefix)}
+    )
+    if leaked:
+        joined = ", ".join(leaked[:5])
+        raise SystemExit(
+            f"profile '{profile['name']}' disabled {feature}, but {archive.relative_to(ROOT)} "
+            f"still exports {joined}"
+        )
 
 
 def section_bucket(section: str) -> str | None:
@@ -476,6 +624,25 @@ def add_size_estimate_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def feature_profile_options(profile: dict[str, object]) -> list[str]:
+    features = profile["features"]
+    assert isinstance(features, dict)
+
+    options: list[str] = []
+    for feature in FEATURE_NAMES:
+        value = "ON" if features[feature] else "OFF"
+        options.append(f"DIAG_FEATURE_{feature}={value}")
+    return options
+
+
+def size_config_from_profile(profile: dict[str, object]) -> dict[str, object]:
+    return {
+        "dtc_capacity": int(profile["dtc_capacity"]),
+        "write_alignment": DEFAULT_SIZE_WRITE_ALIGNMENT,
+        "sections": parse_size_sections(str(profile["sections"])),
+    }
+
+
 def size_config_from_args(args: argparse.Namespace) -> dict[str, object]:
     if args.dtc_capacity < 0:
         raise SystemExit("--dtc-capacity must be >= 0")
@@ -630,6 +797,17 @@ def resolve_size_tool() -> str:
     )
 
 
+def resolve_nm_tool() -> str:
+    path = shutil.which(os.environ.get("NM") or "nm")
+    if path:
+        return path
+
+    raise SystemExit(
+        "GNU nm is required to validate feature resource contracts. Install binutils, "
+        "or set NM to a compatible nm tool."
+    )
+
+
 def format_code(args: argparse.Namespace) -> None:
     clang_format = resolve_clang_format()
 
@@ -734,6 +912,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     add_size_estimate_args(size_parser)
     add_common_build_args(size_parser, DEFAULT_LIBRARY_PRESET)
     size_parser.set_defaults(func=size)
+
+    feature_matrix_parser = subcommands.add_parser(
+        "feature-matrix",
+        help="Build feature profiles and validate resource contracts",
+    )
+    add_common_build_args(feature_matrix_parser, DEFAULT_PRESET)
+    feature_matrix_parser.set_defaults(func=feature_matrix)
 
     docs_parser = subcommands.add_parser("docs", help="Generate Doxygen API documentation")
     docs_parser.add_argument(
