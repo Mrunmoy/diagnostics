@@ -64,6 +64,7 @@ Use `build.py` as the preferred entry point:
 ./build.py test --preset linux-asan
 ./build.py size               # build release library and print resource usage
 ./build.py size --dtc-capacity 16 --write-alignment 16
+./build.py feature-matrix     # validate feature profiles and disabled-code contracts
 ./build.py format             # apply clang-format
 ./build.py format --check     # verify formatting
 ./build.py clean              # remove one preset build directory
