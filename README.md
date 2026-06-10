@@ -33,13 +33,15 @@ Use the build wrapper for common workflows:
 ./build.py test
 ./build.py test --preset linux-asan
 ./build.py all
+./build.py all --dtc-capacity 16 --write-alignment 16
 ./build.py format --check
 ./build.py clean
 ```
 
 `./build.py all` is the main local gate. It runs format checking, debug tests,
 ASAN/UBSAN tests, release library installation, and a generated CMake package
-consumption smoke test.
+consumption smoke test. Its size report accepts the same product-sizing options
+as `./build.py size`.
 
 Pass CMake cache options after `--`:
 

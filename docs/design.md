@@ -350,6 +350,7 @@ Use `build.py` for local, Docker, and CI workflows:
 
 ```sh
 ./build.py all
+./build.py all --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
 ./build.py size
 ./build.py size --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
 ./build.py test --preset linux-asan
@@ -363,7 +364,8 @@ package-consumption smoke test. `./build.py size` builds the release library and
 prints `.text`, `.rodata`, `.data`, `.bss`, enabled feature switches, and fixed
 diagnostic layout constants. The size command also estimates caller-owned DTC RAM
 and minimum capsule staging bytes from `--dtc-capacity`, `--write-alignment`, and
-`--sections`. Generated artifacts must stay under `build/`.
+`--sections`; `./build.py all` uses the same options for its final report.
+Generated artifacts must stay under `build/`.
 
 CI runs on PRs and pushes targeting `c` and `cpp`. Protected branches require PR
 review and passing CI before merge.

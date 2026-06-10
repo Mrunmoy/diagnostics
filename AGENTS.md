@@ -59,6 +59,7 @@ Use `build.py` as the preferred entry point:
 ```sh
 ./build.py build              # configure and build with linux-debug
 ./build.py all                # format check, debug tests, ASAN tests, library install
+./build.py all --dtc-capacity 16 --write-alignment 16
 ./build.py test               # build and run the GoogleTest suite
 ./build.py test --preset linux-asan
 ./build.py size               # build release library and print resource usage
