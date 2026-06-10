@@ -220,7 +220,7 @@ def print_size_report(preset: str, config: dict[str, object]) -> None:
     sections = archive_sections(archive)
     features = configured_features(build_dir)
     layout = diagnostic_layout()
-    abi_sizes, abi_warning = host_abi_sizes(build_dir, features)
+    abi_sizes, abi_warning = native_abi_sizes(build_dir, features)
     estimates = resource_estimates(config, features, layout, abi_sizes)
 
     print("")
@@ -301,7 +301,7 @@ def diagnostic_layout() -> list[tuple[str, int]]:
     return [(name, read_macro_u32(path, macro)) for name, path, macro in LAYOUT_MACROS]
 
 
-def host_abi_sizes(build_dir: Path, features: dict[str, str]) -> tuple[list[tuple[str, int]], str | None]:
+def native_abi_sizes(build_dir: Path, features: dict[str, str]) -> tuple[list[tuple[str, int]], str | None]:
     probe = build_dir / "diag_size_probe.c"
     executable = build_dir / "diag_size_probe"
     compiler = cmake_cache_value(build_dir, "CMAKE_C_COMPILER") or "cc"
@@ -416,9 +416,11 @@ def resource_estimates(
     lifecycle_payload = layout_values["lifecycle payload"] if has_lifecycle_section else 0
     dtc_snapshot_size = abi_values.get("dtc snapshot")
     context_storage_size = abi_values.get("context storage")
-    dtc_runtime_buffer = 0
-    if features.get("DTC") == "ON" and dtc_snapshot_size is not None:
-        dtc_runtime_buffer = dtc_capacity * dtc_snapshot_size
+    dtc_runtime_buffer: object = 0
+    if features.get("DTC") == "ON":
+        dtc_runtime_buffer = (
+            dtc_capacity * dtc_snapshot_size if dtc_snapshot_size is not None else "unavailable"
+        )
     capsule_minimum = layout_values["capsule header"]
     capsule_minimum += section_count * layout_values["capsule section entry"]
     capsule_minimum += align_up(dtc_payload, write_alignment)
@@ -428,19 +430,17 @@ def resource_estimates(
         ("write alignment", write_alignment, "bytes"),
         ("persisted sections", section_count, "sections"),
         ("minimum capsule staging", capsule_minimum, "bytes"),
+        ("DTC runtime buffer", dtc_runtime_buffer, "bytes"),
+        (
+            "context storage",
+            context_storage_size if context_storage_size is not None else "unavailable",
+            "bytes",
+        ),
     ]
-    if dtc_snapshot_size is not None:
-        estimates.append(("DTC runtime buffer", dtc_runtime_buffer, "bytes"))
-    if context_storage_size is not None:
-        estimates.append(("context storage", context_storage_size, "bytes"))
-    if dtc_snapshot_size is not None and context_storage_size is not None:
-        estimates.append(
-            (
-                "estimated caller RAM",
-                context_storage_size + dtc_runtime_buffer + capsule_minimum,
-                "bytes",
-            )
-        )
+    estimated_caller_ram: object = "unavailable"
+    if context_storage_size is not None and isinstance(dtc_runtime_buffer, int):
+        estimated_caller_ram = context_storage_size + dtc_runtime_buffer + capsule_minimum
+    estimates.append(("estimated caller RAM", estimated_caller_ram, "bytes"))
     return estimates
 
 
