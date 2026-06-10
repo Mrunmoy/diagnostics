@@ -43,7 +43,7 @@ Use the build wrapper for common workflows:
 ASAN/UBSAN tests, release library installation, and a generated CMake package
 consumption smoke test. Its size report accepts the same product-sizing options
 as `./build.py size`. It also runs the feature matrix, which builds supported
-feature profiles and checks disabled feature symbols are absent from `libdiag.a`.
+feature profiles and checks disabled feature symbols are not exported from `libdiag.a`.
 
 Pass CMake cache options after `--`:
 

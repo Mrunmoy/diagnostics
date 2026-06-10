@@ -412,7 +412,9 @@ def assert_disabled_feature_symbols_absent(
     archive: Path, symbols: list[str], feature: str, profile: dict[str, object]
 ) -> None:
     prefixes = FEATURE_SOURCE_SYMBOLS[feature]
-    leaked = sorted(symbol for symbol in symbols for prefix in prefixes if symbol.startswith(prefix))
+    leaked = sorted(
+        {symbol for symbol in symbols for prefix in prefixes if symbol.startswith(prefix)}
+    )
     if leaked:
         joined = ", ".join(leaked[:5])
         raise SystemExit(
