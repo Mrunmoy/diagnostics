@@ -1,24 +1,22 @@
 # Runtime DTC Example
 
-## Use Case
+Use this when you want to understand the DTC state machine without the noise of
+identity, lifecycle, storage, or transport. It is the smallest example that
+shows real diagnostic behavior.
 
-An embedded application needs bounded runtime fault tracking but does not need to
-persist those faults after reset.
+DTCs are more than fault flags. A record can be active, pending, confirmed, and
+later aged out by operation cycles. The library maintains the status byte and
+counters while your firmware decides when a monitor passes or fails.
 
-## Enabled Features
+## What To Notice
 
-- `DIAG_FEATURE_DTC=ON`
-- `DIAG_FEATURE_LIFECYCLE=OFF`
-- `DIAG_FEATURE_IDENTITY=OFF`
-- `DIAG_FEATURE_STORAGE=OFF`
-- `DIAG_FEATURE_TRANSPORT=OFF`
-- `DIAG_FEATURE_CAPSULE=OFF`
+- The DTC table is a fixed caller-owned array.
+- Duplicate registration and capacity are controlled by the library.
+- Active/inactive updates do not call storage.
+- `diag_dtc_operation_cycle()` is the boundary where pending and confirmed state
+  advances.
 
-## Why This Configuration
-
-The DTC buffer is caller-owned RAM. Registration, status updates, counters, and
-operation-cycle confirmation work without any storage adapter, so there are no
-hidden flash writes.
+Use this profile as a first step before deciding which DTCs deserve persistence.
 
 ## Build And Run
 
@@ -34,4 +32,5 @@ hidden flash writes.
 ./build/linux-debug/examples/diag_dtc_example
 ```
 
-The program exits with status `0` after confirming one RAM-only DTC.
+Success means one RAM-only DTC was registered, updated, and confirmed through an
+operation cycle.

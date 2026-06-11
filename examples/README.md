@@ -1,31 +1,45 @@
 # Examples
 
-Each example is a small reference integration for a generic embedded product
-profile. Start with the closest use case, copy the feature switches, then replace
-the fake storage or transport callbacks with platform code.
+The examples are meant to answer a practical question: "Which parts of this
+library should my firmware actually use?"
 
-| Example | Use case | Main features | Persistence |
-|---------|----------|---------------|-------------|
-| `basic` | smallest context lifetime smoke test | core only | none |
-| `sensor_node` | simple sensor device with runtime faults | DTC, identity | none |
-| `io_module` | module discovered over a project transport | identity, transport | none |
-| `dtc` | DTC API behavior in RAM | DTC | none |
-| `lifecycle` | reset counter policy without storage | lifecycle | none |
-| `identity` | compact device/product identity | identity | none |
-| `adapters` | storage and transport callback wiring | storage, transport | adapter-owned |
-| `process_controller` | confirmed process faults | DTC, lifecycle, storage, capsule | explicit |
-| `industrial_oven` | critical thermal/reset diagnostics | DTC, lifecycle, identity, storage, capsule | explicit |
-| `bootloader_app_shared` | separate bootloader and application banks | DTC, lifecycle, storage, capsule | explicit |
-| `ecu_node` | complete embedded node profile | all features | explicit |
+Each directory is a small product-shaped integration. Read the one closest to
+your use case, then inspect its `main.c` to see the exact API calls.
 
-Run all examples enabled by a profile through CTest:
+| Example | Start here when... | Main lesson |
+|---------|--------------------|-------------|
+| `basic` | You only want to prove the library links and owns no heap. | Context lifetime with all optional modules disabled. |
+| `sensor_node` | You need a few runtime faults and a compact identity. | RAM-only DTCs keep footprint low and avoid storage writes. |
+| `dtc` | You want to understand DTC behavior before adding persistence. | Registration, active/inactive updates, counters, and operation cycles. |
+| `lifecycle` | Reset reason or reset counters matter. | Reset tracking can stay RAM-only or request persistence by policy. |
+| `identity` | A host tool needs to identify a device. | Firmware stores compact numeric IDs; host catalogs own strings. |
+| `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
+| `process_controller` | Only confirmed important faults should survive restart. | Confirmation thresholds and explicit capsule saves reduce flash churn. |
+| `industrial_oven` | Critical thermal/reset state must be serviceable after restart. | Persist important DTC and lifecycle state, not every transient event. |
+| `bootloader_app_shared` | Bootloader and application both report diagnostics. | Separate capsule banks avoid raw struct sharing and ownership fights. |
+| `ecu_node` | You want the complete library surface in one place. | DTC, lifecycle, identity, storage, transport, and capsule working together. |
+
+## How To Use These
+
+1. Pick the closest scenario.
+2. Read its README before reading `main.c`.
+3. Build the feature profile shown there.
+4. Replace the fake monitors, storage, or transport callbacks with platform code.
+5. Run `./build.py size` with your planned DTC capacity and storage alignment.
+
+Run every example enabled by a full-feature build:
 
 ```sh
-./build.py test -- DIAG_FEATURE_DTC=ON DIAG_FEATURE_LIFECYCLE=ON DIAG_FEATURE_IDENTITY=ON \
-  DIAG_FEATURE_STORAGE=ON DIAG_FEATURE_TRANSPORT=ON DIAG_FEATURE_CAPSULE=ON
+./build.py test -- \
+  DIAG_FEATURE_DTC=ON \
+  DIAG_FEATURE_LIFECYCLE=ON \
+  DIAG_FEATURE_IDENTITY=ON \
+  DIAG_FEATURE_STORAGE=ON \
+  DIAG_FEATURE_TRANSPORT=ON \
+  DIAG_FEATURE_CAPSULE=ON
 ```
 
-Inspect footprint by profile:
+Inspect feature and memory impact:
 
 ```sh
 ./build.py feature-matrix

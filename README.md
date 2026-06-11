@@ -1,41 +1,158 @@
 # Generic Diagnostics Library
 
-A transport-agnostic C diagnostics library inspired by UDS concepts, but not tied
-to CAN, ISO-TP, or any specific bus.
+A small C99 diagnostics core for embedded firmware that needs fault tracking,
+reset history, device identity, and optional persistence without being tied to
+CAN, ISO-TP, flash drivers, filesystems, or an RTOS.
 
-The goal is to provide a small, portable diagnostic core that embedded
-applications can connect to their own:
+This library is for products that eventually need to answer questions like:
 
-- transport layer: CAN, UART, TCP, BLE, SPI, test harness, etc.
-- storage layer: RAM, flash, EEPROM, filesystem, database, etc.
-- protocol framing: project-specific binary protocol, UDS-like protocol, JSON,
-  or any other command format.
+- What fault happened, and is it still active?
+- Is the fault pending, confirmed, or aging out?
+- How many times did it occur or clear?
+- Did the device reset abnormally?
+- Which product, device type, and instance reported the problem?
+- Which diagnostic state should survive a reset, and when is it safe to write it?
 
-## Branches
+`libdiag` owns the diagnostic state machine. Your firmware owns the platform.
+You decide how faults are detected, where bytes are stored, how messages are
+framed, and when storage writes are allowed.
 
-- `main` is intentionally empty.
-- `c` contains the C99 embedded implementation.
-- `cpp` is reserved for the parallel C++17 implementation.
+## Why This Exists
 
-Start on `c`:
+Many embedded projects start with a few fault flags and later grow into a mix of
+runtime errors, persistent trouble codes, reset counters, service tools, and
+bootloader/application handoff state. That usually becomes product-specific code
+that is hard to reuse and easy to tie to one bus or storage device.
 
-```sh
-git checkout c
+This project keeps those concerns separated:
+
+- The core tracks DTC state, counters, operation-cycle behavior, lifecycle state,
+  and compact identity.
+- Storage and transport are callback interfaces supplied by the application.
+- Persistence uses an explicit serialized capsule, not raw C structures.
+- Runtime memory is caller-owned and fixed at initialization.
+- Feature switches remove unused modules from constrained builds.
+
+No heap. No hidden flash writes. No platform locks. No protocol assumption.
+
+## Mental Model
+
+Your application monitors real conditions. When something crosses a threshold,
+it reports that fact to `libdiag`. The library updates bounded RAM state and
+marks persistent sections dirty when needed. Later, at a time your product
+chooses, you can save the dirty state through your storage adapter.
+
+```mermaid
+graph LR
+    APP["Application monitors<br/>temperature, voltage, watchdog, sensors"]
+    CTX["diag_context<br/>caller-owned RAM"]
+    DTC["DTC module<br/>pending, confirmed, aging, counters"]
+    LIFE["Lifecycle module<br/>reset reason and reset counters"]
+    ID["Identity module<br/>compact numeric identity"]
+    CAPS["Capsule<br/>versioned persistent byte format"]
+    STORE["Your storage adapter<br/>flash, EEPROM, RAM, file"]
+    TRANS["Your transport adapter<br/>CAN, UART, TCP, BLE, test harness"]
+    TOOL["Your protocol/tooling<br/>UDS-like, binary, JSON, custom"]
+
+    APP -->|"diag_dtc_set_active()<br/>diag_lifecycle_observe_reset()"| CTX
+    CTX --> DTC
+    CTX --> LIFE
+    CTX --> ID
+    DTC -->|"dirty flag"| CAPS
+    LIFE -->|"dirty flag"| CAPS
+    CAPS -->|"diag_save() / diag_load()"| STORE
+    TOOL --> TRANS
+    TRANS -.-> CTX
 ```
 
-## What You Get
+The important boundary is this: setting a fault never writes flash. Fault paths
+update RAM. Persistence happens only when your firmware calls `diag_save()`.
 
-- fixed-capacity DTC registration, status, counters, and operation-cycle aging
-- lifecycle/reset counter policy without hidden write-on-boot behavior
-- compact numeric device identity
-- storage and transport adapter interfaces
-- explicit capsule persistence for bootloader/application sharing
-- compile-time feature switches for smaller embedded builds
-- Docker/devcontainer, ASAN, Doxygen, size reports, and feature-matrix checks
+## What You Provide
+
+| You provide | Why |
+|-------------|-----|
+| Fault monitors | The library does not know your hardware limits or safety rules. |
+| Caller-owned memory | Context storage, DTC arrays, and capsule buffers are supplied by you. |
+| Operation-cycle timing | You decide what a meaningful cycle means for the product. |
+| Storage callbacks | Flash, EEPROM, files, RAM, and wear-leveling policy are platform concerns. |
+| Transport callbacks | CAN, UART, TCP, BLE, and test harnesses all fit behind the same shape. |
+| Protocol/framing layer | The library is not a UDS server; it provides state for one if you build it. |
+
+## What The Library Provides
+
+| Library surface | What it gives you |
+|-----------------|-------------------|
+| `diag_context` | The opaque runtime home for enabled modules. |
+| DTC module | Fixed-capacity trouble codes, status bits, counters, confirmation, aging. |
+| Lifecycle module | Reset reason handling and reset counter policies without write-on-boot defaults. |
+| Identity module | Numeric ecosystem/product/device identity for host-side catalogs. |
+| Storage module | Explicit load/save/clear adapter contract. |
+| Capsule module | Versioned, CRC-protected persistence format for DTC and lifecycle sections. |
+| Transport module | Minimal send/receive adapter hook for your diagnostic protocol layer. |
+
+## First Integration
+
+Start with RAM-only DTCs. This proves the core model without storage, transport,
+or persistence:
+
+```c
+#include <diag/diag.h>
+
+static struct diag_context_storage context_storage;
+static struct diag_dtc_snapshot    dtc_records[4];
+
+struct diag_context *ctx = NULL;
+struct diag_config config = {0};
+
+diag_init(&context_storage, &config, &ctx);
+
+struct diag_dtc_config dtc_config = {
+    .records = dtc_records,
+    .capacity = 4u,
+};
+
+diag_dtc_attach(ctx, &dtc_config);
+diag_dtc_register(ctx, 0x010001u, DIAG_DTC_SEVERITY_ERROR);
+
+if (sensor_reading_is_invalid())
+{
+    diag_dtc_set_active(ctx, 0x010001u);
+}
+else
+{
+    diag_dtc_set_inactive(ctx, 0x010001u);
+}
+
+diag_dtc_operation_cycle(ctx);
+```
+
+That is enough to get a bounded DTC record with UDS-style status behavior and no
+storage writes. Add lifecycle, identity, storage, capsule, or transport only
+when the product needs them.
+
+## Choose A Starting Example
+
+The examples are not just build samples; each one represents a product shape and
+an embedded tradeoff. Start with the closest scenario:
+
+| If your product needs... | Read this first | Why |
+|--------------------------|-----------------|-----|
+| A tiny link/lifetime check | `examples/basic` | Shows the smallest possible context integration. |
+| A few runtime faults that reset on power cycle | `examples/sensor_node` | DTC + identity with no persistence cost. |
+| Local DTC behavior only | `examples/dtc` | Focuses on registration, active state, counters, and operation cycles. |
+| Reset reason/counter policy | `examples/lifecycle` | Shows reset tracking without forcing flash writes. |
+| Numeric device identity only | `examples/identity` | Useful when host tooling owns names and catalogs. |
+| Callback contracts | `examples/adapters` | Shows how storage and transport adapters are shaped. |
+| Confirmed faults that survive restart | `examples/process_controller` | Adds capsule persistence for important confirmed state. |
+| Critical thermal/reset diagnostics | `examples/industrial_oven` | Persists only important service data. |
+| Separate bootloader and app diagnostics | `examples/bootloader_app_shared` | Uses separate capsule banks instead of shared raw structs. |
+| A full embedded node profile | `examples/ecu_node` | Exercises identity, DTCs, lifecycle, storage, transport, and capsule. |
+
+Each example README explains when to use that profile, what code to inspect, why
+features are disabled, and what the output means.
 
 ## Quick Start
-
-Clone, select the C branch, and run the full local gate:
 
 ```sh
 git clone https://github.com/Mrunmoy/diagnostics.git
@@ -46,61 +163,31 @@ git checkout c
 
 If you prefer SSH, use `git@github.com:Mrunmoy/diagnostics.git`.
 
-Common workflows:
+Useful commands:
 
 ```sh
 ./build.py build
 ./build.py test
 ./build.py test --preset linux-asan
 ./build.py all
-./build.py all --dtc-capacity 16 --write-alignment 16
 ./build.py feature-matrix
+./build.py size --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
 ./build.py format --check
+./build.py library
 ./build.py clean
 ```
 
-`./build.py all` is the main local gate. It runs format checking, debug tests,
-ASAN/UBSAN tests, release library installation, and a generated CMake package
-consumption smoke test. Its size report accepts the same product-sizing options
-as `./build.py size`. It also runs the feature matrix, which builds supported
-feature profiles and checks disabled feature symbols are not exported from `libdiag.a`.
-
-Pass CMake cache options after `--`:
+Pass CMake options after `--`:
 
 ```sh
-./build.py build -- DIAG_BUILD_EXAMPLES=OFF
-./build.py all -- DIAG_BUILD_EXAMPLES=OFF
+./build.py build -- DIAG_FEATURE_DTC=ON DIAG_FEATURE_STORAGE=OFF
 ```
 
-## Pick A Feature Profile
+`./build.py all` is the main local gate. It runs formatting checks, debug tests,
+ASAN/UBSAN tests, release installation, package-consumption smoke tests, size
+reporting, and the feature matrix.
 
-Examples are the fastest way to choose a configuration:
-
-```sh
-cd examples
-```
-
-Start with:
-
-- `examples/basic` for the smallest core-only integration.
-- `examples/sensor_node` for RAM-only DTCs and identity.
-- `examples/io_module` for identity plus transport only.
-- `examples/process_controller` for confirmed persistent DTCs.
-- `examples/industrial_oven` for critical DTCs plus lifecycle persistence.
-- `examples/bootloader_app_shared` for separate bootloader/application banks.
-- `examples/ecu_node` for a complete embedded node profile.
-
-Each example has its own `README.md` with exact feature switches, build command,
-benefits, and expected output.
-
-Build installable library output for another CMake project:
-
-```sh
-./build.py library
-```
-
-This produces headers, `libdiag.a`, and CMake package files under
-`build/install/diag`.
+## Docker And VS Code
 
 Build and test in Docker:
 
@@ -109,30 +196,14 @@ docker compose build
 docker compose run --rm diagnostics-dev
 ```
 
-Open in VS Code Dev Containers:
-
-1. Install the VS Code Dev Containers extension.
-2. Run `Dev Containers: Reopen in Container`.
-3. Use the CMake extension, or run the tasks:
-   - `CMake: build container debug`
-   - `CTest: container debug`
-4. Use the debug configurations:
-   - `Debug diagnostics tests`
-   - `Debug basic example`
-
-Or run CMake directly inside the container or on a Linux host:
-
-```sh
-cmake --preset linux-debug
-cmake --build --preset linux-debug
-ctest --preset linux-debug
-```
-
-Inside the devcontainer, use the container preset:
+Inside the devcontainer, use:
 
 ```sh
 ./build.py all --preset container-debug
 ```
+
+VS Code users can open the repository in the Dev Containers extension and use
+the provided CMake, CTest, and debug configurations.
 
 ## Repository Layout
 
@@ -141,11 +212,11 @@ Inside the devcontainer, use the container preset:
 ├── cmake/                  # CMake helper modules
 ├── .devcontainer/          # VS Code Dev Container definition
 ├── .vscode/                # Build, test, and debug tasks
-├── docs/                   # Single design document
-├── examples/               # Example adapters and usage
-├── include/diag/           # Public library API
+├── docs/design.md          # Single design source of truth
+├── examples/               # Scenario-focused reference integrations
+├── include/diag/           # Public C API
 ├── src/                    # Library implementation
-├── tests/                  # TDD tests
+├── tests/                  # GoogleTest behavior tests
 ├── tools/docker/           # Docker build/test image
 ├── CMakeLists.txt
 ├── CMakePresets.json
@@ -153,13 +224,10 @@ Inside the devcontainer, use the container preset:
 └── README.md
 ```
 
-## Intended Downstream Use
+## Downstream Use
 
-Applications can consume this repository as a Git submodule and link `diag`.
-Concrete storage and transport implementations should live in the consuming
-project unless they are generic examples.
-
-Example:
+Most embedded projects should consume this repository as a submodule and keep
+their concrete adapters in the application tree:
 
 ```text
 application
@@ -183,24 +251,20 @@ find_package(diag CONFIG REQUIRED)
 target_link_libraries(app PRIVATE diag::diag)
 ```
 
-## Design Principles
-
-- Diagnostic logic must not depend on CAN, sockets, filesystems, or RTOS APIs.
-- All platform behavior is injected through small interfaces.
-- Public APIs must be usable from embedded C projects.
-- Dynamic allocation is not used by the core.
-- All runtime capacity is caller-provided and fixed at initialization.
-- Tests define behavior before implementation.
-- Adapters are examples, not required dependencies.
-
 ## Branch Strategy
 
-The repository shape is:
-
 - `main`: intentionally empty or documentation-only landing branch.
-- `c`: embedded C implementation.
-- `cpp`: embedded C++ implementation.
+- `c`: embedded C99 implementation.
+- `cpp`: reserved for the parallel C++17 implementation.
 
-Both implementation branches should target constrained embedded systems. The C++
-branch should not assume exceptions, RTTI, heap allocation, or the full standard
-library unless explicitly enabled by configuration.
+Public behavior should eventually exist on both implementation branches, each in
+the idiom of that language.
+
+## Going Deeper
+
+- [docs/design.md](docs/design.md) explains the architecture, capsule format,
+  storage contract, protocol boundary, bootloader/application sharing model, and
+  resource policy.
+- `include/diag/` is the public API surface.
+- `tests/` captures exact behavior contracts.
+- `examples/` shows product-shaped integration profiles.
