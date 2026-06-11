@@ -54,15 +54,17 @@ int main(void)
     size_t                      rx_size = 0u;
     const uint8_t               request[] = {0x22u, 0x10u, 0x01u};
     const struct diag_config    config = {0};
-    const struct diag_identity  identity = {
-         .ecosystem_id = 1u,
-         .product_id = 40u,
-         .device_type = 4u,
-         .device_instance = 3u,
-         .firmware_stage = 1u,
-         .firmware_component = 1u,
-         .reserved = 0u,
+    // clang-format off
+    const struct diag_identity identity = {
+        .ecosystem_id       = 1u,
+        .product_id         = 40u,
+        .device_type        = 4u,
+        .device_instance    = 3u,
+        .firmware_stage     = 1u,
+        .firmware_component = 1u,
+        .reserved           = 0u,
     };
+    // clang-format on
     const struct diag_transport transport = {
         .ops = &transport_ops,
         .user = &bus,

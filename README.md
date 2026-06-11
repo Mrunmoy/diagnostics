@@ -38,11 +38,13 @@ git checkout c
 Clone, select the C branch, and run the full local gate:
 
 ```sh
-git clone git@github.com:Mrunmoy/diagnostics.git
+git clone https://github.com/Mrunmoy/diagnostics.git
 cd diagnostics
 git checkout c
 ./build.py all
 ```
+
+If you prefer SSH, use `git@github.com:Mrunmoy/diagnostics.git`.
 
 Common workflows:
 
