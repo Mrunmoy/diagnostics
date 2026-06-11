@@ -3,30 +3,50 @@
 A transport-agnostic C diagnostics library inspired by UDS concepts, but not tied
 to CAN, ISO-TP, or any specific bus.
 
-The goal is to provide a small, portable diagnostic core that applications can
-embed and connect to their own:
+The goal is to provide a small, portable diagnostic core that embedded
+applications can connect to their own:
 
 - transport layer: CAN, UART, TCP, BLE, SPI, test harness, etc.
 - storage layer: RAM, flash, EEPROM, filesystem, database, etc.
 - protocol framing: project-specific binary protocol, UDS-like protocol, JSON,
   or any other command format.
 
-## Current Status
+## Branches
 
-This repository is intentionally at the design-first stage. It contains:
+- `main` is intentionally empty.
+- `c` contains the C99 embedded implementation.
+- `cpp` is reserved for the parallel C++17 implementation.
 
-- one design document
-- public API skeletons
-- platform abstraction interfaces
-- Docker-based build and test environment
-- TDD-oriented test layout
+Start on `c`:
 
-Implementation should be added by writing tests first, then filling in the
-library behavior.
+```sh
+git checkout c
+```
+
+## What You Get
+
+- fixed-capacity DTC registration, status, counters, and operation-cycle aging
+- lifecycle/reset counter policy without hidden write-on-boot behavior
+- compact numeric device identity
+- storage and transport adapter interfaces
+- explicit capsule persistence for bootloader/application sharing
+- compile-time feature switches for smaller embedded builds
+- Docker/devcontainer, ASAN, Doxygen, size reports, and feature-matrix checks
 
 ## Quick Start
 
-Use the build wrapper for common workflows:
+Clone, select the C branch, and run the full local gate:
+
+```sh
+git clone https://github.com/Mrunmoy/diagnostics.git
+cd diagnostics
+git checkout c
+./build.py all
+```
+
+If you prefer SSH, use `git@github.com:Mrunmoy/diagnostics.git`.
+
+Common workflows:
 
 ```sh
 ./build.py build
@@ -51,6 +71,27 @@ Pass CMake cache options after `--`:
 ./build.py build -- DIAG_BUILD_EXAMPLES=OFF
 ./build.py all -- DIAG_BUILD_EXAMPLES=OFF
 ```
+
+## Pick A Feature Profile
+
+Examples are the fastest way to choose a configuration:
+
+```sh
+cd examples
+```
+
+Start with:
+
+- `examples/basic` for the smallest core-only integration.
+- `examples/sensor_node` for RAM-only DTCs and identity.
+- `examples/io_module` for identity plus transport only.
+- `examples/process_controller` for confirmed persistent DTCs.
+- `examples/industrial_oven` for critical DTCs plus lifecycle persistence.
+- `examples/bootloader_app_shared` for separate bootloader/application banks.
+- `examples/ecu_node` for a complete embedded node profile.
+
+Each example has its own `README.md` with exact feature switches, build command,
+benefits, and expected output.
 
 Build installable library output for another CMake project:
 
@@ -124,7 +165,7 @@ Example:
 application
 ├── third_party/generic-diagnostics
 ├── platform/my_flash_storage.c
-├── platform/my_can_transport.c
+├── platform/my_transport.c
 └── app/diagnostic_protocol.c
 ```
 
@@ -154,11 +195,11 @@ target_link_libraries(app PRIVATE diag::diag)
 
 ## Branch Strategy
 
-The intended long-term repository shape is:
+The repository shape is:
 
 - `main`: intentionally empty or documentation-only landing branch.
-- `C`: embedded C implementation.
-- `CPP`: embedded C++ implementation.
+- `c`: embedded C implementation.
+- `cpp`: embedded C++ implementation.
 
 Both implementation branches should target constrained embedded systems. The C++
 branch should not assume exceptions, RTTI, heap allocation, or the full standard

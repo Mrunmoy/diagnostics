@@ -27,6 +27,57 @@ if(DIAG_FEATURE_STORAGE AND DIAG_FEATURE_TRANSPORT)
     list(APPEND diag_example_targets diag_adapters_example)
 endif()
 
+if(DIAG_FEATURE_DTC AND DIAG_FEATURE_IDENTITY)
+    add_executable(diag_sensor_node_example sensor_node/main.c)
+    target_link_libraries(diag_sensor_node_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_sensor_node_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_industrial_oven_example industrial_oven/main.c)
+    target_link_libraries(diag_industrial_oven_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_industrial_oven_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_process_controller_example process_controller/main.c)
+    target_link_libraries(diag_process_controller_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_process_controller_example)
+endif()
+
+if(DIAG_FEATURE_IDENTITY AND DIAG_FEATURE_TRANSPORT)
+    add_executable(diag_io_module_example io_module/main.c)
+    target_link_libraries(diag_io_module_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_io_module_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_TRANSPORT
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_ecu_node_example ecu_node/main.c)
+    target_link_libraries(diag_ecu_node_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_ecu_node_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_bootloader_app_shared_example bootloader_app_shared/main.c)
+    target_link_libraries(diag_bootloader_app_shared_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_bootloader_app_shared_example)
+endif()
+
 if(DIAG_BUILD_TESTS)
     foreach(example_target ${diag_example_targets})
         add_test(NAME ${example_target} COMMAND ${example_target})
