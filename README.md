@@ -61,12 +61,12 @@ inspect devices without rebuilding firmware or attaching a debugger. A diagnosti
 protocol solves that by giving an external tool controlled access to internal
 state:
 
-- identify the device and firmware component being queried.
-- read current and historical trouble codes.
-- distinguish active, pending, confirmed, and aging faults.
-- clear selected diagnostic state after service.
-- read counters and lifecycle information after resets.
-- perform these actions through a predictable request/response contract.
+- Identify the device and firmware component being queried.
+- Read current and historical trouble codes.
+- Distinguish active, pending, confirmed, and aging faults.
+- Clear selected diagnostic state after service.
+- Read counters and lifecycle information after resets.
+- Perform these actions through a predictable request/response contract.
 
 That is the same need this library targets outside the automotive-only world:
 debug the device from the outside when it is already built, sealed, deployed, or
@@ -159,12 +159,12 @@ flowchart TB
 A useful embedded diagnostics core should expose any failure the firmware can
 detect:
 
-- hardware initialization failures.
-- sensor, actuator, memory, or peripheral failures.
-- communication/protocol errors.
-- bootloader, update, or application handoff issues.
-- watchdog resets, brownouts, or unexpected reset reasons.
-- application-level state machine faults.
+- Hardware initialization failures.
+- Sensor, actuator, memory, or peripheral failures.
+- Communication/protocol errors.
+- Bootloader, update, or application handoff issues.
+- Watchdog resets, brownouts, or unexpected reset reasons.
+- Application-level state machine faults.
 
 Your firmware decides what each fault means and which faults deserve persistent
 DTCs. The library makes those faults consistent, queryable, countable, clearable,
