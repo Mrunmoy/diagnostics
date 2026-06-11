@@ -1,18 +1,22 @@
 # Basic Example
 
-## Use Case
+Use this when you are bringing the library into a new build system and want the
+smallest possible smoke test. It proves that a caller-owned
+`struct diag_context_storage` can hold the opaque context and that no optional
+module is required.
 
-The smallest possible integration: initialize and deinitialize a diagnostics
-context using caller-owned storage.
+The example does not register DTCs, attach identity, attach storage, or use a
+transport. That is intentional: it is the baseline for code-size comparisons and
+for checking that the library can be linked before product diagnostics are
+designed.
 
-## Enabled Features
+## Read The Code
 
-All optional features may be disabled.
+Start in `main.c`:
 
-## Why This Configuration
-
-Use this when proving the library can be linked into a target before deciding
-which diagnostic features the product needs.
+- `struct diag_context_storage storage` is the memory the library uses.
+- `diag_init()` creates the opaque context inside that memory.
+- `diag_deinit()` releases runtime state without touching storage.
 
 ## Build And Run
 
@@ -28,4 +32,5 @@ which diagnostic features the product needs.
 ./build/linux-debug/examples/diag_basic_example
 ```
 
-The program exits with status `0` on success.
+Success means the context lifetime path works with every optional feature
+compiled out.

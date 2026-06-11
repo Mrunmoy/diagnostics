@@ -1,24 +1,23 @@
 # Adapter Wiring Example
 
-## Use Case
+Use this when you are ready to connect the generic core to platform code. The
+library does not know how to read flash, erase EEPROM, send UART bytes, or write
+to a test harness. It only knows how to call the function tables you attach.
 
-A downstream project wants to connect diagnostics to platform storage and a
-project transport, but still owns the actual flash, EEPROM, UART, TCP, or test
-harness implementation.
+This example keeps DTC, lifecycle, identity, and capsule disabled so the callback
+contracts are easy to see.
 
-## Enabled Features
+## What To Notice
 
-- `DIAG_FEATURE_STORAGE=ON`
-- `DIAG_FEATURE_TRANSPORT=ON`
-- `DIAG_FEATURE_DTC=OFF`
-- `DIAG_FEATURE_LIFECYCLE=OFF`
-- `DIAG_FEATURE_IDENTITY=OFF`
-- `DIAG_FEATURE_CAPSULE=OFF`
+- Storage is a table of `load`, `save`, and `clear` callbacks plus an opaque
+  `user` pointer.
+- Transport is a table of `send` and `receive` callbacks plus an opaque `user`
+  pointer.
+- The application owns the backing memory, driver state, locks, timing, and wear
+  policy.
 
-## Why This Configuration
-
-This example focuses only on callback contracts. It demonstrates that adapters
-are plain function tables with an opaque `user` pointer.
+Use this as a template when writing a RAM fake for tests or a real adapter in a
+downstream firmware project.
 
 ## Build And Run
 
@@ -34,4 +33,5 @@ are plain function tables with an opaque `user` pointer.
 ./build/linux-debug/examples/diag_adapters_example
 ```
 
-The program exits with status `0` after attaching both adapters.
+Success means both adapter tables were accepted and called through the generic
+interfaces.

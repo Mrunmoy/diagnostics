@@ -1,24 +1,22 @@
 # Lifecycle Example
 
-## Use Case
+Use this when reset history matters but you are not ready to persist anything.
+The lifecycle module records reset reasons and maintains reset counters according
+to a policy selected by the application.
 
-A device needs reset reason and reset counter policy, but persistence is handled
-elsewhere or not required.
+This is deliberately separate from DTC handling. A product may care about
+watchdog resets even when it has no local trouble-code table, and a product may
+want reset counting without writing flash on every boot.
 
-## Enabled Features
+## What To Notice
 
-- `DIAG_FEATURE_LIFECYCLE=ON`
-- `DIAG_FEATURE_DTC=OFF`
-- `DIAG_FEATURE_IDENTITY=OFF`
-- `DIAG_FEATURE_STORAGE=OFF`
-- `DIAG_FEATURE_TRANSPORT=OFF`
-- `DIAG_FEATURE_CAPSULE=OFF`
+- The application reports the reset reason with `diag_lifecycle_observe_reset()`.
+- The policy decides whether a reset only updates RAM or marks state dirty.
+- With storage disabled, no save can happen; the example only shows lifecycle
+  state transitions.
 
-## Why This Configuration
-
-This keeps reset tracking in RAM. The example uses abnormal-only policy so a
-watchdog reset requests persistence, but no storage write happens unless a
-storage feature and explicit save path are added.
+Use this profile when reset history is useful during runtime, or as the first
+step before adding wear-aware persistence.
 
 ## Build And Run
 
@@ -34,4 +32,5 @@ storage feature and explicit save path are added.
 ./build/linux-debug/examples/diag_lifecycle_example
 ```
 
-The program exits with status `0` after observing one abnormal reset.
+Success means the example observed one abnormal reset and verified the lifecycle
+state without writing storage.

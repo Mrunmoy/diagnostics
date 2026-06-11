@@ -1,23 +1,21 @@
 # Identity Example
 
-## Use Case
+Use this when a device needs to identify itself to a host tool but does not need
+local DTC, reset, storage, or transport support from the library.
 
-A product needs compact, numeric identity for fleet tools or diagnostic sessions,
-but does not need local DTC or persistence support.
+Identity is intentionally compact and numeric. Firmware should not carry long
+product names, descriptions, or catalogs. A host-side tool can map ecosystem ID,
+product ID, device type, device instance, and firmware component into human
+meaning.
 
-## Enabled Features
+## What To Notice
 
-- `DIAG_FEATURE_IDENTITY=ON`
-- `DIAG_FEATURE_DTC=OFF`
-- `DIAG_FEATURE_LIFECYCLE=OFF`
-- `DIAG_FEATURE_STORAGE=OFF`
-- `DIAG_FEATURE_TRANSPORT=OFF`
-- `DIAG_FEATURE_CAPSULE=OFF`
+- `struct diag_identity` contains fixed-width numeric fields.
+- `diag_identity_attach()` copies the identity into the context.
+- `diag_identity_get()` reads it back for a protocol layer or application code.
 
-## Why This Configuration
-
-Identity is intentionally numeric and compact. Host tooling owns names,
-descriptions, and product catalogs.
+Choose this profile when the firmware only needs a stable identity block and a
+separate protocol layer will expose it.
 
 ## Build And Run
 
@@ -33,4 +31,4 @@ descriptions, and product catalogs.
 ./build/linux-debug/examples/diag_identity_example
 ```
 
-The program exits with status `0` after identity readback matches.
+Success means the attached identity was read back exactly.
