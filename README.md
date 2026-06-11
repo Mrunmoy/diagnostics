@@ -29,11 +29,146 @@ This project keeps those concerns separated:
 - The core tracks DTC state, counters, operation-cycle behavior, lifecycle state,
   and compact identity.
 - Storage and transport are callback interfaces supplied by the application.
-- Persistence uses an explicit serialized capsule, not raw C structures.
+- Persistence uses an explicit serialized capsule instead of raw C structures.
 - Runtime memory is caller-owned and fixed at initialization.
 - Feature switches remove unused modules from constrained builds.
 
-No heap. No hidden flash writes. No platform locks. No protocol assumption.
+The core avoids heap allocation, hidden flash writes, platform locks, and
+protocol-specific assumptions.
+
+## UDS In Plain English
+
+UDS, or Unified Diagnostic Services, is the automotive diagnostic model defined
+by ISO 14229. In practice, it is a request/response language that lets an
+external tester ask a device what it is, what went wrong, whether faults are
+current or historical, and whether certain service actions should be performed.
+
+UDS is commonly carried over CAN with ISO-TP. The diagnostic model itself is
+larger than that transport choice: service IDs, subfunctions, data identifiers,
+DTCs, status bits, positive responses, and negative responses. A similar model
+can be carried over CAN, Ethernet, UART, a test harness, or a product-specific
+link when the framing layer supports it.
+
+This project borrows the useful parts of that model, especially DTCs and clear
+diagnostic state boundaries. The library provides the state behind a diagnostic
+interface; a downstream project can expose that state through a UDS-like server,
+a custom binary protocol, or a factory test tool.
+
+### Why UDS Exists
+
+As embedded systems became more complex, service tools needed a common way to
+inspect devices without rebuilding firmware or attaching a debugger. A diagnostic
+protocol solves that by giving an external tool controlled access to internal
+state:
+
+- Identify the device and firmware component being queried.
+- Read current and historical trouble codes.
+- Distinguish active, pending, confirmed, and aging faults.
+- Clear selected diagnostic state after service.
+- Read counters and lifecycle information after resets.
+- Perform these actions through a predictable request/response contract.
+
+That is the same need this library targets outside the automotive-only world:
+debug the device from the outside when it is already built, sealed, deployed, or
+running in a larger system.
+
+### What A UDS-Style Message Looks Like
+
+The exact bytes depend on the service, but the shape is simple. A tester sends a
+service request. The device returns either a positive response or a negative
+response.
+
+```mermaid
+sequenceDiagram
+    participant Tool as External diagnostic tool
+    participant Proto as Product protocol/framing
+    participant Dev as Device firmware
+    participant Diag as libdiag state
+
+    Tool->>Proto: Request bytes
+    Proto->>Dev: Decode service and parameters
+    Dev->>Diag: Query identity, DTCs, counters, lifecycle
+    Diag-->>Dev: Bounded diagnostic state
+    Dev-->>Proto: Response payload
+    Proto-->>Tool: Positive or negative response bytes
+```
+
+Example UDS-style service frames:
+
+| Purpose | Request shape | Positive response shape |
+|---------|---------------|-------------------------|
+| Read data by identifier | `0x22 DID_H DID_L` | `0x62 DID_H DID_L data...` |
+| Read DTC information | `0x19 subfunction filters...` | `0x59 subfunction DTC/status...` |
+| Clear diagnostic information | `0x14 group_of_dtc` | `0x54` |
+
+Negative responses also have a recognizable form:
+
+```text
+0x7F <original_service_id> <negative_response_code>
+```
+
+For example, a request to read an unsupported identifier might return:
+
+```text
+request:  22 F1 90
+response: 7F 22 31
+```
+
+That means "service 0x22 failed with response code 0x31". A protocol layer above
+this library can make those choices. `libdiag` focuses on the reliable internal
+state that such responses need.
+
+### Where This Library Fits
+
+```mermaid
+flowchart TB
+    subgraph FaultSources["Things that can go wrong"]
+        HW_INIT["hardware init failure"]
+        HW_RUN["hardware runtime failure"]
+        PROTO["protocol failure"]
+        BOOT["boot/update issue"]
+        LOGIC["application logic fault"]
+        RESET["watchdog, brownout, abnormal reset"]
+    end
+
+    subgraph Firmware["Your firmware"]
+        MON["fault monitors and reset detection"]
+        API["diag_* API calls"]
+        PROTOCOL["your diagnostic protocol layer"]
+    end
+
+    subgraph Lib["libdiag"]
+        STATE["DTC, lifecycle, identity, counters"]
+        DIRTY["dirty flags"]
+        CAPSULE["optional persistent capsule"]
+    end
+
+    subgraph Outside["Outside the device"]
+        TOOL["service tool, factory tool, host, test rig"]
+    end
+
+    FaultSources --> MON
+    MON --> API
+    API --> STATE
+    STATE --> DIRTY
+    DIRTY --> CAPSULE
+    TOOL <-->|"read, clear, inspect"| PROTOCOL
+    PROTOCOL --> STATE
+```
+
+A useful embedded diagnostics core should expose any failure the firmware can
+detect:
+
+- Hardware initialization failures.
+- Sensor, actuator, memory, or peripheral failures.
+- Communication/protocol errors.
+- Bootloader, update, or application handoff issues.
+- Watchdog resets, brownouts, or unexpected reset reasons.
+- Application-level state machine faults.
+
+Your firmware decides what each fault means and which faults deserve persistent
+DTCs. The library makes those faults consistent, queryable, countable, clearable,
+and optionally persistent.
 
 ## Mental Model
 
@@ -72,12 +207,12 @@ update RAM. Persistence happens only when your firmware calls `diag_save()`.
 
 | You provide | Why |
 |-------------|-----|
-| Fault monitors | The library does not know your hardware limits or safety rules. |
+| Fault monitors | Hardware limits and safety rules belong to the product. |
 | Caller-owned memory | Context storage, DTC arrays, and capsule buffers are supplied by you. |
 | Operation-cycle timing | You decide what a meaningful cycle means for the product. |
 | Storage callbacks | Flash, EEPROM, files, RAM, and wear-leveling policy are platform concerns. |
 | Transport callbacks | CAN, UART, TCP, BLE, and test harnesses all fit behind the same shape. |
-| Protocol/framing layer | The library is not a UDS server; it provides state for one if you build it. |
+| Protocol/framing layer | The library provides state that a UDS-like server or custom protocol can expose. |
 
 ## What The Library Provides
 
@@ -133,8 +268,8 @@ when the product needs them.
 
 ## Choose A Starting Example
 
-The examples are not just build samples; each one represents a product shape and
-an embedded tradeoff. Start with the closest scenario:
+Each example represents a product shape and an embedded tradeoff. Start with the
+closest scenario:
 
 | If your product needs... | Read this first | Why |
 |--------------------------|-----------------|-----|
