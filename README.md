@@ -1,7 +1,7 @@
 # Generic Diagnostics Library
 
-A transport-agnostic C diagnostics library inspired by UDS concepts, but not tied
-to CAN, ISO-TP, or any specific bus.
+A transport-agnostic C99 diagnostics library for constrained embedded systems.
+Inspired by UDS DTC concepts, but not tied to CAN, ISO-TP, or any specific bus.
 
 The goal is to provide a small, portable diagnostic core that embedded
 applications can connect to their own:
@@ -10,6 +10,50 @@ applications can connect to their own:
 - storage layer: RAM, flash, EEPROM, filesystem, database, etc.
 - protocol framing: project-specific binary protocol, UDS-like protocol, JSON,
   or any other command format.
+
+> No heap. No platform locks. No hidden flash writes.  
+> You control storage, transport, and timing — the library owns the state machine.
+
+**New here?** → [5-minute onboarding guide](docs/onboarding.md)
+
+## Architecture at a Glance
+
+The library sits between your application logic and your platform adapters.
+You provide the callbacks; the library owns the diagnostic state machine.
+
+```mermaid
+graph LR
+    subgraph YF["Your Firmware"]
+        APP["App / monitor code"]
+        SA["Storage adapter\n(flash · EEPROM · RAM callbacks)"]
+        TA["Transport adapter\n(UART · CAN · TCP callbacks)"]
+    end
+
+    subgraph LD["libdiag"]
+        CTX["diag_context\n(core — always present)"]
+        DTC["DTC module\n(fault tracking)"]
+        LC["Lifecycle module\n(reset counters)"]
+        ID["Identity module\n(compact device IDs)"]
+        CAP["Capsule\n(versioned persistence format)"]
+    end
+
+    APP -- "diag_dtc_set_active()\ndiag_lifecycle_observe_reset()" --> CTX
+    CTX --- DTC & LC & ID
+    DTC & LC -- "dirty flags" --> CAP
+    CAP -- "diag_save() / diag_load()" --> SA
+    CTX -. "optional:\ndiag_transport_attach()" .-> TA
+```
+
+### Division of Labor
+
+| You own | Library owns |
+|---------|--------------|
+| Platform startup and reset-reason detection | DTC fault tracking and UDS status bits |
+| Storage medium (flash, EEPROM, RAM) | Capsule serialization and versioning |
+| Transport medium (UART, CAN, TCP) | Diagnostic state machine and counters |
+| Calling `diag_dtc_operation_cycle()` each cycle | Confirmation and aging logic |
+| Sizing and allocating context + DTC array | Zero dynamic allocation |
+| Framing, protocol, and service logic | Core fault records and lifecycle state |
 
 ## Branches
 
