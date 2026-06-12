@@ -16,6 +16,8 @@ layer or through a service tool that is outside this example.
 - Lifecycle observes an abnormal reset reason.
 - Persistence is explicit: dirty state is serialized to a capsule only when the
   example calls `diag_save()`.
+- The shared CLI tester reads identity, lists the restored DTC, clears it, and
+  reports the capsule size after the clear.
 
 This is the shape to follow when persistent diagnostics are valuable but flash
 wear still matters. Runtime state can change often; saved state should be
@@ -39,6 +41,15 @@ Expected output:
 
 ```text
 industrial_oven: persisted DTC 0x020001 in <n> bytes
+industrial_oven tool: opening diagnostic session
+industrial_oven tool: identity ecosystem=1 product=20 type=2 instance=1 stage=1 component=1
+industrial_oven tool: DTC count=1
+industrial_oven tool: DTC 0x020001 status=0x6d severity=3 occurrences=1
+industrial_oven tool: cleared DTC 0x020001
+industrial_oven tool: DTC count=1
+industrial_oven tool: DTC 0x020001 status=0x00 severity=3 occurrences=1
+industrial_oven tool: persisted capsule bytes=<n>
+industrial_oven tool: diagnostic session complete
 ```
 
 The example storage is RAM-backed. A real product would replace it with a

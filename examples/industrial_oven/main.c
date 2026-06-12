@@ -1,4 +1,5 @@
 #include "diag/diag.h"
+#include "example_diag_tool.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +9,13 @@ struct fake_storage
     uint8_t bytes[256];
     size_t  used;
 };
+
+static size_t oven_persisted_size(void *user)
+{
+    const struct fake_storage *fake = (const struct fake_storage *)user;
+
+    return fake->used;
+}
 
 static enum diag_result fake_load(void *user, uint8_t *buffer, size_t buffer_size,
                                   size_t *bytes_read)
@@ -133,6 +141,21 @@ int main(void)
 
     printf("industrial_oven: persisted DTC 0x%06lx in %lu bytes\n",
            (unsigned long)restored_fault.id, (unsigned long)fake.used);
+
+    {
+        const struct example_diag_device device = {
+            .name = "industrial_oven",
+            .ctx = ctx,
+            .persisted_size = oven_persisted_size,
+            .user = &fake,
+        };
+
+        if (example_diag_tool_run_cli(&device, 0x020001u) != DIAG_OK)
+        {
+            fprintf(stderr, "industrial_oven: diagnostic tool flow failed\n");
+            return 1;
+        }
+    }
 
     return diag_deinit(ctx) == DIAG_OK ? 0 : 1;
 }

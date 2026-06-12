@@ -1,4 +1,5 @@
 #include "diag/diag.h"
+#include "example_diag_tool.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -14,6 +15,13 @@ struct ecu_transport
     uint8_t tx[32];
     size_t  tx_size;
 };
+
+static size_t ecu_persisted_size(void *user)
+{
+    const struct ecu_store *store = (const struct ecu_store *)user;
+
+    return store->used;
+}
 
 static enum diag_result ecu_load(void *user, uint8_t *buffer, size_t buffer_size,
                                  size_t *bytes_read)
@@ -172,6 +180,21 @@ int main(void)
 
     printf("ecu_node: confirmed DTC 0x%06lx, saved %lu bytes\n", (unsigned long)fault.id,
            (unsigned long)store.used);
+
+    {
+        const struct example_diag_device device = {
+            .name = "ecu_node",
+            .ctx = ctx,
+            .persisted_size = ecu_persisted_size,
+            .user = &store,
+        };
+
+        if (example_diag_tool_run_cli(&device, 0x050001u) != DIAG_OK)
+        {
+            fprintf(stderr, "ecu_node: diagnostic tool flow failed\n");
+            return 1;
+        }
+    }
 
     return diag_deinit(ctx) == DIAG_OK ? 0 : 1;
 }

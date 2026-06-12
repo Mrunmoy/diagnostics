@@ -56,6 +56,13 @@ requests, decodes responses, prints useful output, and reports failures clearly.
 `diagnostic_session` is the reference pattern for that shape. Smaller examples
 remain useful when you only need to inspect one module or one feature switch.
 
+The reusable CLI tester support lives in `examples/common/`. It defines a tiny
+request/response frame, a simulated device endpoint backed by a `diag_context`,
+and a PC/tester flow for reading identity, listing DTCs, clearing one DTC, and
+printing useful errors. Scenario examples such as `sensor_node`,
+`process_controller`, `industrial_oven`, and `ecu_node` use that shared code so
+the tooling behavior stays consistent.
+
 ## Future PC Tooling Examples
 
 GUI examples must be built as real host tools, not quick visual wrappers. The
