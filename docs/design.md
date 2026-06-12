@@ -236,7 +236,7 @@ The capsule includes:
 - total length.
 - generation counter.
 - section count.
-- per-section type, offset, length, used length, version, flags.
+- per-section type, version, offset, length, and used length.
 - explicit endian encoding.
 - CRC/integrity check.
 
