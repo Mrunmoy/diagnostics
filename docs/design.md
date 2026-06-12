@@ -164,19 +164,19 @@ visible DTC. The core should therefore support a fixed `local_fault_id -> dtc_id
 mapping table instead of using the DTC number as the only internal key.
 
 The DTC status byte must be mappable to the UDS `statusOfDTC` byte. The packet
-diagram keeps the cells short so the bit layout stays readable in rendered
+diagram uses compact status acronyms so the bit layout stays readable in rendered
 Markdown:
 
 ```mermaid
 packet
-0: "b0"
-1: "b1"
-2: "b2"
-3: "b3"
-4: "b4"
-5: "b5"
-6: "b6"
-7: "b7"
+0: "TF"
+1: "TFTOC"
+2: "PDTC"
+3: "CDTC"
+4: "TNCSC"
+5: "TFSLC"
+6: "TNCTOC"
+7: "WIR"
 ```
 
 | Bit | Mnemonic | UDS status meaning |
@@ -231,6 +231,35 @@ reserved space
 CRC / commit marker
 ```
 
+The logical capsule envelope is:
+
+```mermaid
+packet
+0-7: "HDR"
+8-15: "STBL"
+16-23: "BDTC"
+24-31: "ADTC"
+32-39: "SNAP"
+40-47: "XDATA"
+48-55: "LIFE"
+56-63: "RESET"
+64-71: "RSVD"
+72-79: "CRC"
+```
+
+| Label | Capsule region |
+|-------|----------------|
+| `HDR` | Header |
+| `STBL` | Section table |
+| `BDTC` | Bootloader DTC bank |
+| `ADTC` | Application DTC bank |
+| `SNAP` | Snapshot / freeze-frame records |
+| `XDATA` | Extended-data records |
+| `LIFE` | Shared lifecycle bank |
+| `RESET` | Reset counters |
+| `RSVD` | Reserved space |
+| `CRC` | CRC / commit marker |
+
 The capsule includes:
 
 - magic value.
@@ -251,13 +280,13 @@ Capsule schema version 1 uses a 24-byte fixed header:
 ```mermaid
 packet
 0-31: "magic"
-32-47: "schema_version"
-48-63: "header_size"
-64-95: "total_length"
+32-47: "schema"
+48-63: "hdr_size"
+64-95: "total_len"
 96-127: "generation"
-128-143: "section_count"
+128-143: "sections"
 144-159: "reserved"
-160-191: "content_crc32"
+160-191: "crc32"
 ```
 
 Each section-table entry is 16 bytes:
@@ -268,23 +297,7 @@ packet
 16-31: "version"
 32-63: "offset"
 64-95: "length"
-96-127: "used_length"
-```
-
-The complete capsule is a header, a bounded section table, and section payloads.
-The 512-byte example below shows the recommended small default; `total_length`
-is authoritative for other product sizes.
-
-```mermaid
-packet
-0-191: "24-byte header"
-192-1215: "section table: up to 8 x 16-byte entries"
-1216-1919: "bootloader-owned payload sections"
-1920-2623: "application-owned payload sections"
-2624-3199: "shared lifecycle / reset-counter sections"
-3200-3839: "snapshot / extended-data sections"
-3840-4063: "reserved expansion"
-4064-4095: "commit / integrity tail if policy requires"
+96-127: "used_len"
 ```
 
 Snapshot/freeze-frame and extended-data records are fixed-capacity sections. A DTC
@@ -443,19 +456,19 @@ transport -> framing -> optional protocol adapter -> diagnostics core
 ```mermaid
 sequenceDiagram
     participant Tester as External tester
-    participant Link as Transport adapter
+    participant Transport as Transport adapter
     participant Frame as Framing/protocol layer
     participant Handler as Optional service handler
     participant Core as libdiag core
 
-    Tester->>Link: Transport frame or stream bytes
-    Link->>Frame: Caller-owned RX buffer
+    Tester->>Transport: Transport frame or stream bytes
+    Transport->>Frame: Caller-owned RX buffer
     Frame->>Handler: Decoded service request
     Handler->>Core: diag_* API calls
     Core-->>Handler: Diagnostic state/result
     Handler-->>Frame: Response payload or error
-    Frame-->>Link: Encoded response bytes
-    Link-->>Tester: Transport response
+    Frame-->>Transport: Encoded response bytes
+    Transport-->>Tester: Transport response
 ```
 
 A future optional request/response handler may look like:
@@ -498,6 +511,29 @@ subsystem
 local DTC id
 namespace/catalog version
 ```
+
+```mermaid
+packet
+0-15: "eco"
+16-31: "prod"
+32-39: "type"
+40-47: "inst"
+48-55: "stage"
+56-63: "subsys"
+64-87: "dtc"
+88-103: "catalog"
+```
+
+| Label | Identity component |
+|-------|--------------------|
+| `eco` | Ecosystem ID |
+| `prod` | Product ID |
+| `type` | Device type |
+| `inst` | Device instance |
+| `stage` | Firmware stage |
+| `subsys` | Subsystem |
+| `dtc` | Local DTC ID |
+| `catalog` | Namespace/catalog version |
 
 Embedded firmware should store/report numeric IDs only. Host catalogs map those
 IDs to names, descriptions, service procedures, firmware compatibility ranges,
