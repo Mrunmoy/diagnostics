@@ -163,30 +163,32 @@ project may have many local checks, monitor points, or fault paths feeding one
 visible DTC. The core should therefore support a fixed `local_fault_id -> dtc_id`
 mapping table instead of using the DTC number as the only internal key.
 
-The DTC status byte must be mappable to the UDS `statusOfDTC` byte:
-
-```text
-bit 0 test_failed
-bit 1 test_failed_this_operation_cycle
-bit 2 pending
-bit 3 confirmed
-bit 4 test_not_completed_since_clear
-bit 5 test_failed_since_clear
-bit 6 test_not_completed_this_operation_cycle
-bit 7 warning_indicator_requested
-```
+The DTC status byte must be mappable to the UDS `statusOfDTC` byte. The packet
+diagram keeps the cells short so the bit layout stays readable in rendered
+Markdown:
 
 ```mermaid
 packet
-0: "test_failed"
-1: "test_failed_this_operation_cycle"
-2: "pending"
-3: "confirmed"
-4: "test_not_completed_since_clear"
-5: "test_failed_since_clear"
-6: "test_not_completed_this_operation_cycle"
-7: "warning_indicator_requested"
+0: "b0"
+1: "b1"
+2: "b2"
+3: "b3"
+4: "b4"
+5: "b5"
+6: "b6"
+7: "b7"
 ```
+
+| Bit | Mnemonic | UDS status meaning |
+|-----|----------|--------------------|
+| 0 | `TF` | `test_failed` |
+| 1 | `TFTOC` | `test_failed_this_operation_cycle` |
+| 2 | `PDTC` | `pending` |
+| 3 | `CDTC` | `confirmed` |
+| 4 | `TNCSC` | `test_not_completed_since_clear` |
+| 5 | `TFSLC` | `test_failed_since_clear` |
+| 6 | `TNCTOC` | `test_not_completed_this_operation_cycle` |
+| 7 | `WIR` | `warning_indicator_requested` |
 
 Counters should be saturating rather than wrapping. Repeated `set_active()` on an
 already active DTC should be idempotent. State transitions are explicit and
