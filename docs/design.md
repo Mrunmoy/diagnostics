@@ -176,6 +176,18 @@ bit 6 test_not_completed_this_operation_cycle
 bit 7 warning_indicator_requested
 ```
 
+```mermaid
+packet
+0: "test_failed"
+1: "test_failed_this_operation_cycle"
+2: "pending"
+3: "confirmed"
+4: "test_not_completed_since_clear"
+5: "test_failed_since_clear"
+6: "test_not_completed_this_operation_cycle"
+7: "warning_indicator_requested"
+```
+
 Counters should be saturating rather than wrapping. Repeated `set_active()` on an
 already active DTC should be idempotent. State transitions are explicit and
 operation-cycle driven: `test_failed -> pending -> confirmed -> aged`.
@@ -232,27 +244,45 @@ Unknown future sections should be skipped or preserved when safe. Unsupported
 schema versions must fail deterministically rather than rewriting data that
 cannot be understood.
 
-```mermaid
-flowchart TB
-    HEADER["Header<br/>magic, schema, total length, generation"]
-    TABLE["Bounded section table<br/>type, owner, offset, length, version, flags"]
-    BOOT["Bootloader-owned sections"]
-    APP["Application-owned sections"]
-    LIFE["Shared lifecycle and reset counters"]
-    SNAP["Snapshot and extended-data sections"]
-    RESERVED["Reserved expansion space"]
-    CRC["CRC and commit marker"]
+Capsule schema version 1 uses a 24-byte fixed header:
 
-    HEADER --> TABLE
-    TABLE --> BOOT
-    TABLE --> APP
-    TABLE --> LIFE
-    TABLE --> SNAP
-    BOOT --> RESERVED
-    APP --> RESERVED
-    LIFE --> RESERVED
-    SNAP --> RESERVED
-    RESERVED --> CRC
+```mermaid
+packet
+0-31: "magic"
+32-47: "schema_version"
+48-63: "header_size"
+64-95: "total_length"
+96-127: "generation"
+128-143: "section_count"
+144-159: "reserved"
+160-191: "content_crc32"
+```
+
+Each section-table entry is 16 bytes:
+
+```mermaid
+packet
+0-15: "type"
+16-31: "version"
+32-63: "offset"
+64-95: "length"
+96-127: "used_length"
+```
+
+The complete capsule is a header, a bounded section table, and section payloads.
+The 512-byte example below shows the recommended small default; `total_length`
+is authoritative for other product sizes.
+
+```mermaid
+packet
+0-191: "24-byte header"
+192-1215: "section table: up to 8 x 16-byte entries"
+1216-1919: "bootloader-owned payload sections"
+1920-2623: "application-owned payload sections"
+2624-3199: "shared lifecycle / reset-counter sections"
+3200-3839: "snapshot / extended-data sections"
+3840-4063: "reserved expansion"
+4064-4095: "commit / integrity tail if policy requires"
 ```
 
 Snapshot/freeze-frame and extended-data records are fixed-capacity sections. A DTC
