@@ -34,6 +34,23 @@ if(DIAG_FEATURE_DTC AND DIAG_FEATURE_IDENTITY)
 endif()
 
 if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_diagnostic_session_example
+        diagnostic_session/device.c
+        diagnostic_session/main.c
+        diagnostic_session/tester.c
+    )
+    target_include_directories(diag_diagnostic_session_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+    )
+    target_link_libraries(diag_diagnostic_session_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_diagnostic_session_example)
+endif()
+
+if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_LIFECYCLE
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
