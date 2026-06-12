@@ -170,24 +170,24 @@ Markdown:
 ```mermaid
 packet
 0: "TF"
-1: "TFTOC"
-2: "PDTC"
-3: "CDTC"
-4: "TNCSC"
-5: "TFSLC"
-6: "TNCTOC"
+1: "TOC"
+2: "PD"
+3: "CD"
+4: "NCS"
+5: "SLC"
+6: "NCT"
 7: "WIR"
 ```
 
 | Bit | Mnemonic | UDS status meaning |
 |-----|----------|--------------------|
 | 0 | `TF` | `test_failed` |
-| 1 | `TFTOC` | `test_failed_this_operation_cycle` |
-| 2 | `PDTC` | `pending` |
-| 3 | `CDTC` | `confirmed` |
-| 4 | `TNCSC` | `test_not_completed_since_clear` |
-| 5 | `TFSLC` | `test_failed_since_clear` |
-| 6 | `TNCTOC` | `test_not_completed_this_operation_cycle` |
+| 1 | `TOC` | `test_failed_this_operation_cycle` |
+| 2 | `PD` | `pending` |
+| 3 | `CD` | `confirmed` |
+| 4 | `NCS` | `test_not_completed_since_clear` |
+| 5 | `SLC` | `test_failed_since_clear` |
+| 6 | `NCT` | `test_not_completed_this_operation_cycle` |
 | 7 | `WIR` | `warning_indicator_requested` |
 
 Counters should be saturating rather than wrapping. Repeated `set_active()` on an
