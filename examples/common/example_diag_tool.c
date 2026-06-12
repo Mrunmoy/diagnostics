@@ -1,5 +1,6 @@
 #include "example_diag_tool.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 
 static const char *example_diag_result_name(enum diag_result result)
@@ -251,6 +252,7 @@ static enum diag_result example_diag_tool_list_dtcs(const struct example_diag_de
     struct example_diag_frame response = {{0}, 0u};
     size_t                    count = 0u;
     size_t                    i = 0u;
+    bool                      clear_target_found = false;
     enum diag_result          result = DIAG_OK;
 
     if (out_clear_status == NULL)
@@ -294,7 +296,15 @@ static enum diag_result example_diag_tool_list_dtcs(const struct example_diag_de
         if ((diag_dtc_id_t)dtc_id == clear_dtc_id)
         {
             *out_clear_status = status;
+            clear_target_found = true;
         }
+    }
+
+    if (clear_dtc_id != 0u && !clear_target_found)
+    {
+        fprintf(stderr, "%s tool: DTC 0x%06lx was not reported by the device\n", device->name,
+                (unsigned long)clear_dtc_id);
+        return DIAG_ERROR_NOT_FOUND;
     }
 
     return DIAG_OK;
