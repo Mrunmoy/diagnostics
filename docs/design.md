@@ -498,8 +498,9 @@ can coexist.
 
 ## Ecosystem Identity
 
-A DTC ID alone is not globally unique across a product ecosystem. Host tooling
-should construct a global diagnostic key from compact embedded facts:
+A DTC ID is local to the product or firmware that reports it. To identify a
+fault across a product family, combine the device identity fields with the local
+DTC ID and the catalog version used to interpret it:
 
 ```text
 ecosystem id
@@ -535,9 +536,9 @@ packet
 | `dtc` | Local DTC ID |
 | `catalog` | Namespace/catalog version |
 
-Embedded firmware should store/report numeric IDs only. Host catalogs map those
-IDs to names, descriptions, service procedures, firmware compatibility ranges,
-and product-specific troubleshooting.
+Firmware should report compact numeric IDs. The host catalog turns those numbers
+into names, descriptions, service procedures, firmware compatibility ranges, and
+product-specific troubleshooting.
 
 ## Decisions Adopted From Prior-Art Review
 
