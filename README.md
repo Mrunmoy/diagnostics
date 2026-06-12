@@ -203,6 +203,90 @@ graph LR
 The important boundary is this: setting a fault never writes flash. Fault paths
 update RAM. Persistence happens only when your firmware calls `diag_save()`.
 
+## Library Layers
+
+`libdiag` is intentionally small and still has clear layers. The application
+talks to the public API. The public API updates caller-owned diagnostic state.
+Optional modules add DTCs, lifecycle, identity, persistence, and transport hooks.
+Platform behavior stays outside the core behind callbacks.
+
+```mermaid
+flowchart TB
+    subgraph AppLayer["Application and product logic"]
+        MON["Fault monitors<br/>hardware checks, protocol checks, boot checks"]
+        CYCLE["Operation-cycle scheduler<br/>when a diagnostic cycle ends"]
+        SERVICE["Diagnostic service layer<br/>UDS-like or custom command handling"]
+    end
+
+    subgraph PublicAPI["Public C API"]
+        API_CTX["context API<br/>diag_init, diag_deinit, dirty flags"]
+        API_DTC["DTC API<br/>register, set active, clear, list"]
+        API_LIFE["lifecycle API<br/>observe reset, snapshot counters"]
+        API_ID["identity API<br/>attach and read numeric identity"]
+        API_STORE["storage API<br/>attach, load, save, clear"]
+        API_TRANS["transport API<br/>attach send/receive callbacks"]
+    end
+
+    subgraph Core["Core state in caller-owned RAM"]
+        CTX["diag_context<br/>opaque runtime state"]
+        DTC["DTC records<br/>status bits, counters, aging"]
+        LIFE["Lifecycle state<br/>reset reason and counters"]
+        ID["Identity state<br/>ecosystem, product, device, firmware"]
+        DIRTY["Dirty flags<br/>sections that should be saved"]
+    end
+
+    subgraph Persistence["Persistence format"]
+        CAPS["Capsule encoder/decoder<br/>schema, sections, CRC, alignment"]
+    end
+
+    subgraph Platform["Platform adapters owned by the user"]
+        STORE["Storage adapter<br/>flash, EEPROM, FRAM, file, RAM fake"]
+        TRANS["Transport adapter<br/>CAN, UART, TCP, BLE, test harness"]
+    end
+
+    MON --> API_DTC
+    CYCLE --> API_DTC
+    MON --> API_LIFE
+    SERVICE --> API_CTX
+    SERVICE --> API_DTC
+    SERVICE --> API_LIFE
+    SERVICE --> API_ID
+    SERVICE --> API_STORE
+    SERVICE --> API_TRANS
+
+    API_CTX --> CTX
+    API_DTC --> DTC
+    API_LIFE --> LIFE
+    API_ID --> ID
+    API_STORE --> CAPS
+    API_TRANS --> TRANS
+
+    DTC --> DIRTY
+    LIFE --> DIRTY
+    DIRTY --> CAPS
+    CAPS --> STORE
+```
+
+### Layer Responsibilities
+
+| Layer | Responsibility | Owned by |
+|-------|----------------|----------|
+| Application monitors | Detect real failures: hardware init, runtime hardware faults, protocol errors, boot issues, and application state faults. | Product firmware |
+| Diagnostic service layer | Decode external commands and turn them into `diag_*` API calls. This can be UDS-like, binary, JSON, or project-specific. | Product firmware |
+| Public C API | Provide a stable, transport-agnostic way to initialize the library, update DTCs, read state, attach adapters, and save/load state. | `libdiag` |
+| Context/core layer | Hold enabled module state inside caller-owned memory with fixed capacities and no dynamic allocation. | `libdiag` and caller-provided memory |
+| DTC module | Track registered trouble codes, UDS-style status bits, occurrence counters, clear counters, confirmation, and aging. | `libdiag` |
+| Lifecycle module | Track reset reasons and reset counters according to an explicit persistence policy. | `libdiag` |
+| Identity module | Store compact numeric identifiers that host tooling can map to product names, variants, and catalogs. | `libdiag` state, host-owned meaning |
+| Dirty-state layer | Record which persistent sections changed so storage writes can be batched or deferred. | `libdiag` |
+| Capsule layer | Serialize persistent DTC and lifecycle sections into a versioned byte format with integrity checks. | `libdiag` |
+| Storage adapter | Load, save, and clear bytes from the actual medium; handle wear-leveling and erase/write rules. | Product firmware |
+| Transport adapter | Send and receive diagnostic bytes over the project’s chosen link. | Product firmware |
+
+The separation is deliberate. A DTC update should be cheap and bounded. Storage
+writes happen through explicit save paths. Protocol parsing belongs above the
+library. Flash, EEPROM, RTOS locks, and bus drivers stay in the application.
+
 ## What You Provide
 
 | You provide | Why |

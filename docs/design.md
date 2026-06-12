@@ -17,6 +17,79 @@ The design optimizes for constrained firmware:
 - compact numeric records on target; rich strings and catalogs belong in host
   tools.
 
+## Architecture Overview
+
+The library is a diagnostic state engine with platform stack concerns kept
+outside the core. Product firmware detects faults and owns the external protocol.
+`libdiag` keeps bounded diagnostic state and exposes it through public APIs.
+Storage and transport are adapters at the edge.
+
+```mermaid
+flowchart TB
+    subgraph Product["Product firmware"]
+        MON["Fault monitors<br/>hardware, protocol, boot, application"]
+        CYCLE["Operation-cycle driver"]
+        SERVICE["Diagnostic service layer<br/>UDS-like or custom"]
+    end
+
+    subgraph API["Public C API"]
+        CTX_API["context"]
+        DTC_API["DTC"]
+        LIFE_API["lifecycle"]
+        ID_API["identity"]
+        STORE_API["storage"]
+        TRANS_API["transport"]
+    end
+
+    subgraph Core["libdiag core"]
+        CTX["diag_context<br/>opaque, caller-owned storage"]
+        DTC["DTC records<br/>status, counters, confirmation, aging"]
+        LIFE["Lifecycle state<br/>reset reason and reset counters"]
+        ID["Identity state<br/>compact numeric IDs"]
+        DIRTY["Dirty flags<br/>persistent sections changed"]
+    end
+
+    subgraph Persist["Persistence"]
+        CAPSULE["Capsule codec<br/>schema, sections, CRC"]
+    end
+
+    subgraph Platform["Platform adapters"]
+        STORE["Storage medium<br/>flash, EEPROM, FRAM, RAM fake"]
+        TRANS["Transport medium<br/>CAN, UART, TCP, BLE, test harness"]
+    end
+
+    MON --> DTC_API
+    MON --> LIFE_API
+    CYCLE --> DTC_API
+    SERVICE --> CTX_API
+    SERVICE --> DTC_API
+    SERVICE --> LIFE_API
+    SERVICE --> ID_API
+    SERVICE --> STORE_API
+    SERVICE --> TRANS_API
+
+    CTX_API --> CTX
+    DTC_API --> DTC
+    LIFE_API --> LIFE
+    ID_API --> ID
+    STORE_API --> CAPSULE
+    TRANS_API --> TRANS
+
+    DTC --> DIRTY
+    LIFE --> DIRTY
+    DIRTY --> CAPSULE
+    CAPSULE --> STORE
+```
+
+Layer ownership is strict:
+
+- product firmware owns fault detection, operation-cycle timing, protocol parsing,
+  storage media, transport media, and wear-leveling policy.
+- `libdiag` owns bounded diagnostic state, status transitions, counters, dirty
+  flags, and capsule serialization.
+- host tools own names, descriptions, service procedures, catalogs, and rich
+  product meaning.
+
 ## Branch Strategy
 
 - `main`: intentionally empty or docs-only.
@@ -57,6 +130,24 @@ Diagnostics are separated by lifetime and storage cost:
 Only persistent DTCs and lifecycle records may dirty persistent storage.
 Runtime and volatile updates must not write flash.
 
+```mermaid
+flowchart LR
+    EVENT["Runtime event<br/>live signal only"]
+    VOL["Volatile DTC<br/>RAM record"]
+    PERSIST["Persistent DTC<br/>RAM + dirty flag"]
+    LIFE["Lifecycle record<br/>reset/update facts"]
+    DIRTY["Dirty sections"]
+    SAVE["Explicit diag_save()"]
+    STORE["Storage adapter commit"]
+
+    EVENT -->|"optional promotion"| VOL
+    VOL -->|"important enough to retain"| PERSIST
+    LIFE --> DIRTY
+    PERSIST --> DIRTY
+    DIRTY -->|"firmware chooses timing"| SAVE
+    SAVE --> STORE
+```
+
 Persistent mutations update caller-owned RAM first and set context dirty flags.
 `diag_get_dirty_flags()` exposes those flags so firmware can decide when to
 batch, defer, or suppress storage work. Context-level save/load uses a
@@ -85,9 +176,36 @@ bit 6 test_not_completed_this_operation_cycle
 bit 7 warning_indicator_requested
 ```
 
+```mermaid
+packet
+0: "test_failed"
+1: "test_failed_this_operation_cycle"
+2: "pending"
+3: "confirmed"
+4: "test_not_completed_since_clear"
+5: "test_failed_since_clear"
+6: "test_not_completed_this_operation_cycle"
+7: "warning_indicator_requested"
+```
+
 Counters should be saturating rather than wrapping. Repeated `set_active()` on an
 already active DTC should be idempotent. State transitions are explicit and
 operation-cycle driven: `test_failed -> pending -> confirmed -> aged`.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Registered: diag_dtc_register()
+    Registered --> TestFailed: monitor fails
+    TestFailed --> Registered: monitor passes before cycle end
+    TestFailed --> Pending: operation cycle ends failed
+    Pending --> Confirmed: confirmation threshold met
+    Confirmed --> Aging: monitor passes and clean cycles start
+    Aging --> Registered: aging threshold met
+    TestFailed --> Registered: diag_dtc_clear()
+    Pending --> Registered: diag_dtc_clear()
+    Confirmed --> Registered: diag_dtc_clear()
+```
 
 Full-store behavior must be deterministic. Each configured store chooses a policy:
 reject new entries, replace by priority, or replace by age/sequence. Cleared records
@@ -118,13 +236,54 @@ The capsule includes:
 - total length.
 - generation counter.
 - section count.
-- per-section type, offset, length, used length, version, flags.
+- per-section type, version, offset, length, and used length.
 - explicit endian encoding.
 - CRC/integrity check.
 
 Unknown future sections should be skipped or preserved when safe. Unsupported
 schema versions must fail deterministically rather than rewriting data that
 cannot be understood.
+
+Capsule schema version 1 uses a 24-byte fixed header:
+
+```mermaid
+packet
+0-31: "magic"
+32-47: "schema_version"
+48-63: "header_size"
+64-95: "total_length"
+96-127: "generation"
+128-143: "section_count"
+144-159: "reserved"
+160-191: "content_crc32"
+```
+
+Each section-table entry is 16 bytes:
+
+```mermaid
+packet
+0-15: "type"
+16-31: "version"
+32-63: "offset"
+64-95: "length"
+96-127: "used_length"
+```
+
+The complete capsule is a header, a bounded section table, and section payloads.
+The 512-byte example below shows the recommended small default; `total_length`
+is authoritative for other product sizes.
+
+```mermaid
+packet
+0-191: "24-byte header"
+192-1215: "section table: up to 8 x 16-byte entries"
+1216-1919: "bootloader-owned payload sections"
+1920-2623: "application-owned payload sections"
+2624-3199: "shared lifecycle / reset-counter sections"
+3200-3839: "snapshot / extended-data sections"
+3840-4063: "reserved expansion"
+4064-4095: "commit / integrity tail if policy requires"
+```
 
 Snapshot/freeze-frame and extended-data records are fixed-capacity sections. A DTC
 stores only compact references to those records. Signal names, units, scaling,
@@ -162,6 +321,39 @@ Use strict ownership banks:
 The bootloader should be conservative: read known fields, write only
 bootloader-owned state, and preserve unknown application data. The application
 can own richer migration, compaction, and full capsule rebuilds.
+
+```mermaid
+flowchart LR
+    subgraph Boot["Bootloader firmware"]
+        BOOT_READ["Read capsule"]
+        BOOT_WRITE["Write bootloader bank"]
+        BOOT_PRESERVE["Preserve app and unknown sections"]
+    end
+
+    subgraph Capsule["Persistent capsule"]
+        BOOT_BANK["Bootloader bank"]
+        APP_BANK["Application bank"]
+        LIFE_BANK["Shared lifecycle bank"]
+        UNKNOWN["Unknown future sections"]
+    end
+
+    subgraph App["Application firmware"]
+        APP_READ["Read capsule"]
+        APP_WRITE["Write application bank"]
+        APP_MIGRATE["Migrate or compact known layout"]
+    end
+
+    BOOT_READ --> BOOT_BANK
+    BOOT_READ --> APP_BANK
+    BOOT_WRITE --> BOOT_BANK
+    BOOT_PRESERVE --> APP_BANK
+    BOOT_PRESERVE --> UNKNOWN
+
+    APP_READ --> BOOT_BANK
+    APP_READ --> APP_BANK
+    APP_WRITE --> APP_BANK
+    APP_MIGRATE --> LIFE_BANK
+```
 
 Persistent lifecycle records are for durable facts. A separate optional volatile
 handoff descriptor should be used for immediate bootloader/application transitions:
@@ -244,6 +436,24 @@ beside it:
 
 ```text
 transport -> framing -> optional protocol adapter -> diagnostics core
+```
+
+```mermaid
+sequenceDiagram
+    participant Tester as External tester
+    participant Link as Transport adapter
+    participant Frame as Framing/protocol layer
+    participant Handler as Optional service handler
+    participant Core as libdiag core
+
+    Tester->>Link: Transport frame or stream bytes
+    Link->>Frame: Caller-owned RX buffer
+    Frame->>Handler: Decoded service request
+    Handler->>Core: diag_* API calls
+    Core-->>Handler: Diagnostic state/result
+    Handler-->>Frame: Response payload or error
+    Frame-->>Link: Encoded response bytes
+    Link-->>Tester: Transport response
 ```
 
 A future optional request/response handler may look like:
