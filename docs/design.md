@@ -216,22 +216,8 @@ may be erased immediately or retained as bounded history by policy.
 ## Storage Capsule
 
 Persistent state is stored as a versioned byte capsule, never as raw C structs.
-The first schema should use a fixed header and bounded section table:
-
-```text
-header
-section table
-bootloader DTC bank
-application DTC bank
-snapshot / freeze-frame records
-extended-data records
-shared lifecycle bank
-reset counters
-reserved space
-CRC / commit marker
-```
-
-The logical capsule envelope is:
+The first schema uses a fixed header, a bounded section table, and explicit
+payload regions:
 
 ```mermaid
 packet
@@ -501,17 +487,6 @@ can coexist.
 A DTC ID is local to the product or firmware that reports it. To identify a
 fault across a product family, combine the device identity fields with the local
 DTC ID and the catalog version used to interpret it:
-
-```text
-ecosystem id
-product id
-device type
-device instance
-firmware stage
-subsystem
-local DTC id
-namespace/catalog version
-```
 
 ```mermaid
 packet
