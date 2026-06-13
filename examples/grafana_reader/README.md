@@ -71,11 +71,13 @@ Leave that terminal running. The stack starts three services:
 
 - `exporter` at `http://localhost:9108`
 - `prometheus` at `http://localhost:9090`
-- `grafana` at `http://localhost:3000`
+- `grafana` at `http://localhost:3300`
 
 Those services are containers from `examples/grafana_reader/docker-compose.yml`.
 The Grafana container uses the published `grafana/grafana` image. All host
 ports bind to `127.0.0.1`, so the dashboard is local to your machine by default.
+Grafana uses host port `3300` to avoid the common `localhost:3000` collision
+with other web apps and stale browser service workers.
 
 ## 3. Check The Exporter Directly
 
@@ -120,7 +122,7 @@ You should see two DTC time series:
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3300
 ```
 
 Login is disabled for this local example. Go to:
@@ -132,7 +134,7 @@ Dashboards -> Generic Diagnostics -> Generic Diagnostics - Grafana Reader
 Or open the dashboard directly:
 
 ```text
-http://localhost:3000/d/generic-diagnostics-grafana-reader/generic-diagnostics-grafana-reader
+http://localhost:3300/d/generic-diagnostics-grafana-reader/generic-diagnostics-grafana-reader
 ```
 
 The dashboard should show:
@@ -172,5 +174,9 @@ If `/metrics` fails, rebuild the exporter image:
 docker compose -f examples/grafana_reader/docker-compose.yml build --no-cache exporter
 ```
 
-If port `3000`, `9090`, or `9108` is already in use, stop the conflicting local
+If port `3300`, `9090`, or `9108` is already in use, stop the conflicting local
 service or edit the left side of the `ports` entries in `docker-compose.yml`.
+
+If the browser tab title or content looks like a different app, the browser is
+serving cached state for that host and port. Open `http://127.0.0.1:3300`, use a
+private window, or clear site data for the old origin.
