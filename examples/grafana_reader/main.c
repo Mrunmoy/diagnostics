@@ -40,7 +40,7 @@ int main(int argc, char **argv)
     uint32_t                          scenario_step = 0u;
     int                               use_scenario_step = 0;
 
-    if (argc > 4)
+    if (argc != 1 && argc != 2 && argc != 4)
     {
         print_usage(argv[0]);
         return 1;

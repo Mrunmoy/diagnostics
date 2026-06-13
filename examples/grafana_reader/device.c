@@ -132,7 +132,7 @@ enum diag_result grafana_reader_device_apply_scenario(struct grafana_reader_devi
 
     phase = step % 8u;
 
-    if (phase >= 2u && phase <= 4u)
+    if (phase >= 2u && phase <= 5u)
     {
         result = diag_dtc_set_fault_test_failed(device->ctx, 22u);
         if (result != DIAG_OK)
@@ -149,6 +149,20 @@ enum diag_result grafana_reader_device_apply_scenario(struct grafana_reader_devi
     if (phase == 4u || phase == 5u)
     {
         result = diag_dtc_set_fault_test_passed(device->ctx, 21u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+    }
+
+    if (phase == 5u)
+    {
+        result = diag_dtc_set_fault_test_passed(device->ctx, 22u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+        result = diag_dtc_clear(device->ctx, 0x040102u);
         if (result != DIAG_OK)
         {
             return result;

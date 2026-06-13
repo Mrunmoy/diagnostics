@@ -307,18 +307,40 @@
           "instant": true,
           "legendFormat": "{{dtc_id}}",
           "refId": "A"
+        },
+        {
+          "expr": "diag_dtc_occurrences",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{dtc_id}} occurrences",
+          "refId": "B"
         }
       ],
       "title": "DTC Status",
       "transformations": [
         {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "dtc_id"
+          }
+        },
+        {
           "id": "organize",
           "options": {
             "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
               "Time": true,
+              "Value #A": true,
               "Value": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
               "__name__": true,
+              "instance 1": true,
+              "instance 2": true,
               "instance": true,
+              "job 1": true,
+              "job 2": true,
               "job": true
             },
             "indexByName": {
@@ -327,7 +349,7 @@
               "confirmed": 2,
               "status": 3,
               "severity": 4,
-              "occurrences": 5
+              "Value #B": 5
             },
             "renameByName": {
               "dtc_id": "DTC ID",
@@ -335,7 +357,7 @@
               "confirmed": "Confirmed",
               "status": "Status",
               "severity": "Severity",
-              "occurrences": "Occurrences"
+              "Value #B": "Occurrences"
             }
           }
         }
@@ -598,6 +620,6 @@
   "timezone": "browser",
   "title": "Generic Diagnostics - Grafana Reader",
   "uid": "generic-diagnostics-grafana-reader",
-  "version": 4,
+  "version": 5,
   "weekStart": ""
 }

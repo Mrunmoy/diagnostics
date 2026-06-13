@@ -75,9 +75,9 @@ enum diag_result grafana_reader_export_prometheus(
                 (unsigned long)dtc->id, (unsigned int)dtc->severity);
         fprintf(stream,
                 "diag_dtc_status_info{dtc_id=\"0x%06lx\",status=\"0x%02x\",severity=\"%u\","
-                "active=\"%u\",confirmed=\"%u\",occurrences=\"%lu\"} 1\n",
+                "active=\"%u\",confirmed=\"%u\"} 1\n",
                 (unsigned long)dtc->id, (unsigned int)dtc->status, (unsigned int)dtc->severity,
-                active, confirmed, (unsigned long)dtc->occurrence_count);
+                active, confirmed);
         fprintf(stream, "diag_dtc_active{dtc_id=\"0x%06lx\"} %u\n", (unsigned long)dtc->id, active);
         fprintf(stream, "diag_dtc_confirmed{dtc_id=\"0x%06lx\"} %u\n", (unsigned long)dtc->id,
                 confirmed);
