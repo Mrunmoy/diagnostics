@@ -24,11 +24,11 @@ services:
     depends_on:
       - prometheus
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3300:3000"
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro

@@ -56,6 +56,10 @@ The same binary can print only one export format:
 ./build/linux-debug/examples/diag_grafana_reader_example --json
 ```
 
+The HTTP exporter passes a time-based `--scenario-step N` to the C binary. That
+keeps the CLI demo deterministic while the dashboard shows a moving diagnostic
+scenario with all panels reading the same phase.
+
 ## 2. Start The Grafana Stack
 
 Grafana runs in Docker for this example. You do not need to install Grafana,
@@ -71,11 +75,13 @@ Leave that terminal running. The stack starts three services:
 
 - `exporter` at `http://localhost:9108`
 - `prometheus` at `http://localhost:9090`
-- `grafana` at `http://localhost:3000`
+- `grafana` at `http://localhost:3300`
 
 Those services are containers from `examples/grafana_reader/docker-compose.yml`.
 The Grafana container uses the published `grafana/grafana` image. All host
 ports bind to `127.0.0.1`, so the dashboard is local to your machine by default.
+Grafana uses host port `3300` to avoid the common `localhost:3000` collision
+with other web apps and stale browser service workers.
 
 ## 3. Check The Exporter Directly
 
@@ -90,8 +96,8 @@ curl http://localhost:9108/snapshot.json
 `/metrics` should include:
 
 ```text
-diag_dtc_active{dtc_id="0x040101"} 1
-diag_dtc_active{dtc_id="0x040102"} 0
+diag_dtc_status_info{dtc_id="0x040101",...}
+diag_dtc_status_info{dtc_id="0x040102",...}
 ```
 
 ## 4. Check Prometheus
@@ -112,15 +118,15 @@ diag_dtc_active
 
 You should see two DTC time series:
 
-- `0x040101` has value `1`
-- `0x040102` has value `0`
+- `0x040101` changes as the simulated fault clears and returns.
+- `0x040102` changes as a second simulated fault appears and clears.
 
 ## 5. View The Grafana Dashboard
 
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3300
 ```
 
 Login is disabled for this local example. Go to:
@@ -132,16 +138,16 @@ Dashboards -> Generic Diagnostics -> Generic Diagnostics - Grafana Reader
 Or open the dashboard directly:
 
 ```text
-http://localhost:3000/d/generic-diagnostics-grafana-reader/generic-diagnostics-grafana-reader
+http://localhost:3300/d/generic-diagnostics-grafana-reader/generic-diagnostics-grafana-reader
 ```
 
 The dashboard should show:
 
 - tester scrape health: `1`
-- active DTC count: `1`
-- confirmed DTC count: `1`
-- DTC table with `0x040101` active and `0x040102` inactive
-- DTC occurrence count for `0x040101`
+- active DTC count changing as faults appear, pass, and clear
+- confirmed DTC count changing after operation-cycle confirmation
+- DTC table with clean columns: DTC ID, Active, Confirmed, Status, Severity, Occurrences
+- DTC occurrence lines changing over time
 - persisted capsule size: `100 bytes`
 - compact device identity labels
 
@@ -172,5 +178,10 @@ If `/metrics` fails, rebuild the exporter image:
 docker compose -f examples/grafana_reader/docker-compose.yml build --no-cache exporter
 ```
 
-If port `3000`, `9090`, or `9108` is already in use, stop the conflicting local
+If port `3300`, `9090`, or `9108` is already in use, stop the conflicting local
 service or edit the left side of the `ports` entries in `docker-compose.yml`.
+
+If the browser tab title or content looks like a different app, another app may
+have left cached state or a service worker on the same browser origin. Open
+`http://127.0.0.1:3300` to use a different origin, use a private window, or clear
+site data for the old origin.

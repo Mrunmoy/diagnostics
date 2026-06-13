@@ -19,6 +19,8 @@ struct grafana_reader_device
 };
 
 enum diag_result grafana_reader_device_init(struct grafana_reader_device *device);
+enum diag_result grafana_reader_device_apply_scenario(struct grafana_reader_device *device,
+                                                      uint32_t                      step);
 enum diag_result grafana_reader_device_deinit(struct grafana_reader_device *device);
 size_t           grafana_reader_device_persisted_size(void *user);
 

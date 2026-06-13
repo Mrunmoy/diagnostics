@@ -4,6 +4,7 @@ import argparse
 import http.server
 import subprocess
 import sys
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -16,6 +17,8 @@ else:
 
 class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
     binary = DEFAULT_BINARY
+    phase_seconds = 12.0
+    scenario_started_at = time.monotonic()
 
     def log_message(self, fmt, *args):
         sys.stderr.write("grafana_reader_service: " + fmt % args + "\n")
@@ -38,9 +41,11 @@ class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
         self._write_text(404, "not found\n", "text/plain; charset=utf-8")
 
     def _run_export(self, mode, content_type):
+        step = self._scenario_step()
+
         try:
             completed = subprocess.run(
-                [str(self.binary), mode],
+                [str(self.binary), mode, "--scenario-step", str(step)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -58,6 +63,12 @@ class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
             return
 
         self._write_text(200, completed.stdout, content_type)
+
+    @classmethod
+    def _scenario_step(cls):
+        elapsed = time.monotonic() - cls.scenario_started_at
+        return int(elapsed / cls.phase_seconds)
+
 
     def _write_text(self, status, body, content_type):
         encoded = body.encode("utf-8")
