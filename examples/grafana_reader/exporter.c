@@ -5,17 +5,39 @@ static unsigned int status_bit_is_set(uint8_t status, uint8_t mask)
     return (status & mask) != 0u ? 1u : 0u;
 }
 
+static enum diag_result validate_snapshot(const struct example_diag_tool_snapshot *snapshot)
+{
+    if (snapshot == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (snapshot->dtc_count > EXAMPLE_DIAG_MAX_DTC_SNAPSHOT_COUNT)
+    {
+        return DIAG_ERROR_CAPACITY;
+    }
+
+    return DIAG_OK;
+}
+
 // clang-format off
 enum diag_result grafana_reader_export_prometheus(
     FILE *stream,
     const struct example_diag_tool_snapshot *snapshot)
 // clang-format on
 {
-    size_t i = 0u;
+    enum diag_result result = DIAG_OK;
+    size_t           i = 0u;
 
-    if (stream == NULL || snapshot == NULL)
+    if (stream == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    result = validate_snapshot(snapshot);
+    if (result != DIAG_OK)
+    {
+        return result;
     }
 
     fprintf(stream, "# HELP diag_tester_up Diagnostic tester scrape health.\n");
@@ -68,11 +90,18 @@ enum diag_result grafana_reader_export_json(
     const struct example_diag_tool_snapshot *snapshot)
 // clang-format on
 {
-    size_t i = 0u;
+    enum diag_result result = DIAG_OK;
+    size_t           i = 0u;
 
-    if (stream == NULL || snapshot == NULL)
+    if (stream == NULL)
     {
         return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    result = validate_snapshot(snapshot);
+    if (result != DIAG_OK)
+    {
+        return result;
     }
 
     fprintf(stream, "{\n");
