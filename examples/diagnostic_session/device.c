@@ -68,6 +68,11 @@ static struct diag_storage make_storage(struct diagnostic_device *device)
 
 enum diag_result diagnostic_device_init(struct diagnostic_device *device)
 {
+    if (device == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
     const struct diag_config     config = {0};
     const struct diag_dtc_config dtc_config = {
         .records = device->dtc_records,
@@ -85,11 +90,6 @@ enum diag_result diagnostic_device_init(struct diagnostic_device *device)
         .reserved = 0u,
     };
     struct diag_storage storage = {0};
-
-    if (device == NULL)
-    {
-        return DIAG_ERROR_INVALID_ARGUMENT;
-    }
 
     memset(device, 0, sizeof(*device));
     storage = make_storage(device);
