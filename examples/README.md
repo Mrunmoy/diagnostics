@@ -15,6 +15,7 @@ your use case, then inspect its `main.c` to see the exact API calls.
 | `identity` | A host tool needs to identify a device. | Firmware stores compact numeric IDs; host catalogs own strings. |
 | `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
 | `diagnostic_session` | You want to see the whole external diagnostics workflow. | A simulated device and PC/tester exchange requests to read identity, list DTCs, clear a DTC, and persist the result. |
+| `grafana_reader` | You want dashboards from tester-collected diagnostics. | Export a read-only snapshot as Prometheus metrics and JSON without adding dashboard code to firmware. |
 | `process_controller` | Only confirmed important faults should survive restart. | Confirmation thresholds and explicit capsule saves reduce flash churn. |
 | `industrial_oven` | Critical thermal/reset state must be serviceable after restart. | Persist important DTC and lifecycle state, not every transient event. |
 | `bootloader_app_shared` | Bootloader and application both report diagnostics. | Separate capsule banks avoid raw struct sharing and ownership fights. |
@@ -62,6 +63,10 @@ and a PC/tester flow for reading identity, listing DTCs, clearing one DTC, and
 printing useful errors. Scenario examples such as `sensor_node`,
 `process_controller`, `industrial_oven`, and `ecu_node` use that shared code so
 the tooling behavior stays consistent.
+
+`grafana_reader` uses the same collector in quiet mode and exports the snapshot
+as Prometheus text and JSON. That keeps dashboards on the PC/tester side while
+the device still exposes only bounded diagnostic state.
 
 ## Future PC Tooling Examples
 
