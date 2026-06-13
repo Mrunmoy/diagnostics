@@ -220,7 +220,62 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Active"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "text": "No"
+                      },
+                      "1": {
+                        "text": "Yes"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Confirmed"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "0": {
+                        "text": "No"
+                      },
+                      "1": {
+                        "text": "Yes"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 7,
@@ -244,33 +299,41 @@
       "pluginVersion": "11.2.2",
       "targets": [
         {
-          "expr": "diag_dtc_registered_info",
+          "expr": "diag_dtc_status_info",
           "format": "table",
           "instant": true,
           "legendFormat": "{{dtc_id}}",
           "refId": "A"
-        },
-        {
-          "expr": "diag_dtc_active",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{dtc_id}} active",
-          "refId": "B"
-        },
-        {
-          "expr": "diag_dtc_confirmed",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{dtc_id}} confirmed",
-          "refId": "C"
         }
       ],
-      "title": "DTC Status Table",
+      "title": "DTC Status",
       "transformations": [
         {
-          "id": "seriesToColumns",
+          "id": "organize",
           "options": {
-            "byField": "dtc_id"
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "dtc_id": 0,
+              "active": 1,
+              "confirmed": 2,
+              "status": 3,
+              "severity": 4,
+              "occurrences": 5
+            },
+            "renameByName": {
+              "dtc_id": "DTC ID",
+              "active": "Active",
+              "confirmed": "Confirmed",
+              "status": "Status",
+              "severity": "Severity",
+              "occurrences": "Occurrences"
+            }
           }
         }
       ],
@@ -355,7 +418,7 @@
       "pluginVersion": "11.2.2",
       "targets": [
         {
-          "expr": "diag_dtc_occurrences_total",
+          "expr": "diag_dtc_occurrences",
           "legendFormat": "{{dtc_id}}",
           "refId": "A"
         }
@@ -481,7 +544,37 @@
         }
       ],
       "title": "Device Identity",
-      "type": "table"
+      "type": "table",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {
+              "ecosystem_id": 0,
+              "product_id": 1,
+              "device_type": 2,
+              "device_instance": 3,
+              "stage": 4,
+              "component": 5
+            },
+            "renameByName": {
+              "ecosystem_id": "Ecosystem",
+              "product_id": "Product",
+              "device_type": "Device Type",
+              "device_instance": "Instance",
+              "stage": "Stage",
+              "component": "Component"
+            }
+          }
+        }
+      ]
     }
   ],
   "refresh": "5s",
@@ -501,6 +594,6 @@
   "timezone": "browser",
   "title": "Generic Diagnostics - Grafana Reader",
   "uid": "generic-diagnostics-grafana-reader",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }

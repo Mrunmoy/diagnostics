@@ -119,6 +119,73 @@ enum diag_result grafana_reader_device_init(struct grafana_reader_device *device
     return DIAG_OK;
 }
 
+enum diag_result grafana_reader_device_apply_scenario(struct grafana_reader_device *device,
+                                                      uint32_t                      step)
+{
+    enum diag_result result = DIAG_OK;
+    uint32_t         phase = 0u;
+
+    if (device == NULL || device->ctx == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    phase = step % 8u;
+
+    if (phase >= 2u && phase <= 4u)
+    {
+        result = diag_dtc_set_fault_test_failed(device->ctx, 22u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+        result = diag_dtc_operation_cycle(device->ctx);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+    }
+
+    if (phase == 4u || phase == 5u)
+    {
+        result = diag_dtc_set_fault_test_passed(device->ctx, 21u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+    }
+
+    if (phase == 6u)
+    {
+        result = diag_dtc_set_fault_test_passed(device->ctx, 21u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+        result = diag_dtc_set_fault_test_failed(device->ctx, 21u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+        result = diag_dtc_operation_cycle(device->ctx);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+    }
+
+    if (phase == 7u)
+    {
+        result = diag_dtc_clear(device->ctx, 0x040101u);
+        if (result != DIAG_OK)
+        {
+            return result;
+        }
+    }
+
+    return diag_save(device->ctx);
+}
+
 enum diag_result grafana_reader_device_deinit(struct grafana_reader_device *device)
 {
     if (device == NULL)

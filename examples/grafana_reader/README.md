@@ -56,6 +56,10 @@ The same binary can print only one export format:
 ./build/linux-debug/examples/diag_grafana_reader_example --json
 ```
 
+The HTTP exporter passes `--scenario-step N` to the C binary on each scrape. That
+keeps the CLI demo deterministic while the dashboard shows a moving diagnostic
+scenario.
+
 ## 2. Start The Grafana Stack
 
 Grafana runs in Docker for this example. You do not need to install Grafana,
@@ -92,8 +96,8 @@ curl http://localhost:9108/snapshot.json
 `/metrics` should include:
 
 ```text
-diag_dtc_active{dtc_id="0x040101"} 1
-diag_dtc_active{dtc_id="0x040102"} 0
+diag_dtc_status_info{dtc_id="0x040101",...}
+diag_dtc_status_info{dtc_id="0x040102",...}
 ```
 
 ## 4. Check Prometheus
@@ -114,8 +118,8 @@ diag_dtc_active
 
 You should see two DTC time series:
 
-- `0x040101` has value `1`
-- `0x040102` has value `0`
+- `0x040101` changes as the simulated fault clears and returns.
+- `0x040102` changes as a second simulated fault appears and clears.
 
 ## 5. View The Grafana Dashboard
 
@@ -140,10 +144,10 @@ http://localhost:3300/d/generic-diagnostics-grafana-reader/generic-diagnostics-g
 The dashboard should show:
 
 - tester scrape health: `1`
-- active DTC count: `1`
-- confirmed DTC count: `1`
-- DTC table with `0x040101` active and `0x040102` inactive
-- DTC occurrence count for `0x040101`
+- active DTC count changing as faults appear, pass, and clear
+- confirmed DTC count changing after operation-cycle confirmation
+- DTC table with clean columns: DTC ID, Active, Confirmed, Status, Severity, Occurrences
+- DTC occurrence lines changing over time
 - persisted capsule size: `100 bytes`
 - compact device identity labels
 
@@ -177,6 +181,7 @@ docker compose -f examples/grafana_reader/docker-compose.yml build --no-cache ex
 If port `3300`, `9090`, or `9108` is already in use, stop the conflicting local
 service or edit the left side of the `ports` entries in `docker-compose.yml`.
 
-If the browser tab title or content looks like a different app, the browser is
-serving cached state for that host and port. Open `http://127.0.0.1:3300`, use a
-private window, or clear site data for the old origin.
+If the browser tab title or content looks like a different app, another app may
+have left cached state or a service worker on the same browser origin. Open
+`http://127.0.0.1:3300` to use a different origin, use a private window, or clear
+site data for the old origin.

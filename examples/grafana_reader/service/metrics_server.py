@@ -4,6 +4,7 @@ import argparse
 import http.server
 import subprocess
 import sys
+import threading
 import urllib.parse
 from pathlib import Path
 
@@ -16,6 +17,8 @@ else:
 
 class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
     binary = DEFAULT_BINARY
+    step = 0
+    step_lock = threading.Lock()
 
     def log_message(self, fmt, *args):
         sys.stderr.write("grafana_reader_service: " + fmt % args + "\n")
@@ -38,9 +41,11 @@ class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
         self._write_text(404, "not found\n", "text/plain; charset=utf-8")
 
     def _run_export(self, mode, content_type):
+        step = self._next_step()
+
         try:
             completed = subprocess.run(
-                [str(self.binary), mode],
+                [str(self.binary), mode, "--scenario-step", str(step)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -58,6 +63,13 @@ class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
             return
 
         self._write_text(200, completed.stdout, content_type)
+
+    @classmethod
+    def _next_step(cls):
+        with cls.step_lock:
+            step = cls.step
+            cls.step += 1
+            return step
 
     def _write_text(self, status, body, content_type):
         encoded = body.encode("utf-8")
