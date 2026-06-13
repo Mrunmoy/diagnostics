@@ -56,9 +56,9 @@ The same binary can print only one export format:
 ./build/linux-debug/examples/diag_grafana_reader_example --json
 ```
 
-The HTTP exporter passes `--scenario-step N` to the C binary on each scrape. That
+The HTTP exporter passes a time-based `--scenario-step N` to the C binary. That
 keeps the CLI demo deterministic while the dashboard shows a moving diagnostic
-scenario.
+scenario with all panels reading the same phase.
 
 ## 2. Start The Grafana Stack
 

@@ -64,7 +64,8 @@
         {
           "expr": "diag_tester_up",
           "legendFormat": "tester",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Tester Scrape Health",
@@ -123,9 +124,10 @@
       "pluginVersion": "11.2.2",
       "targets": [
         {
-          "expr": "sum(diag_dtc_active)",
+          "expr": "count(diag_dtc_status_info{active=\"1\"}) or vector(0)",
           "legendFormat": "active",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Active DTCs",
@@ -184,9 +186,10 @@
       "pluginVersion": "11.2.2",
       "targets": [
         {
-          "expr": "sum(diag_dtc_confirmed)",
+          "expr": "count(diag_dtc_status_info{confirmed=\"1\"}) or vector(0)",
           "legendFormat": "confirmed",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Confirmed DTCs",
@@ -478,7 +481,8 @@
         {
           "expr": "diag_capsule_persisted_bytes",
           "legendFormat": "capsule",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Persisted Capsule",
@@ -594,6 +598,6 @@
   "timezone": "browser",
   "title": "Generic Diagnostics - Grafana Reader",
   "uid": "generic-diagnostics-grafana-reader",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
