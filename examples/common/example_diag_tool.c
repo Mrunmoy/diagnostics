@@ -210,6 +210,131 @@ static enum diag_result example_diag_tool_exchange(const struct example_diag_dev
     return result;
 }
 
+// clang-format off
+static enum diag_result example_diag_tool_collect_identity(
+    const struct example_diag_device *device,
+    struct example_diag_identity_snapshot *out_identity)
+// clang-format on
+{
+    struct example_diag_frame request = {{0}, 1u};
+    struct example_diag_frame response = {{0}, 0u};
+    enum diag_result          result = DIAG_OK;
+
+    if (out_identity == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    request.bytes[0] = EXAMPLE_DIAG_SERVICE_READ_IDENTITY;
+    result = example_diag_device_handle_request(device, &request, &response);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (response.size != 11u || response.bytes[0] != DIAG_OK)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    out_identity->ecosystem_id =
+        (uint16_t)((uint16_t)response.bytes[1] | ((uint16_t)response.bytes[2] << 8u));
+    out_identity->product_id =
+        (uint16_t)((uint16_t)response.bytes[3] | ((uint16_t)response.bytes[4] << 8u));
+    out_identity->device_type =
+        (uint16_t)((uint16_t)response.bytes[5] | ((uint16_t)response.bytes[6] << 8u));
+    out_identity->device_instance = response.bytes[7];
+    out_identity->firmware_stage = response.bytes[8];
+    out_identity->firmware_component = response.bytes[9];
+
+    return DIAG_OK;
+}
+
+// clang-format off
+static enum diag_result example_diag_tool_collect_dtcs(
+    const struct example_diag_device *device,
+    struct example_diag_tool_snapshot *out_snapshot)
+// clang-format on
+{
+    struct example_diag_frame request = {{0}, 1u};
+    struct example_diag_frame response = {{0}, 0u};
+    size_t                    count = 0u;
+    size_t                    i = 0u;
+    enum diag_result          result = DIAG_OK;
+
+    if (out_snapshot == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    request.bytes[0] = EXAMPLE_DIAG_SERVICE_LIST_DTCS;
+    result = example_diag_device_handle_request(device, &request, &response);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (response.size < 2u || response.bytes[0] != DIAG_OK)
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    count = response.bytes[1];
+    if (count > EXAMPLE_DIAG_MAX_DTC_SNAPSHOT_COUNT ||
+        response.size != (2u + (count * EXAMPLE_DIAG_DTC_WIRE_SIZE)))
+    {
+        return DIAG_ERROR_CORRUPT_DATA;
+    }
+
+    out_snapshot->dtc_count = count;
+    for (i = 0u; i < count; ++i)
+    {
+        const uint8_t *record = &response.bytes[2u + (i * EXAMPLE_DIAG_DTC_WIRE_SIZE)];
+
+        out_snapshot->dtcs[i].id = example_diag_read_u32_le(&record[0]);
+        out_snapshot->dtcs[i].status = record[4];
+        out_snapshot->dtcs[i].severity = record[5];
+        out_snapshot->dtcs[i].occurrence_count = example_diag_read_u32_le(&record[6]);
+    }
+
+    return DIAG_OK;
+}
+
+// clang-format off
+enum diag_result example_diag_tool_collect_snapshot(
+    const struct example_diag_device *device,
+    struct example_diag_tool_snapshot *out_snapshot)
+// clang-format on
+{
+    enum diag_result result = DIAG_OK;
+
+    if (device == NULL || device->name == NULL || device->ctx == NULL || out_snapshot == NULL)
+    {
+        return DIAG_ERROR_INVALID_ARGUMENT;
+    }
+
+    *out_snapshot = (struct example_diag_tool_snapshot){0};
+
+    result = example_diag_tool_collect_identity(device, &out_snapshot->identity);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    result = example_diag_tool_collect_dtcs(device, out_snapshot);
+    if (result != DIAG_OK)
+    {
+        return result;
+    }
+
+    if (device->persisted_size != NULL)
+    {
+        out_snapshot->persisted_size = device->persisted_size(device->user);
+    }
+
+    return DIAG_OK;
+}
+
 static enum diag_result example_diag_tool_read_identity(const struct example_diag_device *device)
 {
     struct example_diag_frame request = {{0}, 1u};

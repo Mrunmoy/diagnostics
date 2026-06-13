@@ -56,6 +56,25 @@ if(DIAG_FEATURE_DTC
 endif()
 
 if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_grafana_reader_example
+        common/example_diag_tool.c
+        grafana_reader/device.c
+        grafana_reader/exporter.c
+        grafana_reader/main.c
+    )
+    target_include_directories(diag_grafana_reader_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/grafana_reader
+    )
+    target_link_libraries(diag_grafana_reader_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_grafana_reader_example)
+endif()
+
+if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_LIFECYCLE
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
