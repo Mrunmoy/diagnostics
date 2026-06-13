@@ -1,4 +1,5 @@
 #include "diag/diag.h"
+#include "example_diag_tool.h"
 
 #include <stdio.h>
 
@@ -66,6 +67,21 @@ int main(void)
     }
 
     printf("sensor_node: active runtime DTC 0x%06lx\n", (unsigned long)sensor_fault.id);
+
+    {
+        const struct example_diag_device device = {
+            .name = "sensor_node",
+            .ctx = ctx,
+            .persisted_size = NULL,
+            .user = NULL,
+        };
+
+        if (example_diag_tool_run_cli(&device, 0x010001u) != DIAG_OK)
+        {
+            fprintf(stderr, "sensor_node: diagnostic tool flow failed\n");
+            return 1;
+        }
+    }
 
     if (diag_deinit(ctx) != DIAG_OK)
     {

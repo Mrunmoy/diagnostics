@@ -16,6 +16,8 @@ enable only the modules they need.
 - Storage is explicit and capsule-backed.
 - Transport is attached as a callback interface, not as a protocol
   implementation.
+- The shared CLI tester uses the same example request/response pattern as the
+  other scenario examples.
 
 Use this example as a reference when building a full diagnostic node. Use the
 smaller examples when estimating footprint for a constrained product.
@@ -38,6 +40,15 @@ Expected output:
 
 ```text
 ecu_node: confirmed DTC 0x050001, saved <n> bytes
+ecu_node tool: opening diagnostic session
+ecu_node tool: identity ecosystem=1 product=50 type=5 instance=2 stage=1 component=1
+ecu_node tool: DTC count=1
+ecu_node tool: DTC 0x050001 status=0x6d severity=2 occurrences=1
+ecu_node tool: cleared DTC 0x050001
+ecu_node tool: DTC count=1
+ecu_node tool: DTC 0x050001 status=0x00 severity=2 occurrences=1
+ecu_node tool: persisted capsule bytes=<n>
+ecu_node tool: diagnostic session complete
 ```
 
 After this works, run `./build.py size --dtc-capacity <count>` with a realistic

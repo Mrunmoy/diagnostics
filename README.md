@@ -363,6 +363,7 @@ closest scenario:
 | Reset reason/counter policy | `examples/lifecycle` | Shows reset tracking without forcing flash writes. |
 | Numeric device identity only | `examples/identity` | Useful when host tooling owns names and catalogs. |
 | Callback contracts | `examples/adapters` | Shows how storage and transport adapters are shaped. |
+| A PC/tester reading a simulated device | `examples/diagnostic_session` | Shows the external workflow: read identity, list DTCs, clear a DTC, and persist the result. |
 | Confirmed faults that survive restart | `examples/process_controller` | Adds capsule persistence for important confirmed state. |
 | Critical thermal/reset diagnostics | `examples/industrial_oven` | Persists only important service data. |
 | Separate bootloader and app diagnostics | `examples/bootloader_app_shared` | Uses separate capsule banks instead of shared raw structs. |

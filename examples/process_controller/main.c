@@ -1,4 +1,5 @@
 #include "diag/diag.h"
+#include "example_diag_tool.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +9,13 @@ struct process_store
     uint8_t bytes[256];
     size_t  used;
 };
+
+static size_t process_persisted_size(void *user)
+{
+    const struct process_store *store = (const struct process_store *)user;
+
+    return store->used;
+}
 
 static enum diag_result process_load(void *user, uint8_t *buffer, size_t buffer_size,
                                      size_t *bytes_read)
@@ -75,6 +83,15 @@ int main(void)
         .reset_count_interval = 16u,
         .platform_reset_count = 0u,
     };
+    const struct diag_identity identity = {
+        .ecosystem_id = 1u,
+        .product_id = 30u,
+        .device_type = 3u,
+        .device_instance = 1u,
+        .firmware_stage = 1u,
+        .firmware_component = 1u,
+        .reserved = 0u,
+    };
     const struct diag_storage storage_adapter = {
         .ops = &storage_ops,
         .user = &store,
@@ -90,6 +107,7 @@ int main(void)
     };
 
     if (diag_init(&storage, &config, &ctx) != DIAG_OK ||
+        diag_identity_attach(ctx, &identity) != DIAG_OK ||
         diag_storage_attach(ctx, &storage_adapter) != DIAG_OK ||
         diag_dtc_attach(ctx, &dtc_config) != DIAG_OK ||
         diag_lifecycle_attach(ctx, &lifecycle_config) != DIAG_OK)
@@ -117,6 +135,21 @@ int main(void)
 
     printf("process_controller: persisted confirmed DTC using %lu bytes\n",
            (unsigned long)store.used);
+
+    {
+        const struct example_diag_device device = {
+            .name = "process_controller",
+            .ctx = ctx,
+            .persisted_size = process_persisted_size,
+            .user = &store,
+        };
+
+        if (example_diag_tool_run_cli(&device, 0x030001u) != DIAG_OK)
+        {
+            fprintf(stderr, "process_controller: diagnostic tool flow failed\n");
+            return 1;
+        }
+    }
 
     return diag_deinit(ctx) == DIAG_OK ? 0 : 1;
 }

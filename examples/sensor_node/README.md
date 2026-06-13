@@ -14,6 +14,7 @@ reported the runtime fault.
 - `dtc_records` fixes the maximum number of tracked faults at compile time.
 - `diag_dtc_register()` declares the DTCs the product can report.
 - `diag_dtc_set_active()` updates RAM state when a monitor fails.
+- The shared CLI tester reads identity, lists the runtime DTC, and clears it.
 - There is no storage adapter and no capsule buffer.
 
 Choose this shape when losing DTC state on reset is acceptable and low footprint
@@ -37,4 +38,12 @@ Expected output:
 
 ```text
 sensor_node: active runtime DTC 0x010001
+sensor_node tool: opening diagnostic session
+sensor_node tool: identity ecosystem=1 product=10 type=1 instance=7 stage=1 component=1
+sensor_node tool: DTC count=1
+sensor_node tool: DTC 0x010001 status=0x27 severity=1 occurrences=1
+sensor_node tool: cleared DTC 0x010001
+sensor_node tool: DTC count=1
+sensor_node tool: DTC 0x010001 status=0x00 severity=1 occurrences=1
+sensor_node tool: diagnostic session complete
 ```

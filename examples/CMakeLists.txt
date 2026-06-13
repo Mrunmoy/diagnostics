@@ -28,9 +28,31 @@ if(DIAG_FEATURE_STORAGE AND DIAG_FEATURE_TRANSPORT)
 endif()
 
 if(DIAG_FEATURE_DTC AND DIAG_FEATURE_IDENTITY)
-    add_executable(diag_sensor_node_example sensor_node/main.c)
+    add_executable(diag_sensor_node_example sensor_node/main.c common/example_diag_tool.c)
+    target_include_directories(diag_sensor_node_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
     target_link_libraries(diag_sensor_node_example PRIVATE diag::diag)
     list(APPEND diag_example_targets diag_sensor_node_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_diagnostic_session_example
+        common/example_diag_tool.c
+        diagnostic_session/device.c
+        diagnostic_session/main.c
+    )
+    target_include_directories(diag_diagnostic_session_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+    )
+    target_link_libraries(diag_diagnostic_session_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_diagnostic_session_example)
 endif()
 
 if(DIAG_FEATURE_DTC
@@ -38,16 +60,25 @@ if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
    AND DIAG_FEATURE_CAPSULE)
-    add_executable(diag_industrial_oven_example industrial_oven/main.c)
+    add_executable(diag_industrial_oven_example industrial_oven/main.c common/example_diag_tool.c)
+    target_include_directories(diag_industrial_oven_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
     target_link_libraries(diag_industrial_oven_example PRIVATE diag::diag)
     list(APPEND diag_example_targets diag_industrial_oven_example)
 endif()
 
 if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
    AND DIAG_FEATURE_CAPSULE)
-    add_executable(diag_process_controller_example process_controller/main.c)
+    add_executable(diag_process_controller_example process_controller/main.c common/example_diag_tool.c)
+    target_include_directories(diag_process_controller_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
     target_link_libraries(diag_process_controller_example PRIVATE diag::diag)
     list(APPEND diag_example_targets diag_process_controller_example)
 endif()
@@ -64,7 +95,11 @@ if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_STORAGE
    AND DIAG_FEATURE_TRANSPORT
    AND DIAG_FEATURE_CAPSULE)
-    add_executable(diag_ecu_node_example ecu_node/main.c)
+    add_executable(diag_ecu_node_example ecu_node/main.c common/example_diag_tool.c)
+    target_include_directories(diag_ecu_node_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
     target_link_libraries(diag_ecu_node_example PRIVATE diag::diag)
     list(APPEND diag_example_targets diag_ecu_node_example)
 endif()
