@@ -74,7 +74,8 @@ Leave that terminal running. The stack starts three services:
 - `grafana` at `http://localhost:3000`
 
 Those services are containers from `examples/grafana_reader/docker-compose.yml`.
-The Grafana container uses the published `grafana/grafana` image.
+The Grafana container uses the published `grafana/grafana` image. All host
+ports bind to `127.0.0.1`, so the dashboard is local to your machine by default.
 
 ## 3. Check The Exporter Directly
 
@@ -143,6 +144,9 @@ The dashboard should show:
 - DTC occurrence count for `0x040101`
 - persisted capsule size: `100 bytes`
 - compact device identity labels
+
+Anonymous access uses Grafana's Viewer role. The example is intended for
+inspection, not dashboard editing or service actions.
 
 ## 6. Stop The Stack
 

@@ -17,7 +17,8 @@ RUN ./build.py build -- \
         DIAG_FEATURE_DTC=ON \
         DIAG_FEATURE_IDENTITY=ON \
         DIAG_FEATURE_STORAGE=ON \
-        DIAG_FEATURE_CAPSULE=ON
+        DIAG_FEATURE_CAPSULE=ON \
+        DIAG_BUILD_TESTS=OFF
 
 FROM debian:bookworm-slim
 

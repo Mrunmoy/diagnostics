@@ -4,25 +4,34 @@ import argparse
 import http.server
 import subprocess
 import sys
+import urllib.parse
 from pathlib import Path
+
+SCRIPT_PATH = Path(__file__).resolve()
+if len(SCRIPT_PATH.parents) > 3:
+    DEFAULT_BINARY = SCRIPT_PATH.parents[3] / "build/linux-debug/examples/diag_grafana_reader_example"
+else:
+    DEFAULT_BINARY = SCRIPT_PATH.with_name("diag_grafana_reader_example")
 
 
 class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
-    binary = Path("./build/linux-debug/examples/diag_grafana_reader_example")
+    binary = DEFAULT_BINARY
 
     def log_message(self, fmt, *args):
         sys.stderr.write("grafana_reader_service: " + fmt % args + "\n")
 
     def do_GET(self):
-        if self.path == "/healthz":
+        path = urllib.parse.urlsplit(self.path).path
+
+        if path == "/healthz":
             self._write_text(200, "ok\n", "text/plain; charset=utf-8")
             return
 
-        if self.path == "/metrics":
+        if path == "/metrics":
             self._run_export("--prometheus", "text/plain; version=0.0.4; charset=utf-8")
             return
 
-        if self.path == "/snapshot.json":
+        if path == "/snapshot.json":
             self._run_export("--json", "application/json; charset=utf-8")
             return
 
@@ -61,7 +70,7 @@ class DiagnosticMetricsHandler(http.server.BaseHTTPRequestHandler):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Serve grafana_reader diagnostics over HTTP.")
-    parser.add_argument("--binary", default="./build/linux-debug/examples/diag_grafana_reader_example")
+    parser.add_argument("--binary", default=str(DEFAULT_BINARY))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9108)
     return parser.parse_args()
