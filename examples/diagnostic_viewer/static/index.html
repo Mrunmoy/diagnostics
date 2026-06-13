@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Diagnostics Viewer</title>
+    <link rel="stylesheet" href="/app.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">PC diagnostic tester</p>
+          <h1>Diagnostics Viewer</h1>
+        </div>
+        <div class="connection" id="connectionState">Connecting</div>
+      </header>
+
+      <section class="summary-grid" aria-label="Device summary">
+        <article class="metric metric-health">
+          <span>Device state</span>
+          <strong id="healthText">--</strong>
+        </article>
+        <article class="metric">
+          <span>Active DTCs</span>
+          <strong id="activeCount">--</strong>
+        </article>
+        <article class="metric">
+          <span>Confirmed DTCs</span>
+          <strong id="confirmedCount">--</strong>
+        </article>
+        <article class="metric">
+          <span>Stored capsule</span>
+          <strong id="storedBytes">--</strong>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Device Identity</h2>
+              <p>Compact numeric IDs from the embedded target.</p>
+            </div>
+          </div>
+          <dl class="identity-list" id="identityList"></dl>
+        </section>
+
+        <section class="panel dtc-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Diagnostic Trouble Codes</h2>
+              <p>State read through the tester request path.</p>
+            </div>
+            <button id="refreshButton" type="button">Refresh</button>
+          </div>
+          <div class="dtc-list" id="dtcList"></div>
+        </section>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Tester Log</h2>
+            <p>Recent PC-side polling and service actions.</p>
+          </div>
+        </div>
+        <ol class="event-log" id="eventLog"></ol>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
