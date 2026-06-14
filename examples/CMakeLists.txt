@@ -59,6 +59,24 @@ if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
    AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_diagnostic_viewer_device
+        common/example_diag_tool.c
+        diagnostic_viewer/device.c
+        diagnostic_viewer/main.c
+    )
+    target_include_directories(diag_diagnostic_viewer_device
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer
+    )
+    target_link_libraries(diag_diagnostic_viewer_device PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_diagnostic_viewer_device)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
     add_executable(diag_grafana_reader_example
         common/example_diag_tool.c
         grafana_reader/device.c
@@ -136,4 +154,20 @@ if(DIAG_BUILD_TESTS)
     foreach(example_target ${diag_example_targets})
         add_test(NAME ${example_target} COMMAND ${example_target})
     endforeach()
+
+    if(TARGET diag_diagnostic_viewer_device)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_diagnostic_viewer_server_self_test
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer/viewer_server.py
+                    --binary $<TARGET_FILE:diag_diagnostic_viewer_device>
+                    --self-test
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping diagnostic viewer server self-test")
+        endif()
+    endif()
 endif()

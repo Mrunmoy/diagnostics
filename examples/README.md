@@ -15,6 +15,7 @@ your use case, then inspect its `main.c` to see the exact API calls.
 | `identity` | A host tool needs to identify a device. | Firmware stores compact numeric IDs; host catalogs own strings. |
 | `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
 | `diagnostic_session` | You want to see the whole external diagnostics workflow. | A simulated device and PC/tester exchange requests to read identity, list DTCs, clear a DTC, and persist the result. |
+| `diagnostic_viewer` | You want a local GUI that shows what is wrong with a device. | A PC-side browser viewer reads JSON snapshots, highlights active/confirmed DTCs, and sends clear requests. |
 | `grafana_reader` | You want dashboards from tester-collected diagnostics. | Run a PC-side exporter, Prometheus scrape, and Grafana dashboard without adding dashboard code to firmware. |
 | `process_controller` | Only confirmed important faults should survive restart. | Confirmation thresholds and explicit capsule saves reduce flash churn. |
 | `industrial_oven` | Critical thermal/reset state must be serviceable after restart. | Persist important DTC and lifecycle state, not every transient event. |
@@ -64,9 +65,14 @@ printing useful errors. Scenario examples such as `sensor_node`,
 `process_controller`, `industrial_oven`, and `ecu_node` use that shared code so
 the tooling behavior stays consistent.
 
+`diagnostic_viewer` uses the same collector shape and adds a small browser UI for
+interactive inspection. It is the quickest way to see the library's external
+debugging value: identity, active faults, confirmed faults, persistence size, and
+clear-DTC actions in one page.
+
 `grafana_reader` uses the same collector in quiet mode, serves the snapshot from
 a PC-side HTTP exporter, and includes Prometheus/Grafana provisioning. That keeps
-dashboards on the PC/tester side while the device still exposes only bounded
+trend views on the PC/tester side while the device still exposes only bounded
 diagnostic state.
 
 ## Future PC Tooling Examples
