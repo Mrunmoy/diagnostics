@@ -156,14 +156,18 @@ if(DIAG_BUILD_TESTS)
     endforeach()
 
     if(TARGET diag_diagnostic_viewer_device)
-        find_package(Python3 COMPONENTS Interpreter REQUIRED)
-        add_test(
-            NAME diag_diagnostic_viewer_server_self_test
-            COMMAND
-                ${Python3_EXECUTABLE}
-                ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer/viewer_server.py
-                --binary $<TARGET_FILE:diag_diagnostic_viewer_device>
-                --self-test
-        )
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_diagnostic_viewer_server_self_test
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer/viewer_server.py
+                    --binary $<TARGET_FILE:diag_diagnostic_viewer_device>
+                    --self-test
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping diagnostic viewer server self-test")
+        endif()
     endif()
 endif()

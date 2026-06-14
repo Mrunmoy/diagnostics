@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import annotations
-
 import argparse
 import http.server
 import json
@@ -10,12 +8,14 @@ import sys
 import time
 import urllib.parse
 from pathlib import Path
+from typing import Optional
 
 
 SCRIPT_PATH = Path(__file__).resolve()
 REPO_ROOT = SCRIPT_PATH.parents[2]
 DEFAULT_BINARY = REPO_ROOT / "build/linux-debug/examples/diag_diagnostic_viewer_device"
 STATIC_DIR = SCRIPT_PATH.with_name("static")
+MAX_POST_BODY_BYTES = 256
 
 
 class DiagnosticViewerHandler(http.server.BaseHTTPRequestHandler):
@@ -58,8 +58,10 @@ class DiagnosticViewerHandler(http.server.BaseHTTPRequestHandler):
             self._write_text(404, "not found\n", "text/plain; charset=utf-8")
             return
 
-        length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(length).decode("utf-8")
+        body = self._read_json_body()
+        if body is None:
+            return
+
         try:
             payload = json.loads(body)
             clear_dtc = str(payload["dtc_id"])
@@ -83,7 +85,26 @@ class DiagnosticViewerHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _write_snapshot(self, clear_dtc: str | None) -> None:
+    def _read_json_body(self) -> Optional[str]:
+        length_text = self.headers.get("Content-Length")
+
+        if length_text is None:
+            self._write_text(411, "Content-Length required\n", "text/plain; charset=utf-8")
+            return None
+
+        try:
+            length = int(length_text)
+        except ValueError:
+            self._write_text(400, "invalid Content-Length\n", "text/plain; charset=utf-8")
+            return None
+
+        if length < 0 or length > MAX_POST_BODY_BYTES:
+            self._write_text(413, "request body too large\n", "text/plain; charset=utf-8")
+            return None
+
+        return self.rfile.read(length).decode("utf-8")
+
+    def _write_snapshot(self, clear_dtc: Optional[str]) -> None:
         command = [
             str(self.binary),
             "--json",
