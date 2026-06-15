@@ -16,6 +16,7 @@ your use case, then inspect its `main.c` to see the exact API calls.
 | `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
 | `diagnostic_session` | You want to see the whole external diagnostics workflow. | A simulated device and PC/tester exchange requests to read identity, list DTCs, clear a DTC, and persist the result. |
 | `socketcan_transport` | You want the same workflow over Linux SocketCAN. | A C++ simulated device and C++ tester exchange diagnostic frames over `vcan0` using the external SocketCAN wrapper. |
+| `serial_transport` | You want the same workflow over UART or USB serial. | A C++ simulated device and tester exchange framed diagnostic bytes over POSIX serial or CI-friendly pseudo-terminals. |
 | `diagnostic_viewer` | You want a local GUI that shows what is wrong with a device. | A PC-side browser viewer reads JSON snapshots, highlights active/confirmed DTCs, and sends clear requests. |
 | `grafana_reader` | You want dashboards from tester-collected diagnostics. | Run a PC-side exporter, Prometheus scrape, and Grafana dashboard without adding dashboard code to firmware. |
 | `process_controller` | Only confirmed important faults should survive restart. | Confirmation thresholds and explicit capsule saves reduce flash churn. |
@@ -78,6 +79,10 @@ framing, timing, and error handling in their own directory.
 `socketcan_transport` keeps the device and tester as separate processes and uses
 Linux SocketCAN as the transport. It is optional because it needs host CAN
 support, but the dev container creates `vcan0` automatically for that workflow.
+
+`serial_transport` uses the same tester workflow over a byte stream. Its CTest
+creates two pseudo-terminals and bridges them, so it proves serial framing
+without requiring USB or UART hardware.
 
 `grafana_reader` uses the same collector in quiet mode, serves the snapshot from
 a PC-side HTTP exporter, and includes Prometheus/Grafana provisioning. That keeps
