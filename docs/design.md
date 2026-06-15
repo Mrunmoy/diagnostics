@@ -622,6 +622,27 @@ Firmware should report compact numeric IDs. The host catalog turns those numbers
 into names, descriptions, service procedures, firmware compatibility ranges, and
 product-specific troubleshooting.
 
+### Host Catalogs
+
+Catalogs are tester-side data. They are not part of the embedded core and should
+not be stored in target firmware unless a product has a separate reason to do
+so. A catalog maps compact device identity and local DTC IDs into human-readable
+meaning:
+
+```text
+identity + dtc_id + catalog_version -> name, severity text, description, action
+```
+
+This keeps the target small and lets a PC tool improve explanations without
+changing the on-device diagnostic record. Firmware only needs stable numeric
+facts. Host tooling can carry product names, DTC names, translations, service
+steps, wiring references, firmware compatibility notes, and release-specific
+catalog versions.
+
+The `examples/catalog_reader` example demonstrates this boundary using a static
+host-side table. Real products may load the same information from JSON, SQLite,
+an internal service database, or a signed catalog package.
+
 ## Prior-Art Decisions
 
 A review of shipped embedded diagnostic systems confirmed the main boundaries:
