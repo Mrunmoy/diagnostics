@@ -15,6 +15,7 @@ your use case, then inspect its `main.c` to see the exact API calls.
 | `identity` | A host tool needs to identify a device. | Firmware stores compact numeric IDs; host catalogs own strings. |
 | `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
 | `diagnostic_session` | You want to see the whole external diagnostics workflow. | A simulated device and PC/tester exchange requests to read identity, list DTCs, clear a DTC, and persist the result. |
+| `catalog_reader` | You want host tools to show meaningful names and service actions. | The device reports compact numeric identity and DTCs; the PC side maps them through a catalog. |
 | `socketcan_transport` | You want the same workflow over Linux SocketCAN. | A C++ simulated device and C++ tester exchange diagnostic frames over `vcan0` using the external SocketCAN wrapper. |
 | `serial_transport` | You want the same workflow over UART or USB serial. | A C++ simulated device and tester exchange framed diagnostic bytes over POSIX serial or CI-friendly pseudo-terminals. |
 | `modbus_rtu_transport` | You want diagnostics over a Modbus RTU-style link. | A C++ Modbus master/tester and slave/device exchange diagnostic payloads with slave address, function code, and CRC16. |

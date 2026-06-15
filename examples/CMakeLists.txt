@@ -55,6 +55,25 @@ if(DIAG_FEATURE_DTC
     list(APPEND diag_example_targets diag_diagnostic_session_example)
 endif()
 
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_catalog_reader_example
+        catalog_reader/main.c
+        common/example_diag_tool.c
+        diagnostic_session/device.c
+    )
+    target_include_directories(diag_catalog_reader_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/catalog_reader
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+    )
+    target_link_libraries(diag_catalog_reader_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_catalog_reader_example)
+endif()
+
 if(DIAG_BUILD_SOCKETCAN_EXAMPLE
    AND DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
