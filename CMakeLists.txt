@@ -13,6 +13,7 @@ option(DIAG_BUILD_TESTS "Build diagnostics tests" ON)
 option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
 option(DIAG_BUILD_SOCKETCAN_EXAMPLE "Build Linux SocketCAN transport example" OFF)
 option(DIAG_BUILD_SERIAL_EXAMPLE "Build POSIX serial transport example" OFF)
+option(DIAG_BUILD_MODBUS_RTU_EXAMPLE "Build Modbus RTU transport example" OFF)
 option(DIAG_FEATURE_DTC "Enable Diagnostic Trouble Code APIs" ON)
 option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
 option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
@@ -23,7 +24,10 @@ option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
 # The diagnostics core is C99. C++17 is enabled only for host-side tests and
 # optional C++ transport examples. Embedded builds with tests/examples off never
 # pull in a C++ toolchain.
-if(DIAG_BUILD_TESTS OR DIAG_BUILD_SOCKETCAN_EXAMPLE OR DIAG_BUILD_SERIAL_EXAMPLE)
+if(DIAG_BUILD_TESTS
+   OR DIAG_BUILD_SOCKETCAN_EXAMPLE
+   OR DIAG_BUILD_SERIAL_EXAMPLE
+   OR DIAG_BUILD_MODBUS_RTU_EXAMPLE)
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
