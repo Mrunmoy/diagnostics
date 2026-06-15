@@ -103,6 +103,39 @@ if(DIAG_BUILD_SOCKETCAN_EXAMPLE
 
 endif()
 
+if(DIAG_BUILD_SERIAL_EXAMPLE
+   AND DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_serial_device_cpp
+        common/example_diag_tool.c
+        diagnostic_session/device.c
+        serial_transport/device.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_serial_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_serial_device_cpp PRIVATE diag::diag)
+
+    add_executable(diag_serial_tester_cpp
+        common/example_diag_client.cpp
+        common/example_diag_tool.c
+        serial_transport/serial_diag_link.cpp
+        serial_transport/tester.cpp
+    )
+    target_include_directories(diag_serial_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_serial_tester_cpp PRIVATE diag::diag)
+endif()
+
 if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
@@ -232,6 +265,22 @@ if(DIAG_BUILD_TESTS)
             )
         else()
             message(STATUS "Python3 interpreter not found; skipping SocketCAN transport demo test")
+        endif()
+    endif()
+
+    if(TARGET diag_serial_device_cpp AND TARGET diag_serial_tester_cpp)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_serial_transport_pty_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport/run_pty_demo.py
+                    --device $<TARGET_FILE:diag_serial_device_cpp>
+                    --tester $<TARGET_FILE:diag_serial_tester_cpp>
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping serial transport demo test")
         endif()
     endif()
 endif()
