@@ -10,10 +10,18 @@ RUN apt-get update \
         doxygen \
         gdb \
         git \
+        gosu \
+        iproute2 \
+        kmod \
         ninja-build \
         pkg-config \
         python3 \
         valgrind \
     && rm -rf /var/lib/apt/lists/*
 
+COPY tools/docker/entrypoint.sh /usr/local/bin/diagnostics-entrypoint
+RUN chmod +x /usr/local/bin/diagnostics-entrypoint
+
 WORKDIR /workspace
+
+ENTRYPOINT ["/usr/local/bin/diagnostics-entrypoint"]

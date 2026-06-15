@@ -15,6 +15,7 @@ your use case, then inspect its `main.c` to see the exact API calls.
 | `identity` | A host tool needs to identify a device. | Firmware stores compact numeric IDs; host catalogs own strings. |
 | `adapters` | You are ready to wire platform callbacks. | Storage and transport are small function tables with opaque user state. |
 | `diagnostic_session` | You want to see the whole external diagnostics workflow. | A simulated device and PC/tester exchange requests to read identity, list DTCs, clear a DTC, and persist the result. |
+| `socketcan_transport` | You want the same workflow over Linux SocketCAN. | A C++ simulated device and C++ tester exchange diagnostic frames over `vcan0` using the external SocketCAN wrapper. |
 | `diagnostic_viewer` | You want a local GUI that shows what is wrong with a device. | A PC-side browser viewer reads JSON snapshots, highlights active/confirmed DTCs, and sends clear requests. |
 | `grafana_reader` | You want dashboards from tester-collected diagnostics. | Run a PC-side exporter, Prometheus scrape, and Grafana dashboard without adding dashboard code to firmware. |
 | `process_controller` | Only confirmed important faults should survive restart. | Confirmation thresholds and explicit capsule saves reduce flash churn. |
@@ -69,6 +70,10 @@ the tooling behavior stays consistent.
 interactive inspection. It is the quickest way to see the library's external
 debugging value: identity, active faults, confirmed faults, persistence size, and
 clear-DTC actions in one page.
+
+`socketcan_transport` keeps the device and tester as separate processes and uses
+Linux SocketCAN as the transport. It is optional because it needs host CAN
+support, but the dev container creates `vcan0` automatically for that workflow.
 
 `grafana_reader` uses the same collector in quiet mode, serves the snapshot from
 a PC-side HTTP exporter, and includes Prometheus/Grafana provisioning. That keeps

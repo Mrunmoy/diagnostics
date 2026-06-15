@@ -6,6 +6,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+DIAG_EXTERN_C_BEGIN
+
 #define EXAMPLE_DIAG_MAX_FRAME_SIZE (160u)
 #define EXAMPLE_DIAG_DTC_WIRE_SIZE (10u)
 #define EXAMPLE_DIAG_MAX_DTC_SNAPSHOT_COUNT (8u)
@@ -65,12 +67,14 @@ enum diag_result example_diag_device_handle_request(const struct example_diag_de
                                                     struct example_diag_frame        *response);
 
 enum diag_result example_diag_tool_run_cli(const struct example_diag_device *device,
-                                           diag_dtc_id_t clear_dtc_id);
+                                           diag_dtc_id_t                     clear_dtc_id);
 
 // clang-format off
 enum diag_result example_diag_tool_collect_snapshot(
     const struct example_diag_device *device,
     struct example_diag_tool_snapshot *out_snapshot);
 // clang-format on
+
+DIAG_EXTERN_C_END
 
 #endif

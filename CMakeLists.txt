@@ -11,6 +11,7 @@ include(GNUInstallDirs)
 
 option(DIAG_BUILD_TESTS "Build diagnostics tests" ON)
 option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
+option(DIAG_BUILD_SOCKETCAN_EXAMPLE "Build Linux SocketCAN transport example" OFF)
 option(DIAG_FEATURE_DTC "Enable Diagnostic Trouble Code APIs" ON)
 option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
 option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
@@ -18,13 +19,16 @@ option(DIAG_FEATURE_STORAGE "Enable storage adapter APIs" ON)
 option(DIAG_FEATURE_TRANSPORT "Enable transport adapter APIs" ON)
 option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
 
-# The diagnostics core is C99. C++17 is enabled only when building the test
-# suite, which uses GoogleTest. Cross/embedded builds with -DDIAG_BUILD_TESTS=OFF
-# never pull in a C++ toolchain.
-if(DIAG_BUILD_TESTS)
+# The diagnostics core is C99. C++17 is enabled only for host-side tests and
+# optional C++ transport examples. Embedded builds with tests/examples off never
+# pull in a C++ toolchain.
+if(DIAG_BUILD_TESTS OR DIAG_BUILD_SOCKETCAN_EXAMPLE)
     enable_language(CXX)
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif()
+
+if(DIAG_BUILD_TESTS)
     enable_testing()
 endif()
 

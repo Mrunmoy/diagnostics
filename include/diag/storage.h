@@ -7,7 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/result.h"
+
+DIAG_EXTERN_C_BEGIN
 
 /// Whether the storage adapter provides atomic commit semantics.
 enum diag_storage_atomic_commit
@@ -112,5 +115,7 @@ enum diag_result diag_save(struct diag_context *ctx);
 /// not been attached. DTC persistence requires
 /// `struct diag_storage::capsule_buffer`.
 enum diag_result diag_load(struct diag_context *ctx);
+
+DIAG_EXTERN_C_END
 
 #endif

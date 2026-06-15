@@ -11,6 +11,8 @@
 #include "diag/compiler.h"
 #include "diag/result.h"
 
+DIAG_EXTERN_C_BEGIN
+
 /// Size in bytes reserved for the private diagnostics context.
 ///
 /// Callers allocate this storage, usually statically. The implementation has a
@@ -77,5 +79,7 @@ enum diag_result diag_deinit(struct diag_context *ctx);
 /// flags are set by runtime mutations but are not written to storage until an
 /// explicit save/policy path is called.
 enum diag_result diag_get_dirty_flags(const struct diag_context *ctx, uint32_t *out_dirty_flags);
+
+DIAG_EXTERN_C_END
 
 #endif

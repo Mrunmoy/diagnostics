@@ -7,7 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/result.h"
+
+DIAG_EXTERN_C_BEGIN
 
 /// Current supported capsule schema version.
 #define DIAG_CAPSULE_SCHEMA_VERSION (1u)
@@ -146,5 +149,7 @@ enum diag_result diag_capsule_copy_section_payload_by_type(
     const uint8_t *capsule, size_t capsule_length, const struct diag_capsule_descriptor *descriptor,
     uint16_t type, uint8_t *out_payload, size_t out_capacity, size_t *out_length);
 // clang-format on
+
+DIAG_EXTERN_C_END
 
 #endif

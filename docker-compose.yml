@@ -5,8 +5,14 @@ services:
       dockerfile: tools/docker/Dockerfile
     image: generic-diagnostics-dev:local
     working_dir: /workspace
-    user: "${DIAG_DOCKER_UID:-1000}:${DIAG_DOCKER_GID:-1000}"
+    environment:
+      DIAG_DOCKER_UID: "${DIAG_DOCKER_UID:-1000}"
+      DIAG_DOCKER_GID: "${DIAG_DOCKER_GID:-1000}"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
     volumes:
       - .:/workspace
+      - /lib/modules:/lib/modules:ro
     command: >
       sh -lc "./build.py all --preset container-debug"

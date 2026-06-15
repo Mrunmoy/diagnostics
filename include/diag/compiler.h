@@ -36,4 +36,16 @@
 #define DIAG_UNLIKELY(expression) (expression)
 #endif
 
+/// Begin C linkage for public headers when included from C++.
+#ifdef __cplusplus
+#define DIAG_EXTERN_C_BEGIN                                                                        \
+    extern "C"                                                                                     \
+    {
+/// End C linkage for public headers when included from C++.
+#define DIAG_EXTERN_C_END }
+#else
+#define DIAG_EXTERN_C_BEGIN
+#define DIAG_EXTERN_C_END
+#endif
+
 #endif
