@@ -448,32 +448,67 @@ should stay ordinary C whenever possible.
 
 ## Protocol Boundary
 
-The library owns diagnostic behavior. Protocol parsing and framing sit above or
-beside it:
+The library owns diagnostic behavior. It does not own the wire protocol. A
+product may expose the same DTC, identity, lifecycle, and storage state through
+UDS on CAN, a small UART command set, Modbus RTU, TCP, BLE, a bootloader link, or
+a manufacturing test harness. Those choices live outside the core.
+
+The diagnostic payload is the stable part. The transport wrapper is allowed to
+change from product to product:
 
 ```text
-transport -> framing -> optional protocol adapter -> diagnostics core
+transport medium -> link framing -> diagnostic request/response -> diag_* APIs
 ```
 
 ```mermaid
-sequenceDiagram
-    participant Tester as External tester
-    participant Transport as Transport adapter
-    participant Frame as Framing/protocol layer
-    participant Handler as Optional service handler
-    participant Core as libdiag core
+flowchart LR
+    subgraph Link["Transport-specific wrapper"]
+        MEDIUM["CAN frame, UART bytes,<br/>Modbus RTU ADU, TCP packet"]
+        FRAMING["addressing, segmentation,<br/>length, CRC, timeout"]
+    end
 
-    Tester->>Transport: Transport frame or stream bytes
-    Transport->>Frame: Caller-owned RX buffer
-    Frame->>Handler: Decoded service request
-    Handler->>Core: diag_* API calls
-    Core-->>Handler: Diagnostic state/result
-    Handler-->>Frame: Response payload or error
-    Frame-->>Transport: Encoded response bytes
-    Transport-->>Tester: Transport response
+    subgraph DiagWire["Diagnostic wire payload"]
+        REQ["service, object id,<br/>subfunction, payload"]
+        RESP["result, payload length,<br/>payload bytes"]
+    end
+
+    subgraph Device["Device firmware"]
+        HANDLER["diagnostic service handler"]
+        CORE["libdiag state<br/>DTC, lifecycle, identity, storage"]
+    end
+
+    MEDIUM --> FRAMING
+    FRAMING --> REQ
+    REQ --> HANDLER
+    HANDLER --> CORE
+    CORE --> HANDLER
+    HANDLER --> RESP
+    RESP --> FRAMING
+    FRAMING --> MEDIUM
 ```
 
-A future optional request/response handler may look like:
+The wrapper is responsible for getting a complete request payload to the
+diagnostic handler and returning a complete response payload to the tester. The
+core should never need to know whether the bytes arrived through CAN IDs, UART
+delimiters, Modbus slave addresses, TCP ports, or a test fixture.
+
+```mermaid
+sequenceDiagram
+    participant Tool as PC diagnostic tool
+    participant Link as Transport wrapper
+    participant Handler as Service handler
+    participant Core as libdiag core
+
+    Tool->>Link: send framed request
+    Link->>Handler: deliver bounded request payload
+    Handler->>Core: call diag_* APIs
+    Core-->>Handler: state, counters, or result code
+    Handler-->>Link: bounded response payload
+    Link-->>Tool: send framed response
+```
+
+At the service boundary, a future optional request/response handler may look
+like this:
 
 ```c
 enum diag_result diag_protocol_handle_request(
@@ -485,8 +520,44 @@ enum diag_result diag_protocol_handle_request(
     size_t *response_len);
 ```
 
-The handler must not assume CAN, UDS negative response codes, sessions, security
-access, or transport frame boundaries.
+That function receives one complete diagnostic request and writes one complete
+diagnostic response. It must not assume CAN, UDS negative-response codes,
+sessions, security access, inter-frame timing, or transport frame boundaries.
+
+Transport wrappers own these concerns:
+
+- Physical or OS link setup.
+- Addressing and routing.
+- Frame delimiters, length fields, checksums, CRCs, or ISO-TP segmentation.
+- Partial reads and writes.
+- Timeouts, retries, duplicate suppression, and stale frame recovery.
+- Maximum payload size for that link.
+- Threading, polling, interrupt, DMA, or RTOS integration.
+
+Diagnostic service handlers own these concerns:
+
+- Mapping service IDs or commands to `diag_*` API calls.
+- Validating request length and arguments before touching output buffers.
+- Returning clear protocol-level errors for unsupported service, overflow,
+  invalid request, and unavailable feature.
+- Keeping all per-request workspace caller-owned and capacity-bounded.
+
+The diagnostic core owns these concerns:
+
+- DTC registration, status bits, counters, confirmation, aging, and clearing.
+- Lifecycle state and reset-counter policy.
+- Compact device identity.
+- Dirty flags and explicit storage save/load behavior.
+- Capsule serialization and validation.
+
+This separation lets the same diagnostic session logic run over several links:
+
+| Link style | Wrapper responsibility | Diagnostic payload stays |
+|------------|------------------------|--------------------------|
+| SocketCAN | CAN IDs, frame splitting, kernel socket setup, `vcan` or real CAN interface. | Same request and response bytes. |
+| POSIX serial | Byte-stream framing, length, CRC, PTY or `/dev/tty*` setup. | Same request and response bytes. |
+| Modbus RTU | Slave address, function code, byte count, Modbus CRC16, RS-485 timing. | Same request and response bytes. |
+| TCP or test harness | Socket lifecycle or in-memory queues. | Same request and response bytes. |
 
 The core is primarily a diagnostic server/state library. Tester/client behavior,
 such as sending OBD Mode 03/04 requests to another ECU, belongs in a separate
