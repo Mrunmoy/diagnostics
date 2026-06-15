@@ -8,7 +8,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/result.h"
+
+DIAG_EXTERN_C_BEGIN
 
 /// Public DTC identifier stored as a compact numeric value.
 ///
@@ -200,5 +203,7 @@ enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id
 /// allowing callers to size a second request after `DIAG_ERROR_CAPACITY`.
 enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_snapshot *out,
                                size_t capacity, size_t *count);
+
+DIAG_EXTERN_C_END
 
 #endif

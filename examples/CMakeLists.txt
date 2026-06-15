@@ -55,6 +55,53 @@ if(DIAG_FEATURE_DTC
     list(APPEND diag_example_targets diag_diagnostic_session_example)
 endif()
 
+if(DIAG_BUILD_SOCKETCAN_EXAMPLE
+   AND DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_library(diag_socketcan_example_socketcan INTERFACE)
+    target_include_directories(diag_socketcan_example_socketcan
+        INTERFACE
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport/third_party/socket-can
+    )
+
+    add_executable(diag_socketcan_device_cpp
+        common/example_diag_tool.c
+        diagnostic_session/device.c
+        socketcan_transport/device.cpp
+        socketcan_transport/socketcan_diag_link.cpp
+    )
+    target_include_directories(diag_socketcan_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport
+    )
+    target_link_libraries(diag_socketcan_device_cpp
+        PRIVATE
+            diag::diag
+            diag_socketcan_example_socketcan
+    )
+
+    add_executable(diag_socketcan_tester_cpp
+        common/example_diag_tool.c
+        socketcan_transport/socketcan_diag_link.cpp
+        socketcan_transport/tester.cpp
+    )
+    target_include_directories(diag_socketcan_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport
+    )
+    target_link_libraries(diag_socketcan_tester_cpp
+        PRIVATE
+            diag::diag
+            diag_socketcan_example_socketcan
+    )
+
+endif()
+
 if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
@@ -168,6 +215,22 @@ if(DIAG_BUILD_TESTS)
             )
         else()
             message(STATUS "Python3 interpreter not found; skipping diagnostic viewer server self-test")
+        endif()
+    endif()
+
+    if(TARGET diag_socketcan_device_cpp AND TARGET diag_socketcan_tester_cpp)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_socketcan_transport_vcan_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport/run_vcan_demo.py
+                    --device $<TARGET_FILE:diag_socketcan_device_cpp>
+                    --tester $<TARGET_FILE:diag_socketcan_tester_cpp>
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping SocketCAN transport demo test")
         endif()
     endif()
 endif()

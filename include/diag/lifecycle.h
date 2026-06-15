@@ -7,7 +7,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/result.h"
+
+DIAG_EXTERN_C_BEGIN
 
 /// Reset reason observed by platform startup code.
 enum diag_reset_reason
@@ -104,5 +107,7 @@ enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
 
 /// Clear selected lifecycle dirty flags after a successful explicit persistence step.
 enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t dirty_flags);
+
+DIAG_EXTERN_C_END
 
 #endif

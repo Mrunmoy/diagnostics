@@ -846,13 +846,15 @@ def source_files() -> list[Path]:
         "src/**/*.cpp",
         "tests/**/*.c",
         "tests/**/*.cpp",
+        "examples/**/*.h",
+        "examples/**/*.hpp",
         "examples/**/*.c",
         "examples/**/*.cpp",
     ]
     files: list[Path] = []
     for pattern in patterns:
         files.extend(ROOT.glob(pattern))
-    return sorted(files)
+    return sorted(path for path in files if "third_party" not in path.parts)
 
 
 def add_common_build_args(parser: argparse.ArgumentParser, default_preset: str) -> None:

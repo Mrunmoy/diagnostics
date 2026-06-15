@@ -3,6 +3,8 @@
 
 #include "example_diag_tool.h"
 
+DIAG_EXTERN_C_BEGIN
+
 struct session_storage
 {
     uint8_t bytes[384];
@@ -21,5 +23,7 @@ struct diagnostic_device
 enum diag_result diagnostic_device_init(struct diagnostic_device *device);
 enum diag_result diagnostic_device_deinit(struct diagnostic_device *device);
 size_t           diagnostic_device_persisted_size(void *user);
+
+DIAG_EXTERN_C_END
 
 #endif

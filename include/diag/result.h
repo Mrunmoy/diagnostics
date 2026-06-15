@@ -4,6 +4,10 @@
 #ifndef DIAG_RESULT_H
 #define DIAG_RESULT_H
 
+#include "diag/compiler.h"
+
+DIAG_EXTERN_C_BEGIN
+
 /// Status code for diagnostics operations.
 ///
 /// `DIAG_OK` is always zero so callers can use simple success checks. Every
@@ -32,5 +36,7 @@ enum diag_result
     /// Requested behavior is valid but not implemented by this build or MVP stage.
     DIAG_ERROR_NOT_SUPPORTED
 };
+
+DIAG_EXTERN_C_END
 
 #endif

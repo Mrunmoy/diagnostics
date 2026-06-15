@@ -7,7 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "diag/compiler.h"
 #include "diag/result.h"
+
+DIAG_EXTERN_C_BEGIN
 
 /// Transport callback table implemented by a platform or protocol adapter.
 ///
@@ -38,5 +41,7 @@ struct diag_context;
 /// Attach a transport adapter to an initialized diagnostics context.
 enum diag_result diag_transport_attach(struct diag_context         *ctx,
                                        const struct diag_transport *transport);
+
+DIAG_EXTERN_C_END
 
 #endif
