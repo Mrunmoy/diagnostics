@@ -136,6 +136,43 @@ if(DIAG_BUILD_SERIAL_EXAMPLE
     target_link_libraries(diag_serial_tester_cpp PRIVATE diag::diag)
 endif()
 
+if(DIAG_BUILD_MODBUS_RTU_EXAMPLE
+   AND DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_modbus_rtu_device_cpp
+        common/example_diag_tool.c
+        diagnostic_session/device.c
+        modbus_rtu_transport/device.cpp
+        modbus_rtu_transport/modbus_rtu_diag_link.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_modbus_rtu_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_modbus_rtu_device_cpp PRIVATE diag::diag)
+
+    add_executable(diag_modbus_rtu_tester_cpp
+        common/example_diag_client.cpp
+        common/example_diag_tool.c
+        modbus_rtu_transport/modbus_rtu_diag_link.cpp
+        modbus_rtu_transport/tester.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_modbus_rtu_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_modbus_rtu_tester_cpp PRIVATE diag::diag)
+endif()
+
 if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
    AND DIAG_FEATURE_STORAGE
@@ -281,6 +318,22 @@ if(DIAG_BUILD_TESTS)
             )
         else()
             message(STATUS "Python3 interpreter not found; skipping serial transport demo test")
+        endif()
+    endif()
+
+    if(TARGET diag_modbus_rtu_device_cpp AND TARGET diag_modbus_rtu_tester_cpp)
+        find_package(Python3 COMPONENTS Interpreter QUIET)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_modbus_rtu_transport_pty_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport/run_pty_demo.py
+                    --device $<TARGET_FILE:diag_modbus_rtu_device_cpp>
+                    --tester $<TARGET_FILE:diag_modbus_rtu_tester_cpp>
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping Modbus RTU transport demo test")
         endif()
     endif()
 endif()
