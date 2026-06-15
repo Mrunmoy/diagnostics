@@ -71,6 +71,10 @@ interactive inspection. It is the quickest way to see the library's external
 debugging value: identity, active faults, confirmed faults, persistence size, and
 clear-DTC actions in one page.
 
+`common` contains the shared diagnostic service payload and the reusable
+PC/tester-side client. Real transport examples should keep only link setup,
+framing, timing, and error handling in their own directory.
+
 `socketcan_transport` keeps the device and tester as separate processes and uses
 Linux SocketCAN as the transport. It is optional because it needs host CAN
 support, but the dev container creates `vcan0` automatically for that workflow.
