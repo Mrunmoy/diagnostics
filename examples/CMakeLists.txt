@@ -85,6 +85,7 @@ if(DIAG_BUILD_SOCKETCAN_EXAMPLE
     )
 
     add_executable(diag_socketcan_tester_cpp
+        common/example_diag_client.cpp
         common/example_diag_tool.c
         socketcan_transport/socketcan_diag_link.cpp
         socketcan_transport/tester.cpp

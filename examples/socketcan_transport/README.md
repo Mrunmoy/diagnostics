@@ -12,6 +12,10 @@ Two processes run on the same CAN interface:
   requests over CAN FD, reads responses, prints identity/DTCs, clears one DTC,
   and verifies that the clear was observable.
 
+The tester uses `examples/common/example_diag_client.cpp` for the actual
+diagnostic workflow. SocketCAN-specific code only opens the CAN interface and
+exchanges one request frame for one response frame.
+
 The demo uses one diagnostic payload per CAN FD frame:
 
 | Direction | CAN ID | Payload |
@@ -85,6 +89,7 @@ Expected tester output includes:
 socketcan_tester: opening diagnostic session on vcan0
 socketcan_tester: identity ecosystem=7 product=42 type=3 instance=1 stage=1 component=2
 socketcan_tester: DTC count=2
-socketcan_tester: cleared DTC 0x30101
+socketcan_tester: DTC 0x030101 status=0x6d severity=2 occurrences=1
+socketcan_tester: cleared DTC 0x030101
 socketcan_tester: diagnostic session complete
 ```
