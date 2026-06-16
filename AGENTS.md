@@ -85,6 +85,9 @@ docker compose run --rm diagnostics-dev
 ./build.py all --preset container-debug
 ```
 
+Host and Docker presets use `clang-16` / `clang++-16` for compilation. Keep
+`clang-format-14` for formatting until the pinned formatter version changes.
+
 ## Coding Style & Naming Conventions
 
 ### Formatting (both branches)

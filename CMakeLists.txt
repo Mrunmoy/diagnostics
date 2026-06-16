@@ -11,6 +11,8 @@ include(GNUInstallDirs)
 
 option(DIAG_BUILD_TESTS "Build diagnostics tests" ON)
 option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
+option(DIAG_TEST_EXAMPLES "Register example executables as CTest smoke tests" ON)
+option(DIAG_TEST_SPLIT_GTEST "Register each GoogleTest case as a separate CTest test" ON)
 option(DIAG_BUILD_SOCKETCAN_EXAMPLE "Build Linux SocketCAN transport example" OFF)
 option(DIAG_BUILD_SERIAL_EXAMPLE "Build POSIX serial transport example" OFF)
 option(DIAG_BUILD_MODBUS_RTU_EXAMPLE "Build Modbus RTU transport example" OFF)
@@ -51,7 +53,7 @@ set_target_properties(diag PROPERTIES
 target_include_directories(diag
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_compile_features(diag PUBLIC c_std_99)

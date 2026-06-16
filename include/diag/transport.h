@@ -39,6 +39,13 @@ struct diag_transport
 struct diag_context;
 
 /// Attach a transport adapter to an initialized diagnostics context.
+///
+/// The core stores the adapter for protocol layers that choose to use this
+/// callback shape. The library does not define wire framing, timeouts, retries,
+/// sessions, security, or transport-specific packet formats.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_transport_attach(struct diag_context         *ctx,
                                        const struct diag_transport *transport);
 

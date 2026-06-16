@@ -12,39 +12,41 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Test files are C++ (GoogleTest) and link the C99 library under test.
-add_executable(diag_tests
+set(diag_test_sources
     test_context.cpp
     test_features.cpp
 )
 
 if(DIAG_FEATURE_CAPSULE)
-    target_sources(diag_tests PRIVATE test_capsule.cpp)
+    list(APPEND diag_test_sources test_capsule.cpp)
 endif()
 
 if(DIAG_FEATURE_DTC)
-    target_sources(diag_tests PRIVATE test_dtc.cpp)
+    list(APPEND diag_test_sources test_dtc.cpp)
 endif()
 
 if(DIAG_FEATURE_IDENTITY)
-    target_sources(diag_tests PRIVATE test_identity.cpp)
+    list(APPEND diag_test_sources test_identity.cpp)
 endif()
 
 if(DIAG_FEATURE_LIFECYCLE)
-    target_sources(diag_tests PRIVATE test_lifecycle.cpp)
+    list(APPEND diag_test_sources test_lifecycle.cpp)
 endif()
 
 if(DIAG_FEATURE_STORAGE)
-    target_sources(diag_tests PRIVATE test_storage.cpp)
+    list(APPEND diag_test_sources test_storage.cpp)
 endif()
 
 if(DIAG_FEATURE_DTC AND DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
-    target_sources(diag_tests PRIVATE test_persistence.cpp)
+    list(APPEND diag_test_sources test_persistence.cpp)
 endif()
 
 if(DIAG_FEATURE_LIFECYCLE AND DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
-    target_sources(diag_tests PRIVATE test_lifecycle_persistence.cpp)
+    list(APPEND diag_test_sources test_lifecycle_persistence.cpp)
 endif()
+
+# Test files are C++ (GoogleTest) and link the C99 library under test.
+add_executable(diag_tests ${diag_test_sources})
 
 target_link_libraries(diag_tests
     PRIVATE
@@ -53,4 +55,9 @@ target_link_libraries(diag_tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(diag_tests)
+
+if(DIAG_TEST_SPLIT_GTEST)
+    gtest_add_tests(TARGET diag_tests SOURCES ${diag_test_sources} TEST_LIST diag_tests_TESTS)
+else()
+    add_test(NAME diag_tests COMMAND diag_tests)
+endif()

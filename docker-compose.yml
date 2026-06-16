@@ -11,6 +11,9 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
     volumes:
       - .:/workspace
       - /lib/modules:/lib/modules:ro

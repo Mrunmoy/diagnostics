@@ -376,6 +376,10 @@ features are disabled, and what the output means.
 
 ## Quick Start
 
+The default host presets use Clang 16 for C and C++ builds. Install `clang-16`,
+`clang++-16`, `libclang-rt-16-dev`, `clang-format-14`, `cmake`, `ninja-build`,
+`doxygen`, and `python3`, or use the Docker image below.
+
 ```sh
 git clone https://github.com/Mrunmoy/diagnostics.git
 cd diagnostics
@@ -396,6 +400,7 @@ Useful commands:
 ./build.py size --dtc-capacity 16 --write-alignment 16 --sections dtc,lifecycle
 ./build.py format --check
 ./build.py library
+./build.py docs
 ./build.py clean
 ```
 
@@ -411,7 +416,9 @@ reporting, and the feature matrix.
 
 ## Docker And VS Code
 
-Build and test in Docker:
+Build and test in Docker. The image includes Clang, the Clang sanitizer runtime,
+`clang-format-14`, CMake, Ninja, Doxygen, and the Linux tools used by the
+transport examples.
 
 ```sh
 docker compose build
@@ -466,11 +473,34 @@ add_subdirectory(third_party/generic-diagnostics)
 target_link_libraries(app PRIVATE diag::diag)
 ```
 
-As an installed package:
+As an installed CMake package:
+
+```sh
+./build.py library
+```
+
+That installs the reusable package to `build/install/diag` by default. A
+downstream project can consume it without manually spelling out header or
+library paths:
 
 ```cmake
 find_package(diag CONFIG REQUIRED)
 target_link_libraries(app PRIVATE diag::diag)
+```
+
+Configure the downstream project with:
+
+```sh
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/diagnostics/build/install/diag
+cmake --build build
+```
+
+The exported `diag::diag` target carries the public include directory, C99
+requirement, feature compile definitions, and compiled library. Application code
+includes headers normally:
+
+```c
+#include <diag/diag.h>
 ```
 
 ## Branch Strategy
