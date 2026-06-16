@@ -1,0 +1,14 @@
+{
+  "name": "Generic Diagnostics C++",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "diagnostics-dev",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}

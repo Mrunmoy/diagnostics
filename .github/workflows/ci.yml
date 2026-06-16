@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - cpp
+  push:
+    branches:
+      - cpp
+
+permissions:
+  contents: read
+
+jobs:
+  host-all:
+    name: Host ./build.py all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            clang-16 \
+            clang-format-14 \
+            cmake \
+            doxygen \
+            libclang-rt-16-dev \
+            ninja-build \
+            python3
+
+      - name: Run host quality gate
+        run: ./build.py all
+
+  docker-all:
+    name: Docker ./build.py all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run container quality gate
+        run: |
+          DIAG_DOCKER_UID="$(id -u)" \
+          DIAG_DOCKER_GID="$(id -g)" \
+          docker compose run --rm diagnostics-dev
