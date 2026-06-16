@@ -123,12 +123,18 @@ struct diag_context;
 /// Registration consumes entries from `config->records`. The array must remain
 /// valid and writable until `diag_deinit()` completes or DTC storage is attached
 /// again with a different buffer.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_attach(struct diag_context *ctx, const struct diag_dtc_config *config);
 
 /// Register a DTC using the DTC ID as its local fault ID.
 ///
 /// Registration consumes one entry from the caller-provided fixed DTC buffer.
 /// Duplicate DTC IDs or local fault IDs are rejected.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_ALREADY_EXISTS`, `DIAG_ERROR_CAPACITY`,
+///         `DIAG_ERROR_INVALID_ARGUMENT`, or `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_register(struct diag_context *ctx, diag_dtc_id_t id,
                                    enum diag_dtc_severity severity);
 
@@ -137,6 +143,9 @@ enum diag_result diag_dtc_register(struct diag_context *ctx, diag_dtc_id_t id,
 ///
 /// The mapping lets monitor code update a DTC without depending on externally
 /// visible DTC numbering. Registration is RAM-only and does not call storage.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_ALREADY_EXISTS`, `DIAG_ERROR_CAPACITY`,
+///         `DIAG_ERROR_INVALID_ARGUMENT`, or `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
                                          diag_local_fault_id_t local_fault_id,
                                          diag_dtc_id_t id,
@@ -147,19 +156,31 @@ enum diag_result diag_dtc_register_fault(struct diag_context *ctx,
 ///
 /// The update is idempotent while already active except for status latches; it
 /// does not perform persistent storage writes.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_set_active(struct diag_context *ctx, diag_dtc_id_t id);
 
 /// Mark a registered DTC monitor as passed/inactive.
 ///
 /// Passing clears the current failed state and completion bits, but confirmation
 /// and aging progress are driven by `diag_dtc_operation_cycle()`.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_set_inactive(struct diag_context *ctx, diag_dtc_id_t id);
 
 // clang-format off
 /// Mark the DTC mapped from a local fault ID as failed.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_set_fault_test_failed(struct diag_context *ctx,
                                                 diag_local_fault_id_t local_fault_id);
 /// Mark the DTC mapped from a local fault ID as passed/inactive.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
                                                 diag_local_fault_id_t local_fault_id);
 // clang-format on
@@ -168,12 +189,21 @@ enum diag_result diag_dtc_set_fault_test_passed(struct diag_context *ctx,
 ///
 /// The occurrence, active, and clear counters are retained except for the clear
 /// count increment when the clear changed active or status state.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_clear(struct diag_context *ctx, diag_dtc_id_t id);
 
 /// Clear status and lifecycle counters for every registered DTC.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_clear_all(struct diag_context *ctx);
 
 /// Reset runtime counters for one DTC without changing its active/status bits.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t id);
 
 /// Advance every registered DTC by one completed operation cycle.
@@ -181,19 +211,31 @@ enum diag_result diag_dtc_reset_counter(struct diag_context *ctx, diag_dtc_id_t 
 /// This drives the `test_failed -> pending -> confirmed -> aged` lifecycle over
 /// the bounded registered DTC array. The call resets the per-cycle failure latch
 /// and marks monitors as not yet completed for the next cycle.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_operation_cycle(struct diag_context *ctx);
 
 /// Copy one registered DTC record by public DTC ID.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_get(const struct diag_context *ctx, diag_dtc_id_t id,
                               struct diag_dtc_snapshot *out);
 // clang-format off
 /// Copy one registered DTC record by project-local fault ID.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_get_by_fault(const struct diag_context *ctx,
                                        diag_local_fault_id_t local_fault_id,
                                        struct diag_dtc_snapshot *out);
 // clang-format on
 
 /// Read only the UDS-compatible status byte for one registered DTC.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id_t id,
                                      uint8_t *out_status);
 
@@ -201,6 +243,9 @@ enum diag_result diag_dtc_get_status(const struct diag_context *ctx, diag_dtc_id
 ///
 /// `*count` is set to the number of registered DTCs before capacity is checked,
 /// allowing callers to size a second request after `DIAG_ERROR_CAPACITY`.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_CAPACITY`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_dtc_list(const struct diag_context *ctx, struct diag_dtc_snapshot *out,
                                size_t capacity, size_t *count);
 

@@ -90,6 +90,9 @@ struct diag_context;
 
 // clang-format off
 /// Attach lifecycle/reset counter policy to an initialized diagnostics context.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_lifecycle_attach(struct diag_context *ctx,
                                        const struct diag_lifecycle_config *config);
 
@@ -97,15 +100,27 @@ enum diag_result diag_lifecycle_attach(struct diag_context *ctx,
 ///
 /// The function updates RAM counters and dirty flags according to policy. It
 /// never performs a hidden storage write.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_lifecycle_observe_reset(struct diag_context *ctx,
                                               enum diag_reset_reason reason);
 
 /// Copy lifecycle state from an initialized diagnostics context.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_lifecycle_get(const struct diag_context *ctx,
                                     struct diag_lifecycle_snapshot *out);
 // clang-format on
 
 /// Clear selected lifecycle dirty flags after a successful explicit persistence step.
+///
+/// Unknown bits are ignored. Passing `DIAG_LIFECYCLE_DIRTY_RESET_COUNTER` clears
+/// the lifecycle persistence request and context dirty flag for lifecycle state.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_lifecycle_clear_dirty(struct diag_context *ctx, uint32_t dirty_flags);
 
 DIAG_EXTERN_C_END

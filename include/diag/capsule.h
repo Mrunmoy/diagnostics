@@ -96,12 +96,17 @@ struct diag_capsule_descriptor
 ///
 /// A null data pointer is valid only when `length` is zero. The implementation
 /// uses the standard reflected CRC-32 polynomial.
+///
+/// @return CRC-32 value for the supplied byte range.
 uint32_t diag_capsule_crc32(const uint8_t *data, size_t length);
 
 /// Encode a schema-version-1 capsule header and section table.
 ///
 /// The descriptor is validated before writing header bytes. Payload bytes are
 /// owned by the caller; this function does not populate section payload data.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_CAPACITY`.
 enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
                                         const struct diag_capsule_descriptor *descriptor,
                                         size_t *encoded_length);
@@ -111,25 +116,39 @@ enum diag_result diag_capsule_encode_v1(uint8_t *buffer, size_t capacity,
 /// The decoder rejects unsupported schema versions, oversized section counts,
 /// out-of-bounds or overlapping sections, and CRC mismatches before returning
 /// `DIAG_OK`.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result diag_capsule_decode(const uint8_t *buffer, size_t length,
                                      struct diag_capsule_descriptor *out_descriptor);
 
 /// Map a section type to its ownership class.
+///
+/// @return `DIAG_OK` or `DIAG_ERROR_INVALID_ARGUMENT`.
 enum diag_result diag_capsule_section_owner_from_type(uint16_t type,
                                                       enum diag_capsule_section_owner *out_owner);
 
 /// Find the first section with a matching type.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`,
+///         or `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result diag_capsule_find_section_by_type(const struct diag_capsule_descriptor *descriptor,
                                                    uint16_t type,
                                                    const struct diag_capsule_section **out_section);
 
 /// Find the first section with a matching ownership class.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`,
+///         or `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result
 diag_capsule_find_section_by_owner(const struct diag_capsule_descriptor *descriptor,
                                    enum diag_capsule_section_owner owner,
                                    const struct diag_capsule_section **out_section);
 
 /// Validate one section's bounds against a decoded descriptor.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result
 diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descriptor,
                                      const struct diag_capsule_section *section);
@@ -138,6 +157,9 @@ diag_capsule_validate_section_bounds(const struct diag_capsule_descriptor *descr
 ///
 /// Only `section->used_length` bytes are copied. `*out_length` is set to zero
 /// before validation when the pointer is provided.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, `DIAG_ERROR_CAPACITY`,
+///         or `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result diag_capsule_copy_section_payload(const uint8_t *capsule, size_t capsule_length,
                                                    const struct diag_capsule_descriptor *descriptor,
                                                    const struct diag_capsule_section *section,
@@ -145,6 +167,9 @@ enum diag_result diag_capsule_copy_section_payload(const uint8_t *capsule, size_
                                                    size_t *out_length);
 
 /// Find a section by type and copy its used payload bytes.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_NOT_FOUND`, `DIAG_ERROR_INVALID_ARGUMENT`,
+///         `DIAG_ERROR_CAPACITY`, or `DIAG_ERROR_CORRUPT_DATA`.
 enum diag_result diag_capsule_copy_section_payload_by_type(
     const uint8_t *capsule, size_t capsule_length, const struct diag_capsule_descriptor *descriptor,
     uint16_t type, uint8_t *out_payload, size_t out_capacity, size_t *out_length);

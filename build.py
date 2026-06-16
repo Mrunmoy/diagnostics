@@ -204,13 +204,29 @@ def configure(preset: str, options: list[str]) -> None:
 
 def build_preset(preset: str, options: list[str]) -> None:
     configure(preset, options)
-    run(["cmake", "--build", "--preset", preset])
+    env = sanitizer_env() if preset.endswith("-asan") else None
+    run(["cmake", "--build", "--preset", preset], env=env)
 
 
 def test_preset(preset: str, options: list[str]) -> None:
     build_preset(preset, options)
     env = sanitizer_env() if preset.endswith("-asan") else None
-    run(["ctest", "--preset", preset, "--output-on-failure"], env=env)
+    if preset.endswith("-asan"):
+        run_asan_tests_direct(preset)
+    else:
+        run(["ctest", "--preset", preset, "--output-on-failure"], env=env)
+
+
+def run_asan_tests_direct(preset: str) -> None:
+    test_binary = build_dir_for_preset(preset) / "tests" / "diag_tests"
+
+    if not test_binary.exists():
+        raise SystemExit(
+            f"ASAN test binary was not found at {test_binary.relative_to(ROOT)}; "
+            f"build preset '{preset}' first"
+        )
+
+    run([str(test_binary)], env=sanitizer_env())
 
 
 def build(args: argparse.Namespace) -> None:
@@ -234,6 +250,7 @@ def all_checks(args: argparse.Namespace) -> None:
     )
     print_size_report(release_preset, size_config_from_args(args))
     package_test(DEFAULT_INSTALL_PREFIX)
+    docs(argparse.Namespace(config=DOXYFILE))
     feature_matrix(
         argparse.Namespace(
             preset=args.preset,
@@ -704,6 +721,16 @@ def package_test(prefix: Path) -> None:
 
             find_package(diag CONFIG REQUIRED)
 
+            get_target_property(diag_includes diag::diag INTERFACE_INCLUDE_DIRECTORIES)
+            if(NOT diag_includes)
+                message(FATAL_ERROR "diag::diag does not export public include directories")
+            endif()
+
+            get_target_property(diag_defines diag::diag INTERFACE_COMPILE_DEFINITIONS)
+            if(NOT diag_defines MATCHES "DIAG_FEATURE_DTC=")
+                message(FATAL_ERROR "diag::diag does not export feature compile definitions")
+            endif()
+
             add_executable(diag_package_smoke main.c)
             target_link_libraries(diag_package_smoke PRIVATE diag::diag)
             """
@@ -717,7 +744,26 @@ def package_test(prefix: Path) -> None:
 
             int main(void)
             {
-                return DIAG_OK == 0 ? 0 : 1;
+                struct diag_context_storage storage = {{0}};
+                const struct diag_config config = {0};
+                struct diag_context *ctx = NULL;
+
+                if (DIAG_OK != 0)
+                {
+                    return 1;
+                }
+
+                if (diag_init(&storage, &config, &ctx) != DIAG_OK || ctx == NULL)
+                {
+                    return 2;
+                }
+
+                if (diag_deinit(ctx) != DIAG_OK)
+                {
+                    return 3;
+                }
+
+                return 0;
             }
             """
         ).lstrip(),
@@ -733,10 +779,12 @@ def package_test(prefix: Path) -> None:
             str(build_dir),
             "-G",
             "Ninja",
+            "-DCMAKE_C_COMPILER=clang-16",
             f"-DCMAKE_PREFIX_PATH={prefix}",
         ]
     )
     run(["cmake", "--build", str(build_dir)])
+    run([str(build_dir / "diag_package_smoke")])
 
 
 def clean(args: argparse.Namespace) -> None:

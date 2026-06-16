@@ -77,26 +77,43 @@ struct diag_storage
 struct diag_context;
 
 /// Attach a storage adapter to an initialized diagnostics context.
+///
+/// The adapter is copied by value into the context. Callback tables, user state,
+/// and capsule buffers must remain valid for as long as the storage feature is
+/// used.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_storage_attach(struct diag_context *ctx, const struct diag_storage *storage);
 
 /// Validate storage capability values.
+///
+/// @return `DIAG_OK` or `DIAG_ERROR_INVALID_ARGUMENT`.
 enum diag_result
 diag_storage_validate_capabilities(const struct diag_storage_capabilities *capabilities);
 
 /// Validate that a storage adapter has required callbacks and valid capabilities.
+///
+/// @return `DIAG_OK` or `DIAG_ERROR_INVALID_ARGUMENT`.
 enum diag_result diag_storage_validate(const struct diag_storage *storage);
 
 /// Invoke the adapter load callback after validating arguments.
 ///
 /// `*bytes_read` is set to zero before the callback is called.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or the callback result.
 enum diag_result diag_storage_load(const struct diag_storage *storage, uint8_t *buffer,
                                    size_t buffer_size, size_t *bytes_read);
 
 /// Invoke the adapter save callback after validating arguments and write alignment.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or the callback result.
 enum diag_result diag_storage_save(const struct diag_storage *storage, const uint8_t *buffer,
                                    size_t size);
 
 /// Invoke the adapter clear callback after validating the adapter.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or the callback result.
 enum diag_result diag_storage_clear(const struct diag_storage *storage);
 
 /// Save persistent diagnostic state through the attached storage adapter.
@@ -106,6 +123,10 @@ enum diag_result diag_storage_clear(const struct diag_storage *storage);
 /// has not been attached. Returns `DIAG_OK` when no persistent state is dirty.
 /// DTC persistence requires `struct diag_storage::capsule_buffer`. Unsupported
 /// dirty feature bits return `DIAG_ERROR_NOT_SUPPORTED`.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`,
+///         `DIAG_ERROR_NOT_INITIALIZED`, `DIAG_ERROR_CAPACITY`,
+///         `DIAG_ERROR_NOT_SUPPORTED`, or a storage/capsule error.
 enum diag_result diag_save(struct diag_context *ctx);
 
 /// Load persistent diagnostic state through the attached storage adapter.
@@ -114,6 +135,11 @@ enum diag_result diag_save(struct diag_context *ctx);
 /// `DIAG_ERROR_NOT_INITIALIZED` when the context is not initialized, storage has
 /// not been attached. DTC persistence requires
 /// `struct diag_storage::capsule_buffer`.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`,
+///         `DIAG_ERROR_NOT_INITIALIZED`, `DIAG_ERROR_CAPACITY`,
+///         `DIAG_ERROR_CORRUPT_DATA`, `DIAG_ERROR_NOT_SUPPORTED`, or a storage
+///         adapter error.
 enum diag_result diag_load(struct diag_context *ctx);
 
 DIAG_EXTERN_C_END

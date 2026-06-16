@@ -64,6 +64,12 @@ enum diag_dirty_flag
 /// On success, `*out_ctx` points into `context_storage`. On failure, `*out_ctx`
 /// is cleared when the pointer itself is valid. Optional features are attached
 /// through feature-specific APIs after the core context is initialized.
+///
+/// @param context_storage Caller-owned storage for one context.
+/// @param config Core configuration; initialize reserved fields to zero.
+/// @param out_ctx Receives the initialized context pointer.
+/// @return `DIAG_OK`, or `DIAG_ERROR_INVALID_ARGUMENT` for null pointers or
+///         misaligned storage.
 enum diag_result diag_init(struct diag_context_storage *context_storage,
                            const struct diag_config *config, struct diag_context **out_ctx);
 
@@ -71,6 +77,9 @@ enum diag_result diag_init(struct diag_context_storage *context_storage,
 ///
 /// This clears library runtime state in the private context. It does not free or
 /// modify adapter-owned resources and does not write persistent storage.
+///
+/// @param ctx Context returned by `diag_init()`.
+/// @return `DIAG_OK`, or `DIAG_ERROR_INVALID_ARGUMENT` when `ctx` is null.
 enum diag_result diag_deinit(struct diag_context *ctx);
 
 /// Read the context dirty-state bitmask.
@@ -78,6 +87,11 @@ enum diag_result diag_deinit(struct diag_context *ctx);
 /// `*out_dirty_flags` is composed from `enum diag_dirty_flag` values. Dirty
 /// flags are set by runtime mutations but are not written to storage until an
 /// explicit save/policy path is called.
+///
+/// @param ctx Initialized diagnostics context.
+/// @param out_dirty_flags Receives a bitmask of `enum diag_dirty_flag` values.
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_get_dirty_flags(const struct diag_context *ctx, uint32_t *out_dirty_flags);
 
 DIAG_EXTERN_C_END

@@ -287,7 +287,7 @@ if(DIAG_FEATURE_DTC
     list(APPEND diag_example_targets diag_bootloader_app_shared_example)
 endif()
 
-if(DIAG_BUILD_TESTS)
+if(DIAG_BUILD_TESTS AND DIAG_TEST_EXAMPLES)
     foreach(example_target ${diag_example_targets})
         add_test(NAME ${example_target} COMMAND ${example_target})
     endforeach()

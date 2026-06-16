@@ -45,19 +45,29 @@ struct diag_identity
 
 // clang-format off
 /// Copy an identity value after validating pointers.
+///
+/// @return `DIAG_OK` or `DIAG_ERROR_INVALID_ARGUMENT`.
 enum diag_result diag_identity_copy(const struct diag_identity *identity,
                                     struct diag_identity *out_identity);
 
 /// Attach compact numeric identity to an initialized diagnostics context.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_identity_attach(struct diag_context *ctx,
                                       const struct diag_identity *identity);
 
 /// Copy the identity configured for an initialized diagnostics context.
+///
+/// @return `DIAG_OK`, `DIAG_ERROR_INVALID_ARGUMENT`, or
+///         `DIAG_ERROR_NOT_INITIALIZED`.
 enum diag_result diag_identity_get(const struct diag_context *ctx,
                                    struct diag_identity *out_identity);
 // clang-format on
 
 /// Compare two identity values for exact numeric equality.
+///
+/// @return `true` when both pointers are non-null and all fields are equal.
 bool diag_identity_equal(const struct diag_identity *left, const struct diag_identity *right);
 
 DIAG_EXTERN_C_END

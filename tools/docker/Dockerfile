@@ -4,6 +4,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
+        clang-16 \
         clang-format-14 \
         clang-tidy \
         cmake \
@@ -13,6 +14,7 @@ RUN apt-get update \
         gosu \
         iproute2 \
         kmod \
+        libclang-rt-16-dev \
         ninja-build \
         pkg-config \
         python3 \
