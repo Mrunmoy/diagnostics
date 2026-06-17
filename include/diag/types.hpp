@@ -1,5 +1,4 @@
-#ifndef DIAG_TYPES_HPP
-#define DIAG_TYPES_HPP
+#pragma once
 
 #include <cstdint>
 
@@ -47,5 +46,3 @@ constexpr bool operator!=(const LocalFaultId lhs, const LocalFaultId rhs)
 }
 
 } // namespace diag
-
-#endif // DIAG_TYPES_HPP

@@ -1,5 +1,4 @@
-#ifndef DIAG_CONTEXT_HPP
-#define DIAG_CONTEXT_HPP
+#pragma once
 
 #include "diag/result.hpp"
 
@@ -63,5 +62,3 @@ class Context
 };
 
 } // namespace diag
-
-#endif // DIAG_CONTEXT_HPP

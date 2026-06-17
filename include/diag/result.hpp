@@ -1,5 +1,4 @@
-#ifndef DIAG_RESULT_HPP
-#define DIAG_RESULT_HPP
+#pragma once
 
 #include <cstdint>
 
@@ -53,5 +52,3 @@ template <typename T> class ResultValue
 };
 
 } // namespace diag
-
-#endif // DIAG_RESULT_HPP
