@@ -12,16 +12,17 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has the first C++ scaffold:
+This branch has the first C++ scaffold and identity slice:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
 - `build.py` entry point for build, test, ASAN, format, install, and package smoke tests.
 - A small RAII `diag::Context` backed by caller-owned storage.
 - Strong diagnostic ID types and `diag::Result` error handling.
+- Compact numeric `diag::Identity` records attached to a context.
 
-The next slices will add identity, DTC records, lifecycle counters, capsule
-serialization, and example tester workflows in idiomatic C++.
+The next slices will add DTC records, lifecycle counters, capsule serialization,
+and example tester workflows in idiomatic C++.
 
 ## Quick Start
 
@@ -37,6 +38,7 @@ Inside the container:
 ```sh
 ./build.py all --preset container-debug
 ./build/container-debug/examples/diag_basic_example
+./build/container-debug/examples/diag_identity_example
 ```
 
 On a host with `clang++-16` and `clang-format-14`:
@@ -64,6 +66,9 @@ Example code:
 
 diag::ContextStorage storage{};
 diag::Context        diagnostics{storage};
+diag::Identity       identity{diag::EcosystemId{7U}, diag::ProductId{90U}};
+
+diagnostics.attachIdentity(identity);
 ```
 
 All runtime memory is caller-owned. Library code must not allocate from the heap.

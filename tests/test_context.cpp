@@ -33,6 +33,38 @@ TEST(DiagContext, TracksDirtyFlagsExplicitly)
     EXPECT_EQ(context.dirtyFlags(), static_cast<diag::DirtyFlags>(diag::DirtyFlag::Lifecycle));
 }
 
+TEST(DiagContextIdentity, ReportsMissingIdentityBeforeAttach)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+
+    const diag::ResultValue<diag::Identity> identity = context.identity();
+
+    EXPECT_FALSE(identity.hasValue());
+    EXPECT_EQ(identity.result(), diag::Result::NotFound);
+}
+
+TEST(DiagContextIdentity, AttachesAndReturnsCompactIdentity)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+    const diag::Identity configured{
+        diag::EcosystemId{0x1001U},
+        diag::ProductId{0x2002U},
+        diag::DeviceType{0x3003U},
+        diag::DeviceInstance{0x04U},
+        diag::FirmwareStage{0x05U},
+        diag::FirmwareComponent{0x06U},
+        0U,
+    };
+
+    EXPECT_EQ(context.attachIdentity(configured), diag::Result::Ok);
+
+    const diag::ResultValue<diag::Identity> actual = context.identity();
+    ASSERT_TRUE(actual.hasValue());
+    EXPECT_EQ(actual.value(), configured);
+}
+
 TEST(DiagContextStorage, HasStableBoundedSizeAndAlignment)
 {
     EXPECT_EQ(diag::ContextStorage::kSize, 128U);

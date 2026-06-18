@@ -1,5 +1,6 @@
 #pragma once
 
+#include "diag/identity.hpp"
 #include "diag/result.hpp"
 
 #include <cstddef>
@@ -51,11 +52,13 @@ class Context
     Context(Context &&) = delete;
     Context &operator=(Context &&) = delete;
 
-    [[nodiscard]] bool       isInitialized() const noexcept;
-    [[nodiscard]] DirtyFlags dirtyFlags() const noexcept;
+    [[nodiscard]] bool                  isInitialized() const noexcept;
+    [[nodiscard]] DirtyFlags            dirtyFlags() const noexcept;
+    [[nodiscard]] ResultValue<Identity> identity() const noexcept;
 
     [[nodiscard]] Result markDirty(DirtyFlag flag) noexcept;
     [[nodiscard]] Result clearDirty(DirtyFlag flag) noexcept;
+    [[nodiscard]] Result attachIdentity(const Identity &identity) noexcept;
 
   private:
     struct State;

@@ -10,7 +10,9 @@ struct Context::State
 {
     Config     config{};
     DirtyFlags dirtyFlags{0U};
+    Identity   identity{};
     bool       initialized{false};
+    bool       identityAttached{false};
 };
 
 struct Context::StorageLayout
@@ -61,6 +63,21 @@ DirtyFlags Context::dirtyFlags() const noexcept
     return isInitialized() ? m_state->dirtyFlags : 0U;
 }
 
+ResultValue<Identity> Context::identity() const noexcept
+{
+    if (!isInitialized())
+    {
+        return ResultValue<Identity>{Result::NotInitialized};
+    }
+
+    if (!m_state->identityAttached)
+    {
+        return ResultValue<Identity>{Result::NotFound};
+    }
+
+    return ResultValue<Identity>{m_state->identity};
+}
+
 Result Context::markDirty(const DirtyFlag flag) noexcept
 {
     if (!isInitialized())
@@ -80,6 +97,19 @@ Result Context::clearDirty(const DirtyFlag flag) noexcept
     }
 
     m_state->dirtyFlags &= ~static_cast<DirtyFlags>(flag);
+    return Result::Ok;
+}
+
+Result Context::attachIdentity(const Identity &identity) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    m_state->identity = identity;
+    m_state->identityAttached = true;
+
     return Result::Ok;
 }
 
