@@ -52,8 +52,8 @@ class Context
     [[nodiscard]] bool       isInitialized() const noexcept;
     [[nodiscard]] DirtyFlags dirtyFlags() const noexcept;
 
-    Result markDirty(DirtyFlag flag) noexcept;
-    Result clearDirty(DirtyFlag flag) noexcept;
+    [[nodiscard]] Result markDirty(DirtyFlag flag) noexcept;
+    [[nodiscard]] Result clearDirty(DirtyFlag flag) noexcept;
 
   private:
     struct State;

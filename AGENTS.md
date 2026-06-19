@@ -65,7 +65,7 @@ Pass CMake options after `--`, for example:
 Docker/devcontainer users should use the `container-*` presets:
 
 ```sh
-docker compose run --rm diagnostics-dev
+DIAG_DOCKER_RUN_AS_ROOT=1 docker compose run --rm diagnostics-dev
 ./build.py all --preset container-debug
 ```
 
