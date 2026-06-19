@@ -38,12 +38,15 @@ else()
     target_compile_options(diag PRIVATE -Wall -Wextra -Wpedantic -Werror -fno-exceptions -fno-rtti)
 endif()
 
+if(DIAG_BUILD_TESTS)
+    enable_testing()
+endif()
+
 if(DIAG_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 if(DIAG_BUILD_TESTS)
-    enable_testing()
     add_subdirectory(tests)
 endif()
 

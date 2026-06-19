@@ -21,3 +21,11 @@ TEST(DiagResultValue, CarriesValueOnlyForOkResult)
     EXPECT_FALSE(error.hasValue());
     EXPECT_EQ(error.result(), diag::Result::NotFound);
 }
+
+TEST(DiagResultValue, RejectsOkWithoutExplicitValue)
+{
+    const diag::ResultValue<unsigned> invalid{diag::Result::Ok};
+
+    EXPECT_FALSE(invalid.hasValue());
+    EXPECT_EQ(invalid.result(), diag::Result::InvalidArgument);
+}

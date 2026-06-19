@@ -36,7 +36,7 @@ def cmake_options(options: list[str]) -> list[str]:
 
 def sanitizer_env() -> dict[str, str]:
     return {
-        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1",
+        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1:intercept_tls_get_addr=0",
         "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1",
     }
 
@@ -63,10 +63,8 @@ def build_preset(preset: str, options: list[str]) -> None:
 
 def test_preset(preset: str, options: list[str]) -> None:
     build_preset(preset, options)
-    if preset.endswith("-asan"):
-        run([str(build_dir_for_preset(preset) / "tests" / "diag_tests")], env=sanitizer_env())
-    else:
-        run(["ctest", "--preset", preset, "--output-on-failure"])
+    env = sanitizer_env() if preset.endswith("-asan") else None
+    run(["ctest", "--preset", preset, "--output-on-failure"], env=env)
 
 
 def build(args: argparse.Namespace) -> None:

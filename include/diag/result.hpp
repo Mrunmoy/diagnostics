@@ -27,7 +27,10 @@ enum class Result : std::uint8_t
 template <typename T> class ResultValue
 {
   public:
-    constexpr ResultValue(const Result result) : m_result{result}, m_value{} {}
+    constexpr ResultValue(const Result result)
+        : m_result{result == Result::Ok ? Result::InvalidArgument : result}, m_value{}
+    {
+    }
 
     constexpr ResultValue(const T &value) : m_result{Result::Ok}, m_value{value} {}
 
