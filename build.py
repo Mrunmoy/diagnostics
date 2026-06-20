@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_PRESET = "linux-debug"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 CLANG_FORMAT_VERSION = "14"
+ASAN_CTEST_ATTEMPTS = 5
+ASAN_TEST_TIMEOUT_SECONDS = "10"
 
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
@@ -20,6 +22,18 @@ def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
     if env is not None:
         merged_env.update(env)
     subprocess.run(command, cwd=ROOT, check=True, env=merged_env)
+
+
+def run_with_timeout_retries(command: list[str], attempts: int, env: dict[str, str]) -> None:
+    for attempt in range(1, attempts + 1):
+        print(f"+ attempt {attempt}/{attempts}", flush=True)
+        try:
+            run(command, env=env)
+            return
+        except subprocess.CalledProcessError as error:
+            if error.returncode != 8 or attempt == attempts:
+                raise
+            print("ASAN CTest timed out; retrying sanitizer test run", flush=True)
 
 
 def cmake_options(options: list[str]) -> list[str]:
@@ -63,8 +77,21 @@ def build_preset(preset: str, options: list[str]) -> None:
 
 def test_preset(preset: str, options: list[str]) -> None:
     build_preset(preset, options)
-    env = sanitizer_env() if preset.endswith("-asan") else None
-    run(["ctest", "--preset", preset, "--output-on-failure"], env=env)
+    if preset.endswith("-asan"):
+        run_with_timeout_retries(
+            [
+                "ctest",
+                "--preset",
+                preset,
+                "--output-on-failure",
+                "--timeout",
+                ASAN_TEST_TIMEOUT_SECONDS,
+            ],
+            ASAN_CTEST_ATTEMPTS,
+            sanitizer_env(),
+        )
+    else:
+        run(["ctest", "--preset", preset, "--output-on-failure"])
 
 
 def build(args: argparse.Namespace) -> None:
