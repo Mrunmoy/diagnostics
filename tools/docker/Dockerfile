@@ -12,6 +12,7 @@ RUN apt-get update \
         gosu \
         libclang-rt-16-dev \
         ninja-build \
+        passwd \
         python3 \
     && rm -rf /var/lib/apt/lists/*
 

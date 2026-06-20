@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <new>
+#include <type_traits>
+#include <utility>
 
 namespace diag
 {
@@ -27,31 +30,117 @@ enum class Result : std::uint8_t
 template <typename T> class ResultValue
 {
   public:
-    constexpr ResultValue(const Result result)
-        : m_result{result == Result::Ok ? Result::InvalidArgument : result}, m_value{}
+    explicit ResultValue(const Result result) noexcept
+        : m_result{result == Result::Ok ? Result::InvalidArgument : result}
     {
     }
 
-    constexpr ResultValue(const T &value) : m_result{Result::Ok}, m_value{value} {}
+    explicit ResultValue(const T &value) : m_result{Result::Ok}
+    {
+        construct(value);
+    }
 
-    [[nodiscard]] constexpr Result result() const
+    explicit ResultValue(T &&value) noexcept(std::is_nothrow_move_constructible<T>::value)
+        : m_result{Result::Ok}
+    {
+        construct(std::move(value));
+    }
+
+    ResultValue(const ResultValue &other) : m_result{other.m_result}
+    {
+        if (other.hasValue())
+        {
+            construct(other.value());
+        }
+    }
+
+    ResultValue(ResultValue &&other) noexcept(std::is_nothrow_move_constructible<T>::value)
+        : m_result{other.m_result}
+    {
+        if (other.hasValue())
+        {
+            construct(std::move(other.valueRef()));
+        }
+    }
+
+    ~ResultValue() noexcept
+    {
+        destroy();
+    }
+
+    ResultValue &operator=(const ResultValue &other)
+    {
+        if (this != &other)
+        {
+            destroy();
+            m_result = other.m_result;
+            if (other.hasValue())
+            {
+                construct(other.value());
+            }
+        }
+
+        return *this;
+    }
+
+    ResultValue &
+    operator=(ResultValue &&other) noexcept(std::is_nothrow_move_constructible<T>::value)
+    {
+        if (this != &other)
+        {
+            destroy();
+            m_result = other.m_result;
+            if (other.hasValue())
+            {
+                construct(std::move(other.valueRef()));
+            }
+        }
+
+        return *this;
+    }
+
+    [[nodiscard]] Result result() const noexcept
     {
         return m_result;
     }
 
-    [[nodiscard]] constexpr bool hasValue() const
+    [[nodiscard]] bool hasValue() const noexcept
     {
         return m_result == Result::Ok;
     }
 
-    [[nodiscard]] constexpr const T &value() const
+    [[nodiscard]] const T &value() const noexcept
     {
-        return m_value;
+        return valueRef();
     }
 
   private:
+    template <typename U>
+    void construct(U &&value) noexcept(std::is_nothrow_constructible<T, U &&>::value)
+    {
+        new (static_cast<void *>(m_storage)) T{std::forward<U>(value)};
+    }
+
+    void destroy() noexcept
+    {
+        if (hasValue())
+        {
+            valueRef().~T();
+        }
+    }
+
+    [[nodiscard]] T &valueRef() noexcept
+    {
+        return *reinterpret_cast<T *>(m_storage);
+    }
+
+    [[nodiscard]] const T &valueRef() const noexcept
+    {
+        return *reinterpret_cast<const T *>(m_storage);
+    }
+
     Result m_result;
-    T      m_value;
+    alignas(T) unsigned char m_storage[sizeof(T)]{};
 };
 
 } // namespace diag
