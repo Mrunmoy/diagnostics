@@ -26,14 +26,14 @@ Context::Context(ContextStorage &storage, const Config &config) noexcept
     static_assert(alignof(StorageLayout) <= ContextStorage::kAlignment,
                   "ContextStorage alignment is too small for Context::StorageLayout");
 
-    m_storage = reinterpret_cast<StorageLayout *>(storage.bytes);
-    if (m_storage->engaged)
+    if (storage.bytes[0] != 0U)
     {
-        m_storage = nullptr;
         return;
     }
 
+    m_storage = new (static_cast<void *>(storage.bytes)) StorageLayout{};
     m_storage->engaged = true;
+
     void *const rawStorage = static_cast<void *>(m_storage->state);
     m_state = new (rawStorage) State{};
     m_state->config = config;
