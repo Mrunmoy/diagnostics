@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -131,12 +132,12 @@ template <typename T> class ResultValue
 
     [[nodiscard]] T &valueRef() noexcept
     {
-        return *reinterpret_cast<T *>(m_storage);
+        return *std::launder(reinterpret_cast<T *>(m_storage));
     }
 
     [[nodiscard]] const T &valueRef() const noexcept
     {
-        return *reinterpret_cast<const T *>(m_storage);
+        return *std::launder(reinterpret_cast<const T *>(m_storage));
     }
 
     Result m_result;
