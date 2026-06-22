@@ -56,6 +56,10 @@ prefer:
 - Class templates only when they remove runtime configuration or memory cost.
 - Explicit result types instead of exceptions.
 
+`diag::ContextStorage` is caller-owned raw storage with **exclusive live
+ownership**: exactly one `diag::Context` may be attached to a storage block at a
+time, and reusing that storage requires destroying the previous context first.
+
 The first scaffold establishes this direction with `diag::Context`, fixed
 `diag::ContextStorage`, strong IDs, and a CMake package export.
 

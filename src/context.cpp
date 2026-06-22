@@ -13,14 +13,28 @@ struct Context::State
     bool       initialized{false};
 };
 
+struct Context::StorageLayout
+{
+    bool engaged{false};
+    alignas(State) std::uint8_t state[sizeof(State)];
+};
+
 Context::Context(ContextStorage &storage, const Config &config) noexcept
 {
-    static_assert(sizeof(State) <= ContextStorage::kSize,
-                  "ContextStorage is too small for Context::State");
-    static_assert(alignof(State) <= ContextStorage::kAlignment,
-                  "ContextStorage alignment is too small for Context::State");
+    static_assert(sizeof(StorageLayout) <= ContextStorage::kSize,
+                  "ContextStorage is too small for Context::StorageLayout");
+    static_assert(alignof(StorageLayout) <= ContextStorage::kAlignment,
+                  "ContextStorage alignment is too small for Context::StorageLayout");
 
-    void *const rawStorage = static_cast<void *>(storage.bytes);
+    m_storage = reinterpret_cast<StorageLayout *>(storage.bytes);
+    if (m_storage->engaged)
+    {
+        m_storage = nullptr;
+        return;
+    }
+
+    m_storage->engaged = true;
+    void *const rawStorage = static_cast<void *>(m_storage->state);
     m_state = new (rawStorage) State{};
     m_state->config = config;
     m_state->initialized = true;
@@ -28,9 +42,11 @@ Context::Context(ContextStorage &storage, const Config &config) noexcept
 
 Context::~Context() noexcept
 {
-    if (m_state != nullptr)
+    if (m_state != nullptr && m_storage != nullptr)
     {
         m_state->~State();
+        m_storage->engaged = false;
+        m_storage = nullptr;
         m_state = nullptr;
     }
 }

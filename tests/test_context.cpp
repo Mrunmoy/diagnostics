@@ -39,3 +39,26 @@ TEST(DiagContextStorage, HasStableBoundedSizeAndAlignment)
     EXPECT_GE(diag::ContextStorage::kAlignment, alignof(std::max_align_t));
     EXPECT_EQ(sizeof(diag::ContextStorage), diag::ContextStorage::kSize);
 }
+
+TEST(DiagContextStorage, RejectsSecondLiveContextOnSameStorage)
+{
+    diag::ContextStorage storage{};
+    diag::Context        first{storage};
+    diag::Context        second{storage};
+
+    EXPECT_TRUE(first.isInitialized());
+    EXPECT_FALSE(second.isInitialized());
+}
+
+TEST(DiagContextStorage, ReusesStorageAfterFirstContextIsDestroyed)
+{
+    diag::ContextStorage storage{};
+
+    {
+        diag::Context first{storage};
+        ASSERT_TRUE(first.isInitialized());
+    }
+
+    diag::Context second{storage};
+    EXPECT_TRUE(second.isInitialized());
+}

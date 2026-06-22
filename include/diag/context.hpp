@@ -57,8 +57,10 @@ class Context
 
   private:
     struct State;
+    struct StorageLayout;
 
-    State *m_state{nullptr};
+    StorageLayout *m_storage{nullptr};
+    State         *m_state{nullptr};
 };
 
 } // namespace diag

@@ -67,6 +67,8 @@ diag::Context        diagnostics{storage};
 ```
 
 All runtime memory is caller-owned. Library code must not allocate from the heap.
+One `diag::ContextStorage` may back only **one live `diag::Context` at a time**;
+destroy that context before reusing the storage for a new one.
 
 ## Development Rules
 

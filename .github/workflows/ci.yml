@@ -46,4 +46,4 @@ jobs:
         run: |
           DIAG_DOCKER_UID="$(id -u)" \
           DIAG_DOCKER_GID="$(id -g)" \
-          docker compose run --rm diagnostics-dev
+          docker compose run --build --rm diagnostics-dev
