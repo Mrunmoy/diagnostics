@@ -34,6 +34,7 @@ struct ContextStorage
 {
     static constexpr std::size_t kSize = 128U;
     static constexpr std::size_t kAlignment = alignof(std::max_align_t);
+    static_assert((kSize % kAlignment) == 0U, "ContextStorage::kSize must be a multiple of kAlignment");
 
     alignas(kAlignment) std::uint8_t bytes[kSize]{};
 };
