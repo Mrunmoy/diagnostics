@@ -29,7 +29,7 @@ Use Docker if your host does not have the pinned Clang tools:
 
 ```sh
 docker compose build diagnostics-dev
-DIAG_DOCKER_RUN_AS_ROOT=1 docker compose run --rm diagnostics-dev
+DIAG_DOCKER_UID="$(id -u)" DIAG_DOCKER_GID="$(id -g)" docker compose run --rm diagnostics-dev
 ```
 
 Inside the container:

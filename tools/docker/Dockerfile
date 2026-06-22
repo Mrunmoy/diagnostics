@@ -11,6 +11,7 @@ RUN apt-get update \
         git \
         gosu \
         libclang-rt-16-dev \
+        mawk \
         ninja-build \
         passwd \
         python3 \
