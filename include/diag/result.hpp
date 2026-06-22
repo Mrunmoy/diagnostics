@@ -115,6 +115,11 @@ template <typename T> class ResultValue
         return valueRef();
     }
 
+    [[nodiscard]] const T *valueOrNull() const noexcept
+    {
+        return hasValue() ? &valueRef() : nullptr;
+    }
+
   private:
     template <typename U>
     void construct(U &&value) noexcept(std::is_nothrow_constructible<T, U &&>::value)
@@ -141,7 +146,7 @@ template <typename T> class ResultValue
     }
 
     Result m_result;
-    alignas(T) unsigned char m_storage[sizeof(T)]{};
+    alignas(T) unsigned char m_storage[sizeof(T)];
 };
 
 } // namespace diag

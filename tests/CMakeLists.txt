@@ -7,7 +7,9 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+if(MSVC)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+endif()
 FetchContent_MakeAvailable(googletest)
 
 set(diag_test_sources

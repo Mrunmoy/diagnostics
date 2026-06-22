@@ -54,13 +54,17 @@ TEST(DiagResultValue, CarriesValueOnlyForOkResult)
 {
     const diag::ResultValue<unsigned> value{42U};
     const diag::ResultValue<unsigned> error{diag::Result::NotFound};
+    const unsigned                   *checked_value = value.valueOrNull();
 
     EXPECT_TRUE(value.hasValue());
     EXPECT_EQ(value.result(), diag::Result::Ok);
     EXPECT_EQ(value.value(), 42U);
+    ASSERT_NE(checked_value, nullptr);
+    EXPECT_EQ(*checked_value, 42U);
 
     EXPECT_FALSE(error.hasValue());
     EXPECT_EQ(error.result(), diag::Result::NotFound);
+    EXPECT_EQ(error.valueOrNull(), nullptr);
 }
 
 TEST(DiagResultValue, RejectsOkWithoutExplicitValue)
