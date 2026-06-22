@@ -1,6 +1,7 @@
 #include "diag/result.hpp"
 
 #include <gtest/gtest.h>
+#include <stdexcept>
 #include <type_traits>
 
 namespace
@@ -40,6 +41,76 @@ class NonDefaultConstructible
 };
 
 int NonDefaultConstructible::s_constructed = 0;
+
+class ThrowingCopyConstructible
+{
+  public:
+    explicit ThrowingCopyConstructible(const unsigned value) : m_value{value}
+    {
+        ++s_constructed;
+    }
+
+    ThrowingCopyConstructible(const ThrowingCopyConstructible &)
+    {
+        throw std::runtime_error{"copy"};
+    }
+
+    ThrowingCopyConstructible(ThrowingCopyConstructible &&other) noexcept : m_value{other.m_value}
+    {
+        ++s_constructed;
+    }
+
+    ~ThrowingCopyConstructible()
+    {
+        --s_constructed;
+    }
+
+    [[nodiscard]] static int constructed()
+    {
+        return s_constructed;
+    }
+
+  private:
+    unsigned   m_value;
+    static int s_constructed;
+};
+
+int ThrowingCopyConstructible::s_constructed = 0;
+
+class ThrowingMoveConstructible
+{
+  public:
+    explicit ThrowingMoveConstructible(const unsigned value) : m_value{value}
+    {
+        ++s_constructed;
+    }
+
+    ThrowingMoveConstructible(const ThrowingMoveConstructible &other) : m_value{other.m_value}
+    {
+        ++s_constructed;
+    }
+
+    ThrowingMoveConstructible(ThrowingMoveConstructible &&)
+    {
+        throw std::runtime_error{"move"};
+    }
+
+    ~ThrowingMoveConstructible()
+    {
+        --s_constructed;
+    }
+
+    [[nodiscard]] static int constructed()
+    {
+        return s_constructed;
+    }
+
+  private:
+    unsigned   m_value;
+    static int s_constructed;
+};
+
+int ThrowingMoveConstructible::s_constructed = 0;
 
 } // namespace
 
@@ -91,4 +162,40 @@ TEST(DiagResultValue, ErrorDoesNotConstructValueStorage)
     }
 
     EXPECT_EQ(NonDefaultConstructible::constructed(), 0);
+}
+
+TEST(DiagResultValue, CopyAssignmentKeepsObjectInvalidWhenCopyConstructionThrows)
+{
+    EXPECT_EQ(ThrowingCopyConstructible::constructed(), 0);
+
+    {
+        diag::ResultValue<ThrowingCopyConstructible> source{ThrowingCopyConstructible{1U}};
+        diag::ResultValue<ThrowingCopyConstructible> target{ThrowingCopyConstructible{2U}};
+
+        EXPECT_THROW(target = source, std::runtime_error);
+        EXPECT_FALSE(target.hasValue());
+        EXPECT_EQ(target.result(), diag::Result::InvalidArgument);
+        EXPECT_EQ(ThrowingCopyConstructible::constructed(), 1);
+    }
+
+    EXPECT_EQ(ThrowingCopyConstructible::constructed(), 0);
+}
+
+TEST(DiagResultValue, MoveAssignmentKeepsObjectInvalidWhenMoveConstructionThrows)
+{
+    EXPECT_EQ(ThrowingMoveConstructible::constructed(), 0);
+
+    {
+        const ThrowingMoveConstructible              source_value{1U};
+        const ThrowingMoveConstructible              target_value{2U};
+        diag::ResultValue<ThrowingMoveConstructible> source{source_value};
+        diag::ResultValue<ThrowingMoveConstructible> target{target_value};
+
+        EXPECT_THROW(target = std::move(source), std::runtime_error);
+        EXPECT_FALSE(target.hasValue());
+        EXPECT_EQ(target.result(), diag::Result::InvalidArgument);
+        EXPECT_EQ(ThrowingMoveConstructible::constructed(), 3);
+    }
+
+    EXPECT_EQ(ThrowingMoveConstructible::constructed(), 0);
 }

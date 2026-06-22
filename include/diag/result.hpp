@@ -74,10 +74,15 @@ template <typename T> class ResultValue
         if (this != &other)
         {
             destroy();
-            m_result = other.m_result;
+            m_result = Result::InvalidArgument;
             if (other.hasValue())
             {
                 construct(other.value());
+                m_result = Result::Ok;
+            }
+            else
+            {
+                m_result = other.m_result;
             }
         }
 
@@ -90,10 +95,15 @@ template <typename T> class ResultValue
         if (this != &other)
         {
             destroy();
-            m_result = other.m_result;
+            m_result = Result::InvalidArgument;
             if (other.hasValue())
             {
                 construct(std::move(other.valueRef()));
+                m_result = Result::Ok;
+            }
+            else
+            {
+                m_result = other.m_result;
             }
         }
 
