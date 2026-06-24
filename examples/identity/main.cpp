@@ -32,9 +32,12 @@ int main()
 
     std::printf(
         "identity_example: ecosystem=%u product=%u type=%u instance=%u stage=%u component=%u\n",
-        configured.value().ecosystem.value, configured.value().product.value,
-        configured.value().deviceType.value, configured.value().instance.value,
-        configured.value().firmwareStage.value, configured.value().firmwareComponent.value);
+        static_cast<unsigned>(configured.value().ecosystem.value),
+        static_cast<unsigned>(configured.value().product.value),
+        static_cast<unsigned>(configured.value().deviceType.value),
+        static_cast<unsigned>(configured.value().instance.value),
+        static_cast<unsigned>(configured.value().firmwareStage.value),
+        static_cast<unsigned>(configured.value().firmwareComponent.value));
 
     return 0;
 }
