@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   host-all:
-    name: Host ./build.py all
+    name: Host build and test
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -36,7 +36,7 @@ jobs:
         run: ./build.py all
 
   docker-all:
-    name: Docker ./build.py all
+    name: Docker build and test
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
