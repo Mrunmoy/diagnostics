@@ -1,0 +1,119 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "linux-debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "linux-release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Release",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "linux-asan",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-asan",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON",
+        "DIAG_TEST_SPLIT_GTEST": "OFF",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
+      "name": "container-debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-debug",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "container-release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-release",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Release",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "container-asan",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/container-asan",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "clang++-16",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "DIAG_BUILD_TESTS": "ON",
+        "DIAG_BUILD_EXAMPLES": "ON",
+        "DIAG_TEST_SPLIT_GTEST": "OFF",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "linux-debug", "configurePreset": "linux-debug"},
+    {"name": "linux-release", "configurePreset": "linux-release"},
+    {"name": "linux-asan", "configurePreset": "linux-asan"},
+    {"name": "container-debug", "configurePreset": "container-debug"},
+    {"name": "container-release", "configurePreset": "container-release"},
+    {"name": "container-asan", "configurePreset": "container-asan"}
+  ],
+  "testPresets": [
+    {
+      "name": "linux-debug",
+      "configurePreset": "linux-debug",
+      "output": {"outputOnFailure": true},
+      "execution": {"timeout": 30}
+    },
+    {
+      "name": "linux-asan",
+      "configurePreset": "linux-asan",
+      "output": {"outputOnFailure": true},
+      "execution": {"timeout": 30},
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1:intercept_tls_get_addr=0",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    },
+    {
+      "name": "container-debug",
+      "configurePreset": "container-debug",
+      "output": {"outputOnFailure": true},
+      "execution": {"timeout": 30}
+    },
+    {
+      "name": "container-asan",
+      "configurePreset": "container-asan",
+      "output": {"outputOnFailure": true},
+      "execution": {"timeout": 30},
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1:intercept_tls_get_addr=0",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    }
+  ]
+}

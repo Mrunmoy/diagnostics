@@ -1,0 +1,73 @@
+# Design
+
+This branch is the modern C++17 implementation of the diagnostics library. It
+shares the product model with the C branch, but it should use C++ idioms where
+they make embedded code safer and clearer.
+
+## Purpose
+
+The library gives firmware a small diagnostic core that can be queried from the
+outside. A product can expose device identity, diagnostic trouble codes, lifecycle
+counters, reset information, and persisted diagnostic records over any transport.
+The core does not know whether the bytes travel over CAN, UART, TCP, Modbus, or a
+test fixture.
+
+## Design Rules
+
+- No dynamic allocation in library code.
+- No exceptions and no RTTI in firmware-facing code.
+- Caller-owned memory for all runtime state and buffers.
+- Bounded loops only; capacities are explicit.
+- Storage writes are explicit or policy-driven, never hidden in hot paths.
+- Serialized data uses fixed-width fields, schema versions, lengths, reserved
+  bytes, and integrity checks.
+- Host tooling owns strings, catalogs, descriptions, and rich product meaning.
+
+## Layer Model
+
+```mermaid
+flowchart TB
+    tester[Diagnostic tester or host tool]
+    transport[Transport adapter]
+    api[Diagnostic API]
+    core[Core model]
+    storage[Storage adapter]
+    media[Flash, EEPROM, filesystem, RAM]
+
+    tester --> transport
+    transport --> api
+    api --> core
+    core --> storage
+    storage --> media
+```
+
+The API layer accepts strongly typed requests and returns `diag::Result` values.
+The core owns no transport and performs no hidden I/O. Storage and transport
+adapters are supplied by firmware or examples.
+
+## C++ Shape
+
+The C++ implementation should not be a mechanical port of the C code. It should
+prefer:
+
+- RAII for lifetime and attach/detach behavior.
+- Strong types for diagnostic IDs and product identity.
+- `constexpr` constants and compile-time validation.
+- Class templates only when they remove runtime configuration or memory cost.
+- Explicit result types instead of exceptions.
+
+`diag::ContextStorage` is caller-owned raw storage with **exclusive live
+ownership**: exactly one `diag::Context` may be attached to a storage block at a
+time, and reusing that storage requires destroying the previous context first.
+
+The first scaffold establishes this direction with `diag::Context`, fixed
+`diag::ContextStorage`, strong IDs, and a CMake package export.
+
+## Planned Feature Slices
+
+1. Identity records and comparison helpers.
+2. Fixed-capacity DTC registration and state updates.
+3. Lifecycle/reset counter policies.
+4. Diagnostic capsule serialization for persistent records.
+5. Example transports and tester-side tools that prove the API is usable without
+   coupling the core to any one protocol.
