@@ -9,10 +9,18 @@ TEST(DiagStrongTypes, DoNotImplicitlyCollapseToRawIntegers)
     EXPECT_FALSE((std::is_convertible<std::uint32_t, diag::DtcId>::value));
     EXPECT_FALSE((std::is_convertible<diag::LocalFaultId, std::uint32_t>::value));
     EXPECT_FALSE((std::is_convertible<std::uint32_t, diag::LocalFaultId>::value));
+    EXPECT_FALSE((std::is_convertible<diag::EcosystemId, std::uint16_t>::value));
+    EXPECT_FALSE((std::is_convertible<std::uint16_t, diag::EcosystemId>::value));
     EXPECT_FALSE((std::is_convertible<diag::ProductId, std::uint16_t>::value));
     EXPECT_FALSE((std::is_convertible<std::uint16_t, diag::ProductId>::value));
+    EXPECT_FALSE((std::is_convertible<diag::DeviceType, std::uint16_t>::value));
+    EXPECT_FALSE((std::is_convertible<std::uint16_t, diag::DeviceType>::value));
     EXPECT_FALSE((std::is_convertible<diag::DeviceInstance, std::uint8_t>::value));
     EXPECT_FALSE((std::is_convertible<std::uint8_t, diag::DeviceInstance>::value));
+    EXPECT_FALSE((std::is_convertible<diag::FirmwareStage, std::uint8_t>::value));
+    EXPECT_FALSE((std::is_convertible<std::uint8_t, diag::FirmwareStage>::value));
+    EXPECT_FALSE((std::is_convertible<diag::FirmwareComponent, std::uint8_t>::value));
+    EXPECT_FALSE((std::is_convertible<std::uint8_t, diag::FirmwareComponent>::value));
 }
 
 TEST(DiagStrongTypes, CompareSameSemanticType)
