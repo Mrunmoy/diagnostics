@@ -1,8 +1,6 @@
 #include "diag/identity.hpp"
 
 #include <gtest/gtest.h>
-#include <type_traits>
-
 TEST(DiagIdentity, HasCompactNumericStorageShape)
 {
     EXPECT_EQ(diag::Identity::kSchemaVersion, 1U);
