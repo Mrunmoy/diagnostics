@@ -22,6 +22,9 @@ struct Identity
     std::uint8_t      reserved{0U};
 };
 
+static_assert(sizeof(Identity) == Identity::kEncodedSize,
+              "diag::Identity size must match Identity::kEncodedSize");
+
 constexpr bool operator==(const Identity lhs, const Identity rhs)
 {
     return (lhs.ecosystem == rhs.ecosystem) && (lhs.product == rhs.product) &&
