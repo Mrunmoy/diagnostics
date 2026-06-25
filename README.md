@@ -68,7 +68,10 @@ diag::ContextStorage storage{};
 diag::Context        diagnostics{storage};
 diag::Identity       identity{diag::EcosystemId{7U}, diag::ProductId{90U}};
 
-diagnostics.attachIdentity(identity);
+if (diagnostics.attachIdentity(identity) != diag::Result::Ok)
+{
+    // handle error
+}
 ```
 
 All runtime memory is caller-owned. Library code must not allocate from the heap.
