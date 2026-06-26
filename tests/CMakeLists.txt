@@ -14,6 +14,7 @@ FetchContent_MakeAvailable(googletest)
 
 set(diag_test_sources
     test_context.cpp
+    test_identity.cpp
     test_result.cpp
     test_types.cpp
 )
