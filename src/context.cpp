@@ -69,8 +69,9 @@ DirtyFlags Context::dirtyFlags() const noexcept
 namespace
 {
 
-[[nodiscard]] DtcRecord *findDtcRecord(DtcRecord *records, const std::size_t count,
-                                       const DtcId id) noexcept
+template <typename Record>
+[[nodiscard]] Record *findDtcRecord(Record *records, const std::size_t count,
+                                    const DtcId id) noexcept
 {
     for (std::size_t index = 0U; index < count; ++index)
     {
@@ -243,6 +244,7 @@ Result Context::setDtcActive(const DtcId id, const bool active) noexcept
     else
     {
         record->status &= ~static_cast<DtcStatusFlags>(DtcStatus::TestFailed);
+        record->status &= ~static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
     }
 
     if (active != wasActive)

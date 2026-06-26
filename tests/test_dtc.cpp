@@ -106,6 +106,7 @@ TEST_F(DtcFixture, SetInactivePreservesHistory)
     const diag::ResultValue<diag::DtcRecord> record = m_context.dtc(diag::DtcId{1U});
     ASSERT_TRUE(record.hasValue());
     EXPECT_FALSE(diag::hasStatus(record.value(), diag::DtcStatus::TestFailed));
+    EXPECT_FALSE(diag::hasStatus(record.value(), diag::DtcStatus::TestFailedThisCycle));
     EXPECT_TRUE(diag::hasStatus(record.value(), diag::DtcStatus::Pending));
     EXPECT_TRUE(diag::hasStatus(record.value(), diag::DtcStatus::Confirmed));
     EXPECT_EQ(record.value().occurrenceCount, 1U);
