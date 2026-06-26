@@ -61,13 +61,17 @@ ownership**: exactly one `diag::Context` may be attached to a storage block at a
 time, and reusing that storage requires destroying the previous context first.
 
 The first scaffold establishes this direction with `diag::Context`, fixed
-`diag::ContextStorage`, strong IDs, compact `diag::Identity`, and a CMake package
-export.
+`diag::ContextStorage`, strong IDs, compact `diag::Identity`, volatile DTC
+records, and a CMake package export.
+
+The DTC slice stores records in caller-owned RAM supplied through `diag::Config`.
+Registration, lookup, listing, active-state updates, and clear counters are
+bounded by the configured capacity. Runtime DTC mutation marks the DTC dirty flag
+but performs no storage writes.
 
 ## Planned Feature Slices
 
-1. Fixed-capacity DTC registration and state updates.
-2. Lifecycle/reset counter policies.
-3. Diagnostic capsule serialization for persistent records.
-4. Example transports and tester-side tools that prove the API is usable without
+1. Lifecycle/reset counter policies.
+2. Diagnostic capsule serialization for persistent records.
+3. Example transports and tester-side tools that prove the API is usable without
    coupling the core to any one protocol.
