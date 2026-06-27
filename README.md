@@ -24,8 +24,8 @@ lifecycle/reset-counter slice, and capsule serialization slice:
 - Fixed-capacity DTC records backed by caller-owned RAM.
 - Reset lifecycle snapshots with disabled, RAM-only, abnormal-only, every-N, and
   platform-owned counter policies.
-- Versioned diagnostic capsules with fixed section tables, little-endian fields,
-  CRC validation, and caller-owned payload buffers.
+- Versioned diagnostic capsules with bounded section tables, fixed-size table
+  entries, little-endian fields, CRC validation, and caller-owned payload buffers.
 
 The next slices will add storage integration and example tester workflows in
 idiomatic C++.
