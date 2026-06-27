@@ -229,6 +229,21 @@ TEST(DiagCapsule, RejectsSectionLengthPastCapsuleEnd)
               diag::Result::CorruptData);
 }
 
+TEST(DiagCapsule, RejectsOverlappingSections)
+{
+    std::array<std::uint8_t, kCapsuleBytes> buffer{};
+    diag::CapsuleDescriptor                 descriptor = makeOneSectionDescriptor();
+    descriptor.sectionCount = 2U;
+    descriptor.sections[1].type = static_cast<std::uint16_t>(diag::CapsuleSectionType::Lifecycle);
+    descriptor.sections[1].version = 1U;
+    descriptor.sections[1].offset = descriptor.sections[0].offset + 8U;
+    descriptor.sections[1].length = 16U;
+    descriptor.sections[1].usedLength = 4U;
+
+    EXPECT_EQ(diag::encodeCapsuleV1(buffer.data(), buffer.size(), descriptor).result,
+              diag::Result::InvalidArgument);
+}
+
 TEST(DiagCapsule, RejectsInvalidCrc)
 {
     std::array<std::uint8_t, kCapsuleBytes> buffer{};
