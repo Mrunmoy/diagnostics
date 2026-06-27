@@ -88,8 +88,15 @@ if (diagnostics.registerDtc(diag::DtcId{0x040101U}, diag::DtcSeverity::Critical)
 }
 
 diag::LifecycleConfig lifecycle{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
-diagnostics.attachLifecycle(lifecycle);
-diagnostics.observeReset(diag::ResetReason::Watchdog);
+if (diagnostics.attachLifecycle(lifecycle) != diag::Result::Ok)
+{
+    // handle error
+}
+
+if (diagnostics.observeReset(diag::ResetReason::Watchdog) != diag::Result::Ok)
+{
+    // handle error
+}
 ```
 
 All runtime memory is caller-owned. Library code must not allocate from the heap.

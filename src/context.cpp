@@ -210,6 +210,7 @@ Result Context::observeReset(const ResetReason reason) noexcept
     LifecycleSnapshot       &snapshot = m_state->lifecycleSnapshot;
     const ResetCounterPolicy policy = m_state->lifecycleConfig.resetCounterPolicy;
     const bool               abnormal = isAbnormalReset(reason);
+    bool                     resetCountAdvanced = false;
 
     snapshot.lastResetReason = reason;
 
@@ -218,6 +219,7 @@ Result Context::observeReset(const ResetReason reason) noexcept
         if (snapshot.resetCount < std::numeric_limits<std::uint32_t>::max())
         {
             ++snapshot.resetCount;
+            resetCountAdvanced = true;
         }
 
         if (abnormal && snapshot.abnormalResetCount < std::numeric_limits<std::uint32_t>::max())
@@ -239,7 +241,7 @@ Result Context::observeReset(const ResetReason reason) noexcept
         break;
 
     case ResetCounterPolicy::EveryN:
-        if (m_state->lifecycleConfig.resetCountInterval != 0U &&
+        if (resetCountAdvanced && m_state->lifecycleConfig.resetCountInterval != 0U &&
             (snapshot.resetCount % m_state->lifecycleConfig.resetCountInterval) == 0U)
         {
             snapshot.dirtyFlags |=

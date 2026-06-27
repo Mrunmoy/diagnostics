@@ -1,7 +1,6 @@
 #include "diag/diag.hpp"
 
 #include <gtest/gtest.h>
-#include <limits>
 
 namespace
 {
