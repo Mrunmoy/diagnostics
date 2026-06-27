@@ -2,6 +2,7 @@
 
 #include "diag/dtc.hpp"
 #include "diag/identity.hpp"
+#include "diag/lifecycle.hpp"
 #include "diag/result.hpp"
 
 #include <cstddef>
@@ -53,15 +54,19 @@ class Context
     Context(Context &&) = delete;
     Context &operator=(Context &&) = delete;
 
-    [[nodiscard]] bool                   isInitialized() const noexcept;
-    [[nodiscard]] DirtyFlags             dirtyFlags() const noexcept;
-    [[nodiscard]] ResultValue<Identity>  identity() const noexcept;
-    [[nodiscard]] std::size_t            dtcCount() const noexcept;
-    [[nodiscard]] ResultValue<DtcRecord> dtc(DtcId id) const noexcept;
+    [[nodiscard]] bool                           isInitialized() const noexcept;
+    [[nodiscard]] DirtyFlags                     dirtyFlags() const noexcept;
+    [[nodiscard]] ResultValue<Identity>          identity() const noexcept;
+    [[nodiscard]] std::size_t                    dtcCount() const noexcept;
+    [[nodiscard]] ResultValue<DtcRecord>         dtc(DtcId id) const noexcept;
+    [[nodiscard]] ResultValue<LifecycleSnapshot> lifecycle() const noexcept;
 
     [[nodiscard]] Result markDirty(DirtyFlag flag) noexcept;
     [[nodiscard]] Result clearDirty(DirtyFlag flag) noexcept;
     [[nodiscard]] Result attachIdentity(const Identity &identity) noexcept;
+    [[nodiscard]] Result attachLifecycle(const LifecycleConfig &config) noexcept;
+    [[nodiscard]] Result observeReset(ResetReason reason) noexcept;
+    [[nodiscard]] Result clearLifecycleDirty(LifecycleDirtyFlags dirtyFlags) noexcept;
     [[nodiscard]] Result registerDtc(DtcId id, DtcSeverity severity) noexcept;
     [[nodiscard]] Result listDtcs(DtcRecord *records, std::size_t capacity,
                                   std::size_t &count) const noexcept;

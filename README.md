@@ -12,7 +12,8 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has the first C++ scaffold, identity slice, and volatile DTC slice:
+This branch has the first C++ scaffold, identity slice, volatile DTC slice, and
+lifecycle/reset-counter slice:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
@@ -21,8 +22,10 @@ This branch has the first C++ scaffold, identity slice, and volatile DTC slice:
 - Strong diagnostic ID types and `diag::Result` error handling.
 - Compact numeric `diag::Identity` records attached to a context.
 - Fixed-capacity DTC records backed by caller-owned RAM.
+- Reset lifecycle snapshots with disabled, RAM-only, abnormal-only, every-N, and
+  platform-owned counter policies.
 
-The next slices will add lifecycle counters, capsule serialization, and example
+The next slices will add capsule serialization, storage integration, and example
 tester workflows in idiomatic C++.
 
 ## Quick Start
@@ -41,6 +44,7 @@ Inside the container:
 ./build/container-debug/examples/diag_basic_example
 ./build/container-debug/examples/diag_dtc_example
 ./build/container-debug/examples/diag_identity_example
+./build/container-debug/examples/diag_lifecycle_example
 ```
 
 On a host with `clang++-16` and `clang-format-14`:
@@ -82,6 +86,10 @@ if (diagnostics.registerDtc(diag::DtcId{0x040101U}, diag::DtcSeverity::Critical)
 {
     // handle error
 }
+
+diag::LifecycleConfig lifecycle{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+diagnostics.attachLifecycle(lifecycle);
+diagnostics.observeReset(diag::ResetReason::Watchdog);
 ```
 
 All runtime memory is caller-owned. Library code must not allocate from the heap.

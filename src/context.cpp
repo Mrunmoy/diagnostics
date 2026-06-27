@@ -10,12 +10,15 @@ namespace diag
 
 struct Context::State
 {
-    Config      config{};
-    DirtyFlags  dirtyFlags{0U};
-    std::size_t dtcCount{0U};
-    Identity    identity{};
-    bool        initialized{false};
-    bool        identityAttached{false};
+    Config            config{};
+    DirtyFlags        dirtyFlags{0U};
+    std::size_t       dtcCount{0U};
+    Identity          identity{};
+    LifecycleConfig   lifecycleConfig{};
+    LifecycleSnapshot lifecycleSnapshot{};
+    bool              initialized{false};
+    bool              identityAttached{false};
+    bool              lifecycleAttached{false};
 };
 
 struct Context::StorageLayout
@@ -101,6 +104,21 @@ ResultValue<Identity> Context::identity() const noexcept
     return ResultValue<Identity>{m_state->identity};
 }
 
+ResultValue<LifecycleSnapshot> Context::lifecycle() const noexcept
+{
+    if (!isInitialized())
+    {
+        return ResultValue<LifecycleSnapshot>{Result::NotInitialized};
+    }
+
+    if (!m_state->lifecycleAttached)
+    {
+        return ResultValue<LifecycleSnapshot>{Result::NotInitialized};
+    }
+
+    return ResultValue<LifecycleSnapshot>{m_state->lifecycleSnapshot};
+}
+
 std::size_t Context::dtcCount() const noexcept
 {
     return isInitialized() ? m_state->dtcCount : 0U;
@@ -154,6 +172,111 @@ Result Context::attachIdentity(const Identity &identity) noexcept
 
     m_state->identity = identity;
     m_state->identityAttached = true;
+
+    return Result::Ok;
+}
+
+Result Context::attachLifecycle(const LifecycleConfig &config) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    m_state->lifecycleConfig = config;
+    m_state->lifecycleSnapshot = LifecycleSnapshot{};
+    m_state->lifecycleSnapshot.resetCounterPolicy = config.resetCounterPolicy;
+    if (config.resetCounterPolicy == ResetCounterPolicy::Platform)
+    {
+        m_state->lifecycleSnapshot.resetCount = config.platformResetCount;
+    }
+
+    m_state->lifecycleAttached = true;
+    return clearDirty(DirtyFlag::Lifecycle);
+}
+
+Result Context::observeReset(const ResetReason reason) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    if (!m_state->lifecycleAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    LifecycleSnapshot       &snapshot = m_state->lifecycleSnapshot;
+    const ResetCounterPolicy policy = m_state->lifecycleConfig.resetCounterPolicy;
+    const bool               abnormal = isAbnormalReset(reason);
+
+    snapshot.lastResetReason = reason;
+
+    if (policy != ResetCounterPolicy::Disabled && policy != ResetCounterPolicy::Platform)
+    {
+        if (snapshot.resetCount < std::numeric_limits<std::uint32_t>::max())
+        {
+            ++snapshot.resetCount;
+        }
+
+        if (abnormal && snapshot.abnormalResetCount < std::numeric_limits<std::uint32_t>::max())
+        {
+            ++snapshot.abnormalResetCount;
+        }
+    }
+
+    switch (policy)
+    {
+    case ResetCounterPolicy::AbnormalOnly:
+        if (abnormal)
+        {
+            snapshot.dirtyFlags |=
+                static_cast<LifecycleDirtyFlags>(LifecycleDirtyFlag::ResetCounter);
+            snapshot.persistRequested = true;
+            return markDirty(DirtyFlag::Lifecycle);
+        }
+        break;
+
+    case ResetCounterPolicy::EveryN:
+        if (m_state->lifecycleConfig.resetCountInterval != 0U &&
+            (snapshot.resetCount % m_state->lifecycleConfig.resetCountInterval) == 0U)
+        {
+            snapshot.dirtyFlags |=
+                static_cast<LifecycleDirtyFlags>(LifecycleDirtyFlag::ResetCounter);
+            snapshot.persistRequested = true;
+            return markDirty(DirtyFlag::Lifecycle);
+        }
+        break;
+
+    case ResetCounterPolicy::Disabled:
+    case ResetCounterPolicy::RamOnly:
+    case ResetCounterPolicy::Platform:
+    default:
+        break;
+    }
+
+    return Result::Ok;
+}
+
+Result Context::clearLifecycleDirty(const LifecycleDirtyFlags dirtyFlags) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    if (!m_state->lifecycleAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    m_state->lifecycleSnapshot.dirtyFlags &= ~dirtyFlags;
+    m_state->lifecycleSnapshot.persistRequested = m_state->lifecycleSnapshot.dirtyFlags != 0U;
+    if (!m_state->lifecycleSnapshot.persistRequested)
+    {
+        return clearDirty(DirtyFlag::Lifecycle);
+    }
 
     return Result::Ok;
 }
