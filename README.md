@@ -12,7 +12,7 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has the first C++ scaffold and identity slice:
+This branch has the first C++ scaffold, identity slice, and volatile DTC slice:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
@@ -20,9 +20,10 @@ This branch has the first C++ scaffold and identity slice:
 - A small RAII `diag::Context` backed by caller-owned storage.
 - Strong diagnostic ID types and `diag::Result` error handling.
 - Compact numeric `diag::Identity` records attached to a context.
+- Fixed-capacity DTC records backed by caller-owned RAM.
 
-The next slices will add DTC records, lifecycle counters, capsule serialization,
-and example tester workflows in idiomatic C++.
+The next slices will add lifecycle counters, capsule serialization, and example
+tester workflows in idiomatic C++.
 
 ## Quick Start
 
@@ -38,6 +39,7 @@ Inside the container:
 ```sh
 ./build.py all --preset container-debug
 ./build/container-debug/examples/diag_basic_example
+./build/container-debug/examples/diag_dtc_example
 ./build/container-debug/examples/diag_identity_example
 ```
 
@@ -65,10 +67,18 @@ Example code:
 #include <diag/diag.hpp>
 
 diag::ContextStorage storage{};
-diag::Context        diagnostics{storage};
+diag::DtcRecord      dtcs[8]{};
+diag::Config         config{dtcs, 8U};
+diag::Context        diagnostics{storage, config};
 diag::Identity       identity{diag::EcosystemId{7U}, diag::ProductId{90U}};
 
 if (diagnostics.attachIdentity(identity) != diag::Result::Ok)
+{
+    // handle error
+}
+
+if (diagnostics.registerDtc(diag::DtcId{0x040101U}, diag::DtcSeverity::Critical) !=
+    diag::Result::Ok)
 {
     // handle error
 }

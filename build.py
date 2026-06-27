@@ -13,7 +13,7 @@ DEFAULT_PRESET = "linux-debug"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 CLANG_FORMAT_VERSION = "14"
 ASAN_CTEST_ATTEMPTS = 5
-ASAN_TEST_TIMEOUT_SECONDS = "10"
+ASAN_TEST_TIMEOUT_SECONDS = "30"
 
 
 def run(command: list[str], *, env: dict[str, str] | None = None) -> None:

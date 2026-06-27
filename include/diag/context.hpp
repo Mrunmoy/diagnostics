@@ -1,5 +1,6 @@
 #pragma once
 
+#include "diag/dtc.hpp"
 #include "diag/identity.hpp"
 #include "diag/result.hpp"
 
@@ -25,8 +26,8 @@ constexpr DirtyFlags operator|(const DirtyFlag lhs, const DirtyFlag rhs)
 
 struct Config
 {
-    std::uint32_t reserved0{0U};
-    std::uint32_t reserved1{0U};
+    DtcRecord  *dtcRecords{nullptr};
+    std::size_t dtcCapacity{0U};
 };
 
 class Context;
@@ -52,13 +53,20 @@ class Context
     Context(Context &&) = delete;
     Context &operator=(Context &&) = delete;
 
-    [[nodiscard]] bool                  isInitialized() const noexcept;
-    [[nodiscard]] DirtyFlags            dirtyFlags() const noexcept;
-    [[nodiscard]] ResultValue<Identity> identity() const noexcept;
+    [[nodiscard]] bool                   isInitialized() const noexcept;
+    [[nodiscard]] DirtyFlags             dirtyFlags() const noexcept;
+    [[nodiscard]] ResultValue<Identity>  identity() const noexcept;
+    [[nodiscard]] std::size_t            dtcCount() const noexcept;
+    [[nodiscard]] ResultValue<DtcRecord> dtc(DtcId id) const noexcept;
 
     [[nodiscard]] Result markDirty(DirtyFlag flag) noexcept;
     [[nodiscard]] Result clearDirty(DirtyFlag flag) noexcept;
     [[nodiscard]] Result attachIdentity(const Identity &identity) noexcept;
+    [[nodiscard]] Result registerDtc(DtcId id, DtcSeverity severity) noexcept;
+    [[nodiscard]] Result listDtcs(DtcRecord *records, std::size_t capacity,
+                                  std::size_t &count) const noexcept;
+    [[nodiscard]] Result setDtcActive(DtcId id, bool active) noexcept;
+    [[nodiscard]] Result clearDtc(DtcId id) noexcept;
 
   private:
     struct State;
