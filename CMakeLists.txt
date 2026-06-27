@@ -14,6 +14,7 @@ option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
 option(DIAG_TEST_SPLIT_GTEST "Register each GoogleTest case separately" ON)
 
 add_library(diag
+    src/capsule.cpp
     src/context.cpp
 )
 

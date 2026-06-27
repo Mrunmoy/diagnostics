@@ -74,9 +74,14 @@ the context. Policy determines whether the state stays RAM-only or marks the
 lifecycle dirty flag for a later explicit persistence step. The core never writes
 storage from `observeReset()`.
 
+The capsule slice defines the portable persistent byte format. It writes a
+little-endian header and fixed-size section table, validates section bounds before
+copying payloads, and rejects corrupt capsules with a CRC over all bytes after the
+header. Payload ownership remains with the caller; storage integration decides
+where those bytes live.
+
 ## Planned Feature Slices
 
-1. Diagnostic capsule serialization for persistent records.
-2. Storage integration for explicit save/load/clear operations.
-3. Example transports and tester-side tools that prove the API is usable without
+1. Storage integration for explicit save/load/clear operations.
+2. Example transports and tester-side tools that prove the API is usable without
    coupling the core to any one protocol.

@@ -12,8 +12,8 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has the first C++ scaffold, identity slice, volatile DTC slice, and
-lifecycle/reset-counter slice:
+This branch has the first C++ scaffold, identity slice, volatile DTC slice,
+lifecycle/reset-counter slice, and capsule serialization slice:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
@@ -24,9 +24,11 @@ lifecycle/reset-counter slice:
 - Fixed-capacity DTC records backed by caller-owned RAM.
 - Reset lifecycle snapshots with disabled, RAM-only, abnormal-only, every-N, and
   platform-owned counter policies.
+- Versioned diagnostic capsules with fixed section tables, little-endian fields,
+  CRC validation, and caller-owned payload buffers.
 
-The next slices will add capsule serialization, storage integration, and example
-tester workflows in idiomatic C++.
+The next slices will add storage integration and example tester workflows in
+idiomatic C++.
 
 ## Quick Start
 
@@ -42,6 +44,7 @@ Inside the container:
 ```sh
 ./build.py all --preset container-debug
 ./build/container-debug/examples/diag_basic_example
+./build/container-debug/examples/diag_capsule_example
 ./build/container-debug/examples/diag_dtc_example
 ./build/container-debug/examples/diag_identity_example
 ./build/container-debug/examples/diag_lifecycle_example
