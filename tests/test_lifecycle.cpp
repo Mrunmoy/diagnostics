@@ -15,13 +15,13 @@ class LifecycleFixture : public testing::Test
 
 } // namespace
 
-TEST_F(LifecycleFixture, ReportsNotInitializedBeforeLifecycleAttach)
+TEST_F(LifecycleFixture, ReportsNotFoundBeforeLifecycleAttach)
 {
-    EXPECT_EQ(m_context.lifecycle().result(), diag::Result::NotInitialized);
-    EXPECT_EQ(m_context.observeReset(diag::ResetReason::PowerOn), diag::Result::NotInitialized);
+    EXPECT_EQ(m_context.lifecycle().result(), diag::Result::NotFound);
+    EXPECT_EQ(m_context.observeReset(diag::ResetReason::PowerOn), diag::Result::NotFound);
     EXPECT_EQ(m_context.clearLifecycleDirty(
                   static_cast<diag::LifecycleDirtyFlags>(diag::LifecycleDirtyFlag::ResetCounter)),
-              diag::Result::NotInitialized);
+              diag::Result::NotFound);
 }
 
 TEST_F(LifecycleFixture, DisabledPolicyTracksLastReasonWithoutCountingOrDirtying)

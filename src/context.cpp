@@ -113,7 +113,7 @@ ResultValue<LifecycleSnapshot> Context::lifecycle() const noexcept
 
     if (!m_state->lifecycleAttached)
     {
-        return ResultValue<LifecycleSnapshot>{Result::NotInitialized};
+        return ResultValue<LifecycleSnapshot>{Result::NotFound};
     }
 
     return ResultValue<LifecycleSnapshot>{m_state->lifecycleSnapshot};
@@ -204,7 +204,7 @@ Result Context::observeReset(const ResetReason reason) noexcept
 
     if (!m_state->lifecycleAttached)
     {
-        return Result::NotInitialized;
+        return Result::NotFound;
     }
 
     LifecycleSnapshot       &snapshot = m_state->lifecycleSnapshot;
@@ -268,7 +268,7 @@ Result Context::clearLifecycleDirty(const LifecycleDirtyFlags dirtyFlags) noexce
 
     if (!m_state->lifecycleAttached)
     {
-        return Result::NotInitialized;
+        return Result::NotFound;
     }
 
     m_state->lifecycleSnapshot.dirtyFlags &= ~dirtyFlags;
