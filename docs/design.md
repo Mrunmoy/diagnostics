@@ -62,16 +62,21 @@ time, and reusing that storage requires destroying the previous context first.
 
 The first scaffold establishes this direction with `diag::Context`, fixed
 `diag::ContextStorage`, strong IDs, compact `diag::Identity`, volatile DTC
-records, and a CMake package export.
+records, lifecycle counters, and a CMake package export.
 
 The DTC slice stores records in caller-owned RAM supplied through `diag::Config`.
 Registration, lookup, listing, active-state updates, and clear counters are
 bounded by the configured capacity. Runtime DTC mutation marks the DTC dirty flag
 but performs no storage writes.
 
+The lifecycle slice records the latest reset reason and bounded reset counters in
+the context. Policy determines whether the state stays RAM-only or marks the
+lifecycle dirty flag for a later explicit persistence step. The core never writes
+storage from `observeReset()`.
+
 ## Planned Feature Slices
 
-1. Lifecycle/reset counter policies.
-2. Diagnostic capsule serialization for persistent records.
+1. Diagnostic capsule serialization for persistent records.
+2. Storage integration for explicit save/load/clear operations.
 3. Example transports and tester-side tools that prove the API is usable without
    coupling the core to any one protocol.

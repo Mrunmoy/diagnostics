@@ -16,6 +16,7 @@ set(diag_test_sources
     test_context.cpp
     test_dtc.cpp
     test_identity.cpp
+    test_lifecycle.cpp
     test_result.cpp
     test_types.cpp
 )
