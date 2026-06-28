@@ -679,9 +679,18 @@ Result Context::savePersistent() noexcept
         return Result::InvalidArgument;
     }
 
-    const bool includeDtcSection = m_state->config.dtcRecords != nullptr;
-    const bool includeLifecycleSection = m_state->lifecycleAttached;
+const bool dtcDirty =
+    (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
+const bool lifecycleDirty =
+    (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
+if ((dtcDirty && m_state->config.dtcRecords == nullptr) ||
+    (lifecycleDirty && !m_state->lifecycleAttached))
+{
+    return Result::NotInitialized;
+}
 
+const bool includeDtcSection = m_state->config.dtcRecords != nullptr;
+const bool includeLifecycleSection = m_state->lifecycleAttached;
     std::uint16_t sectionCount = 0U;
     if (includeDtcSection)
     {
