@@ -26,6 +26,15 @@ diag::CapsuleDescriptor makeOneSectionDescriptor()
     return descriptor;
 }
 
+void writeU32Le(std::array<std::uint8_t, kCapsuleBytes> &buffer, const std::size_t offset,
+                const std::uint32_t value)
+{
+    buffer[offset] = static_cast<std::uint8_t>(value & 0xFFU);
+    buffer[offset + 1U] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
+    buffer[offset + 2U] = static_cast<std::uint8_t>((value >> 16U) & 0xFFU);
+    buffer[offset + 3U] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
+}
+
 } // namespace
 
 TEST(DiagCapsule, MapsSectionTypesToOwners)
@@ -54,12 +63,17 @@ TEST(DiagCapsule, CrcRejectsInvalidArguments)
 TEST(DiagCapsule, EncodesHeaderAndSectionTableLittleEndian)
 {
     std::array<std::uint8_t, kCapsuleBytes> buffer{};
+    buffer.fill(0xFFU);
     buffer[40] = 0xA1U;
     buffer[41] = 0xB2U;
     buffer[42] = 0xC3U;
     buffer[43] = 0xD4U;
 
-    const diag::CapsuleDescriptor   descriptor = makeOneSectionDescriptor();
+    diag::CapsuleDescriptor descriptor = makeOneSectionDescriptor();
+    descriptor.generation = 0xA1B2C3D4U;
+    descriptor.sections[0].type = 0x1234U;
+    descriptor.sections[0].version = 0x5678U;
+
     const diag::CapsuleEncodeResult result =
         diag::encodeCapsuleV1(buffer.data(), buffer.size(), descriptor);
 
@@ -71,12 +85,36 @@ TEST(DiagCapsule, EncodesHeaderAndSectionTableLittleEndian)
     EXPECT_EQ(buffer[3], 'P');
     EXPECT_EQ(buffer[4], 1U);
     EXPECT_EQ(buffer[5], 0U);
+    EXPECT_EQ(buffer[6], diag::kCapsuleHeaderSize);
+    EXPECT_EQ(buffer[7], 0U);
     EXPECT_EQ(buffer[8], kCapsuleBytes);
     EXPECT_EQ(buffer[9], 0U);
-    EXPECT_EQ(buffer[12], 7U);
+    EXPECT_EQ(buffer[10], 0U);
+    EXPECT_EQ(buffer[11], 0U);
+    EXPECT_EQ(buffer[12], 0xD4U);
+    EXPECT_EQ(buffer[13], 0xC3U);
+    EXPECT_EQ(buffer[14], 0xB2U);
+    EXPECT_EQ(buffer[15], 0xA1U);
     EXPECT_EQ(buffer[16], 1U);
-    EXPECT_EQ(buffer[24], static_cast<std::uint8_t>(diag::CapsuleSectionType::ApplicationDtc));
+    EXPECT_EQ(buffer[17], 0U);
+    EXPECT_EQ(buffer[18], 0U);
+    EXPECT_EQ(buffer[19], 0U);
+    EXPECT_EQ(buffer[24], 0x34U);
+    EXPECT_EQ(buffer[25], 0x12U);
+    EXPECT_EQ(buffer[26], 0x78U);
+    EXPECT_EQ(buffer[27], 0x56U);
     EXPECT_EQ(buffer[28], descriptor.sections[0].offset);
+    EXPECT_EQ(buffer[29], 0U);
+    EXPECT_EQ(buffer[30], 0U);
+    EXPECT_EQ(buffer[31], 0U);
+    EXPECT_EQ(buffer[32], descriptor.sections[0].length);
+    EXPECT_EQ(buffer[33], 0U);
+    EXPECT_EQ(buffer[34], 0U);
+    EXPECT_EQ(buffer[35], 0U);
+    EXPECT_EQ(buffer[36], descriptor.sections[0].usedLength);
+    EXPECT_EQ(buffer[37], 0U);
+    EXPECT_EQ(buffer[38], 0U);
+    EXPECT_EQ(buffer[39], 0U);
 }
 
 TEST(DiagCapsule, DecodesValidCapsule)
@@ -237,6 +275,11 @@ TEST(DiagCapsule, RejectsSectionLengthPastCapsuleEnd)
     buffer[33] = 0U;
     buffer[34] = 0U;
     buffer[35] = 0U;
+
+    const diag::ResultValue<std::uint32_t> crc = diag::capsuleCrc32(
+        &buffer[diag::kCapsuleHeaderSize], descriptor.totalLength - diag::kCapsuleHeaderSize);
+    ASSERT_TRUE(crc.hasValue());
+    writeU32Le(buffer, 20U, crc.value());
 
     EXPECT_EQ(diag::decodeCapsule(buffer.data(), buffer.size()).result(),
               diag::Result::CorruptData);
