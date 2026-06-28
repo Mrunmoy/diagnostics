@@ -16,6 +16,7 @@ option(DIAG_TEST_SPLIT_GTEST "Register each GoogleTest case separately" ON)
 add_library(diag
     src/capsule.cpp
     src/context.cpp
+    src/storage.cpp
 )
 
 add_library(diag::diag ALIAS diag)

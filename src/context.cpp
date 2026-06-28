@@ -1,5 +1,7 @@
 #include "diag/context.hpp"
 
+#include "diag/capsule.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -19,6 +21,8 @@ struct Context::State
     bool              initialized{false};
     bool              identityAttached{false};
     bool              lifecycleAttached{false};
+    bool              storageAttached{false};
+    Storage           storage{};
 };
 
 struct Context::StorageLayout
@@ -87,7 +91,223 @@ template <typename Record>
     return nullptr;
 }
 
+constexpr std::uint16_t kDtcCapsuleSectionVersion = 1U;
+constexpr std::uint16_t kLifecycleCapsuleSectionVersion = 1U;
+constexpr std::size_t   kDtcPayloadHeaderSize = 4U;
+constexpr std::size_t   kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
+constexpr std::size_t   kLifecyclePayloadSize = 16U;
+
+[[nodiscard]] ResultValue<std::size_t> alignUp(const std::size_t value,
+                                               const std::size_t alignment) noexcept
+{
+    const std::size_t remainder = value % alignment;
+    if (remainder == 0U)
+    {
+        return ResultValue<std::size_t>{value};
+    }
+
+    const std::size_t padding = alignment - remainder;
+    if (value > ((std::numeric_limits<std::size_t>::max)() - padding))
+    {
+        return ResultValue<std::size_t>{Result::Capacity};
+    }
+
+    return ResultValue<std::size_t>{value + padding};
+}
+
+void writeU16Le(std::uint8_t *const buffer, const std::uint16_t value) noexcept
+{
+    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
+    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
+}
+
+void writeU32Le(std::uint8_t *const buffer, const std::uint32_t value) noexcept
+{
+    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
+    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
+    buffer[2] = static_cast<std::uint8_t>((value >> 16U) & 0xFFU);
+    buffer[3] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
+}
+
+[[nodiscard]] std::uint16_t readU16Le(const std::uint8_t *const buffer) noexcept
+{
+    return static_cast<std::uint16_t>(buffer[0] | (static_cast<std::uint16_t>(buffer[1]) << 8U));
+}
+
+[[nodiscard]] std::uint32_t readU32Le(const std::uint8_t *const buffer) noexcept
+{
+    return static_cast<std::uint32_t>(buffer[0] | (static_cast<std::uint32_t>(buffer[1]) << 8U) |
+                                      (static_cast<std::uint32_t>(buffer[2]) << 16U) |
+                                      (static_cast<std::uint32_t>(buffer[3]) << 24U));
+}
+
 } // namespace
+
+Result Context::encodeDtcPayload(const State &state, std::uint8_t *const payload,
+                                 const std::size_t capacity, std::size_t &usedLength) noexcept
+{
+    usedLength = 0U;
+
+    if (state.config.dtcRecords == nullptr)
+    {
+        return Result::NotInitialized;
+    }
+
+    if (state.dtcCount > (std::numeric_limits<std::uint16_t>::max)())
+    {
+        return Result::Capacity;
+    }
+
+    const std::size_t required = kDtcPayloadHeaderSize + (state.dtcCount * kDtcPayloadRecordSize);
+    if (payload == nullptr || capacity < required)
+    {
+        return Result::Capacity;
+    }
+
+    writeU16Le(&payload[0], static_cast<std::uint16_t>(state.dtcCount));
+    writeU16Le(&payload[2], static_cast<std::uint16_t>(kDtcPayloadRecordSize));
+
+    for (std::size_t index = 0U; index < state.dtcCount; ++index)
+    {
+        const DtcRecord  &record = state.config.dtcRecords[index];
+        const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
+
+        writeU32Le(&payload[offset], record.id.value);
+        writeU32Le(&payload[offset + 4U], record.occurrenceCount);
+        writeU32Le(&payload[offset + 8U], record.clearCount);
+        payload[offset + 12U] = record.status;
+        payload[offset + 13U] = static_cast<std::uint8_t>(record.severity);
+        payload[offset + 14U] = 0U;
+        payload[offset + 15U] = 0U;
+    }
+
+    usedLength = required;
+    return Result::Ok;
+}
+
+Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload,
+                                 const std::size_t length) noexcept
+{
+    if (state.config.dtcRecords == nullptr || state.config.dtcCapacity == 0U)
+    {
+        return Result::NotInitialized;
+    }
+
+    if (payload == nullptr || length < kDtcPayloadHeaderSize)
+    {
+        return Result::CorruptData;
+    }
+
+    const std::uint16_t count = readU16Le(&payload[0]);
+    const std::uint16_t recordSize = readU16Le(&payload[2]);
+    const std::size_t   expected =
+        kDtcPayloadHeaderSize + (static_cast<std::size_t>(count) * kDtcPayloadRecordSize);
+
+    if (recordSize != kDtcPayloadRecordSize || length != expected)
+    {
+        return Result::CorruptData;
+    }
+
+    if (count > state.config.dtcCapacity)
+    {
+        return Result::Capacity;
+    }
+
+    for (std::size_t index = 0U; index < count; ++index)
+    {
+        const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
+        if (payload[offset + 13U] > static_cast<std::uint8_t>(DtcSeverity::Critical) ||
+            payload[offset + 14U] != 0U || payload[offset + 15U] != 0U)
+        {
+            return Result::CorruptData;
+        }
+
+        const DtcId id{readU32Le(&payload[offset])};
+        if (findDtcRecord(state.config.dtcRecords, index, id) != nullptr)
+        {
+            return Result::CorruptData;
+        }
+
+        DtcRecord &record = state.config.dtcRecords[index];
+        record.id = id;
+        record.occurrenceCount = readU32Le(&payload[offset + 4U]);
+        record.clearCount = readU32Le(&payload[offset + 8U]);
+        record.status = payload[offset + 12U];
+        record.severity = static_cast<DtcSeverity>(payload[offset + 13U]);
+        record.reserved0 = 0U;
+        record.reserved1 = 0U;
+    }
+
+    state.dtcCount = count;
+    state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Dtc);
+    return Result::Ok;
+}
+
+Result Context::encodeLifecyclePayload(const State &state, std::uint8_t *const payload,
+                                       const std::size_t capacity, std::size_t &usedLength) noexcept
+{
+    usedLength = 0U;
+
+    if (!state.lifecycleAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    if (payload == nullptr || capacity < kLifecyclePayloadSize)
+    {
+        return Result::Capacity;
+    }
+
+    if (static_cast<std::uint8_t>(state.lifecycleSnapshot.lastResetReason) >
+            static_cast<std::uint8_t>(ResetReason::Fault) ||
+        static_cast<std::uint8_t>(state.lifecycleSnapshot.resetCounterPolicy) >
+            static_cast<std::uint8_t>(ResetCounterPolicy::Platform))
+    {
+        return Result::InvalidArgument;
+    }
+
+    writeU16Le(&payload[0], static_cast<std::uint16_t>(kLifecyclePayloadSize));
+    payload[2] = static_cast<std::uint8_t>(state.lifecycleSnapshot.lastResetReason);
+    payload[3] = static_cast<std::uint8_t>(state.lifecycleSnapshot.resetCounterPolicy);
+    writeU32Le(&payload[4], state.lifecycleSnapshot.resetCount);
+    writeU32Le(&payload[8], state.lifecycleSnapshot.abnormalResetCount);
+    writeU32Le(&payload[12], 0U);
+
+    usedLength = kLifecyclePayloadSize;
+    return Result::Ok;
+}
+
+Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const payload,
+                                       const std::size_t length) noexcept
+{
+    if (!state.lifecycleAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    if (payload == nullptr || length != kLifecyclePayloadSize)
+    {
+        return Result::CorruptData;
+    }
+
+    if (readU16Le(&payload[0]) != kLifecyclePayloadSize ||
+        payload[2] > static_cast<std::uint8_t>(ResetReason::Fault) ||
+        payload[3] > static_cast<std::uint8_t>(ResetCounterPolicy::Platform) ||
+        readU32Le(&payload[12]) != 0U)
+    {
+        return Result::CorruptData;
+    }
+
+    state.lifecycleSnapshot.lastResetReason = static_cast<ResetReason>(payload[2]);
+    state.lifecycleSnapshot.resetCounterPolicy = static_cast<ResetCounterPolicy>(payload[3]);
+    state.lifecycleSnapshot.resetCount = readU32Le(&payload[4]);
+    state.lifecycleSnapshot.abnormalResetCount = readU32Le(&payload[8]);
+    state.lifecycleSnapshot.dirtyFlags = 0U;
+    state.lifecycleSnapshot.persistRequested = false;
+    state.lifecycleConfig.resetCounterPolicy = state.lifecycleSnapshot.resetCounterPolicy;
+    state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Lifecycle);
+    return Result::Ok;
+}
 
 ResultValue<Identity> Context::identity() const noexcept
 {
@@ -406,6 +626,290 @@ Result Context::clearDtc(const DtcId id) noexcept
     }
 
     return Result::Ok;
+}
+
+Result Context::attachStorage(const Storage &storage) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    const Result validation = validateStorage(storage);
+    if (validation != Result::Ok)
+    {
+        return validation;
+    }
+
+    m_state->storage = storage;
+    m_state->storageAttached = true;
+    return Result::Ok;
+}
+
+Result Context::savePersistent() noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    if (!m_state->storageAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    if (m_state->dirtyFlags == 0U)
+    {
+        return Result::Ok;
+    }
+
+    Storage &storage = m_state->storage;
+    if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize < kCapsuleHeaderSize)
+    {
+        return Result::InvalidArgument;
+    }
+
+    std::uint16_t sectionCount = 0U;
+    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U)
+    {
+        ++sectionCount;
+    }
+
+    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
+    {
+        ++sectionCount;
+    }
+
+    const std::size_t payloadStart =
+        kCapsuleHeaderSize + (static_cast<std::size_t>(sectionCount) * kCapsuleSectionEntrySize);
+    if (storage.capsuleBufferSize < payloadStart)
+    {
+        return Result::Capacity;
+    }
+
+    for (std::size_t index = 0U; index < storage.capsuleBufferSize; ++index)
+    {
+        storage.capsuleBuffer[index] = storage.capabilities.eraseValue;
+    }
+
+    CapsuleDescriptor descriptor{};
+    descriptor.schemaVersion = kCapsuleSchemaVersion;
+    descriptor.sectionCount = sectionCount;
+    descriptor.generation = 0U;
+
+    std::size_t payloadOffset = payloadStart;
+    std::size_t sectionIndex = 0U;
+
+    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U)
+    {
+        std::size_t  usedLength = 0U;
+        const Result result =
+            encodeDtcPayload(*m_state, &storage.capsuleBuffer[payloadOffset],
+                             storage.capsuleBufferSize - payloadOffset, usedLength);
+        if (result != Result::Ok)
+        {
+            return result;
+        }
+
+        const ResultValue<std::size_t> alignedLength =
+            alignUp(usedLength, storage.capabilities.writeAlignment);
+        if (!alignedLength.hasValue())
+        {
+            return alignedLength.result();
+        }
+
+        const std::size_t length = alignedLength.value();
+        if (length > (storage.capsuleBufferSize - payloadOffset) ||
+            payloadOffset > (std::numeric_limits<std::uint32_t>::max)() ||
+            length > (std::numeric_limits<std::uint32_t>::max)() ||
+            usedLength > (std::numeric_limits<std::uint32_t>::max)())
+        {
+            return Result::Capacity;
+        }
+
+        CapsuleSection &section = descriptor.sections[sectionIndex];
+        section.type = static_cast<std::uint16_t>(CapsuleSectionType::ApplicationDtc);
+        section.version = kDtcCapsuleSectionVersion;
+        section.offset = static_cast<std::uint32_t>(payloadOffset);
+        section.length = static_cast<std::uint32_t>(length);
+        section.usedLength = static_cast<std::uint32_t>(usedLength);
+        ++sectionIndex;
+        payloadOffset += length;
+    }
+
+    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
+    {
+        std::size_t  usedLength = 0U;
+        const Result result =
+            encodeLifecyclePayload(*m_state, &storage.capsuleBuffer[payloadOffset],
+                                   storage.capsuleBufferSize - payloadOffset, usedLength);
+        if (result != Result::Ok)
+        {
+            return result;
+        }
+
+        const ResultValue<std::size_t> alignedLength =
+            alignUp(usedLength, storage.capabilities.writeAlignment);
+        if (!alignedLength.hasValue())
+        {
+            return alignedLength.result();
+        }
+
+        const std::size_t length = alignedLength.value();
+        if (length > (storage.capsuleBufferSize - payloadOffset) ||
+            payloadOffset > (std::numeric_limits<std::uint32_t>::max)() ||
+            length > (std::numeric_limits<std::uint32_t>::max)() ||
+            usedLength > (std::numeric_limits<std::uint32_t>::max)())
+        {
+            return Result::Capacity;
+        }
+
+        CapsuleSection &section = descriptor.sections[sectionIndex];
+        section.type = static_cast<std::uint16_t>(CapsuleSectionType::Lifecycle);
+        section.version = kLifecycleCapsuleSectionVersion;
+        section.offset = static_cast<std::uint32_t>(payloadOffset);
+        section.length = static_cast<std::uint32_t>(length);
+        section.usedLength = static_cast<std::uint32_t>(usedLength);
+        ++sectionIndex;
+        payloadOffset += length;
+    }
+
+    const ResultValue<std::size_t> alignedTotalLength =
+        alignUp(payloadOffset, storage.capabilities.writeAlignment);
+    if (!alignedTotalLength.hasValue())
+    {
+        return alignedTotalLength.result();
+    }
+
+    const std::size_t totalLength = alignedTotalLength.value();
+    if (totalLength > storage.capsuleBufferSize ||
+        totalLength > (std::numeric_limits<std::uint32_t>::max)())
+    {
+        return Result::Capacity;
+    }
+
+    descriptor.totalLength = static_cast<std::uint32_t>(totalLength);
+    const CapsuleEncodeResult encode =
+        encodeCapsuleV1(storage.capsuleBuffer, storage.capsuleBufferSize, descriptor);
+    if (encode.result != Result::Ok)
+    {
+        return encode.result;
+    }
+
+    const DirtyFlags savedFlags = m_state->dirtyFlags;
+    const Result     saved = storageSave(storage, storage.capsuleBuffer, totalLength);
+    if (saved == Result::Ok)
+    {
+        m_state->dirtyFlags &= ~savedFlags;
+        if ((savedFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
+        {
+            m_state->lifecycleSnapshot.dirtyFlags = 0U;
+            m_state->lifecycleSnapshot.persistRequested = false;
+        }
+    }
+
+    return saved;
+}
+
+Result Context::loadPersistent() noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    if (!m_state->storageAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    Storage &storage = m_state->storage;
+    if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize == 0U)
+    {
+        return Result::InvalidArgument;
+    }
+
+    std::size_t  bytesRead = 0U;
+    const Result loaded =
+        storageLoad(storage, storage.capsuleBuffer, storage.capsuleBufferSize, bytesRead);
+    if (loaded != Result::Ok)
+    {
+        return loaded;
+    }
+
+    if (bytesRead == 0U)
+    {
+        return Result::Ok;
+    }
+
+    const ResultValue<CapsuleDescriptor> decoded = decodeCapsule(storage.capsuleBuffer, bytesRead);
+    if (!decoded.hasValue())
+    {
+        return decoded.result();
+    }
+
+    const CapsuleDescriptor &descriptor = decoded.value();
+
+    const ResultValue<CapsuleSection> dtcSection = findCapsuleSectionByType(
+        descriptor, static_cast<std::uint16_t>(CapsuleSectionType::ApplicationDtc));
+    if (dtcSection.hasValue())
+    {
+        if (dtcSection.value().version != kDtcCapsuleSectionVersion)
+        {
+            return Result::CorruptData;
+        }
+
+        const Result result =
+            decodeDtcPayload(*m_state, &storage.capsuleBuffer[dtcSection.value().offset],
+                             dtcSection.value().usedLength);
+        if (result != Result::Ok)
+        {
+            return result;
+        }
+    }
+    else if (dtcSection.result() != Result::NotFound)
+    {
+        return dtcSection.result();
+    }
+
+    const ResultValue<CapsuleSection> lifecycleSection = findCapsuleSectionByType(
+        descriptor, static_cast<std::uint16_t>(CapsuleSectionType::Lifecycle));
+    if (lifecycleSection.hasValue())
+    {
+        if (lifecycleSection.value().version != kLifecycleCapsuleSectionVersion)
+        {
+            return Result::CorruptData;
+        }
+
+        const Result result = decodeLifecyclePayload(
+            *m_state, &storage.capsuleBuffer[lifecycleSection.value().offset],
+            lifecycleSection.value().usedLength);
+        if (result != Result::Ok)
+        {
+            return result;
+        }
+    }
+    else if (lifecycleSection.result() != Result::NotFound)
+    {
+        return lifecycleSection.result();
+    }
+
+    return Result::Ok;
+}
+
+Result Context::clearPersistent() noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    if (!m_state->storageAttached)
+    {
+        return Result::NotInitialized;
+    }
+
+    return storageClear(m_state->storage);
 }
 
 } // namespace diag

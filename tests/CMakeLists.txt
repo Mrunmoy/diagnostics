@@ -19,6 +19,7 @@ set(diag_test_sources
     test_identity.cpp
     test_lifecycle.cpp
     test_result.cpp
+    test_storage.cpp
     test_types.cpp
 )
 

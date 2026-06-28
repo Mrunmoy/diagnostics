@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -12,28 +13,58 @@ ROOT = Path(__file__).resolve().parent
 DEFAULT_PRESET = "linux-debug"
 DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 CLANG_FORMAT_VERSION = "14"
-ASAN_CTEST_ATTEMPTS = 5
-ASAN_TEST_TIMEOUT_SECONDS = "30"
+ASAN_TEST_ATTEMPTS = 5
+ASAN_TEST_TIMEOUT_SECONDS = 30
 
 
-def run(command: list[str], *, env: dict[str, str] | None = None) -> None:
+def run(
+    command: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    cwd: Path = ROOT,
+    timeout: int | None = None,
+) -> None:
     print("+ " + " ".join(command), flush=True)
     merged_env = os.environ.copy()
     if env is not None:
         merged_env.update(env)
-    subprocess.run(command, cwd=ROOT, check=True, env=merged_env)
+    subprocess.run(command, cwd=cwd, check=True, env=merged_env, timeout=timeout)
 
 
-def run_with_timeout_retries(command: list[str], attempts: int, env: dict[str, str]) -> None:
-    for attempt in range(1, attempts + 1):
-        print(f"+ attempt {attempt}/{attempts}", flush=True)
-        try:
-            run(command, env=env)
-            return
-        except subprocess.CalledProcessError as error:
-            if error.returncode != 8 or attempt == attempts:
-                raise
-            print("ASAN CTest timed out; retrying sanitizer test run", flush=True)
+def ctest_show_only(preset: str) -> dict:
+    output = subprocess.check_output(
+        ["ctest", "--preset", preset, "--show-only=json-v1"],
+        cwd=ROOT,
+        text=True,
+    )
+    return json.loads(output)
+
+
+def test_working_directory(test: dict) -> Path:
+    for prop in test.get("properties", []):
+        if prop.get("name") == "WORKING_DIRECTORY":
+            return Path(prop["value"])
+    return ROOT
+
+
+def run_asan_tests_direct(preset: str) -> None:
+    env = sanitizer_env()
+    for test in ctest_show_only(preset).get("tests", []):
+        command = test.get("command", [])
+        name = test.get("name", "<unnamed>")
+        if not command:
+            raise SystemExit(f"ASAN test '{name}' has no command")
+
+        working_directory = test_working_directory(test)
+        for attempt in range(1, ASAN_TEST_ATTEMPTS + 1):
+            print(f"+ asan test {name} attempt {attempt}/{ASAN_TEST_ATTEMPTS}", flush=True)
+            try:
+                run(command, env=env, cwd=working_directory, timeout=ASAN_TEST_TIMEOUT_SECONDS)
+                break
+            except subprocess.TimeoutExpired:
+                if attempt == ASAN_TEST_ATTEMPTS:
+                    raise
+                print(f"ASAN test '{name}' timed out; retrying", flush=True)
 
 
 def cmake_options(options: list[str]) -> list[str]:
@@ -78,18 +109,7 @@ def build_preset(preset: str, options: list[str]) -> None:
 def test_preset(preset: str, options: list[str]) -> None:
     build_preset(preset, options)
     if preset.endswith("-asan"):
-        run_with_timeout_retries(
-            [
-                "ctest",
-                "--preset",
-                preset,
-                "--output-on-failure",
-                "--timeout",
-                ASAN_TEST_TIMEOUT_SECONDS,
-            ],
-            ASAN_CTEST_ATTEMPTS,
-            sanitizer_env(),
-        )
+        run_asan_tests_direct(preset)
     else:
         run(["ctest", "--preset", preset, "--output-on-failure"])
 

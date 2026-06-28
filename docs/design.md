@@ -80,10 +80,19 @@ Only `sectionCount` entries are encoded, so payloads may begin immediately after
 the active table. The decoder validates section bounds and rejects corrupt
 capsules with a CRC over all bytes after the header. Separate payload-copy
 helpers copy used section bytes into caller-owned buffers. Payload ownership
-remains with the caller; storage integration decides where those bytes live.
+remains with the caller.
+
+The storage slice binds a context to a caller-owned adapter. The adapter is a
+small copied value: callback table, opaque user pointer, medium capabilities, and
+a caller-owned capsule staging buffer. `savePersistent()` writes only dirty DTC
+or lifecycle sections, pads the serialized capsule to the adapter write
+alignment, and clears dirty flags only after the save callback succeeds.
+`loadPersistent()` reads the capsule, validates it, restores known sections, and
+leaves unknown section types to future feature slices. `clearPersistent()` simply
+delegates to the adapter clear callback. The core still owns no flash, EEPROM,
+filesystem, or RTOS behavior.
 
 ## Planned Feature Slices
 
-1. Storage integration for explicit save/load/clear operations.
-2. Example transports and tester-side tools that prove the API is usable without
+1. Example transports and tester-side tools that prove the API is usable without
    coupling the core to any one protocol.
