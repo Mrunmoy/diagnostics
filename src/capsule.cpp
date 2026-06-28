@@ -138,7 +138,12 @@ CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_
     }
 
     const std::size_t payloadStart = sectionTableEnd(descriptor.sectionCount);
-    if (descriptor.totalLength < payloadStart || capacity < descriptor.totalLength)
+    if (descriptor.totalLength < payloadStart)
+    {
+        return CapsuleEncodeResult{Result::InvalidArgument, 0U};
+    }
+
+    if (capacity < descriptor.totalLength)
     {
         return CapsuleEncodeResult{Result::Capacity, 0U};
     }
