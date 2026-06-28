@@ -134,6 +134,15 @@ void writeU32Le(std::uint8_t *const buffer, const std::uint32_t value) noexcept
     buffer[3] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
 }
 
+void fillBytes(std::uint8_t *const buffer, const std::size_t offset, const std::size_t length,
+               const std::uint8_t value) noexcept
+{
+    for (std::size_t index = 0U; index < length; ++index)
+    {
+        buffer[offset + index] = value;
+    }
+}
+
 [[nodiscard]] std::uint16_t readU16Le(const std::uint8_t *const buffer) noexcept
 {
     return static_cast<std::uint16_t>(buffer[0] | (static_cast<std::uint16_t>(buffer[1]) << 8U));
@@ -713,11 +722,6 @@ Result Context::savePersistent() noexcept
         return Result::Capacity;
     }
 
-    for (std::size_t index = 0U; index < storage.capsuleBufferSize; ++index)
-    {
-        storage.capsuleBuffer[index] = storage.capabilities.eraseValue;
-    }
-
     CapsuleDescriptor descriptor{};
     descriptor.schemaVersion = kCapsuleSchemaVersion;
     descriptor.sectionCount = sectionCount;
@@ -759,6 +763,8 @@ Result Context::savePersistent() noexcept
         section.offset = static_cast<std::uint32_t>(payloadOffset);
         section.length = static_cast<std::uint32_t>(length);
         section.usedLength = static_cast<std::uint32_t>(usedLength);
+        fillBytes(storage.capsuleBuffer, payloadOffset + usedLength, length - usedLength,
+                  storage.capabilities.eraseValue);
         ++sectionIndex;
         payloadOffset += length;
     }
@@ -796,6 +802,8 @@ Result Context::savePersistent() noexcept
         section.offset = static_cast<std::uint32_t>(payloadOffset);
         section.length = static_cast<std::uint32_t>(length);
         section.usedLength = static_cast<std::uint32_t>(usedLength);
+        fillBytes(storage.capsuleBuffer, payloadOffset + usedLength, length - usedLength,
+                  storage.capabilities.eraseValue);
         ++sectionIndex;
         payloadOffset += length;
     }
@@ -815,6 +823,9 @@ Result Context::savePersistent() noexcept
     }
 
     descriptor.totalLength = static_cast<std::uint32_t>(totalLength);
+    fillBytes(storage.capsuleBuffer, payloadOffset, totalLength - payloadOffset,
+              storage.capabilities.eraseValue);
+
     const CapsuleEncodeResult encode =
         encodeCapsuleV1(storage.capsuleBuffer, storage.capsuleBufferSize, descriptor);
     if (encode.result != Result::Ok)

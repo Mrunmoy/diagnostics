@@ -155,9 +155,13 @@ TEST_F(StorageFixture, SaveCleanContextDoesNotCallAdapter)
 
 TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
 {
+    constexpr std::uint8_t kUntouchedByte = 0xA5U;
+
     std::array<diag::DtcRecord, 2U> records{};
     diag::ContextStorage            contextStorage{};
     diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+
+    m_capsuleBuffer.fill(kUntouchedByte);
 
     ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
     ASSERT_EQ(context.registerDtc(diag::DtcId{0x010203U}, diag::DtcSeverity::Critical),
@@ -179,6 +183,11 @@ TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
         descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc));
     ASSERT_TRUE(section.hasValue());
     EXPECT_EQ(section.value().usedLength, 20U);
+
+    for (std::size_t index = m_storage.persistedLength; index < m_capsuleBuffer.size(); ++index)
+    {
+        EXPECT_EQ(m_capsuleBuffer[index], kUntouchedByte);
+    }
 }
 
 TEST_F(StorageFixture, LoadSavedDtcCapsuleRestoresRecords)
