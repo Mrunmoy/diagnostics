@@ -65,7 +65,8 @@ struct CapsulePayloadCopyResult
     std::size_t copiedLength{0U};
 };
 
-[[nodiscard]] std::uint32_t capsuleCrc32(const std::uint8_t *data, std::size_t length) noexcept;
+[[nodiscard]] ResultValue<std::uint32_t> capsuleCrc32(const std::uint8_t *data,
+                                                      std::size_t         length) noexcept;
 
 // Encodes only the fixed header and section table. Callers own payload bytes and
 // must initialize every byte in [kCapsuleHeaderSize, descriptor.totalLength)

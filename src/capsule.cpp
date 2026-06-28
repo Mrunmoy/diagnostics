@@ -96,13 +96,14 @@ validateSections(const std::array<CapsuleSection, kCapsuleMaxSections> &sections
 
 } // namespace
 
-std::uint32_t capsuleCrc32(const std::uint8_t *const data, const std::size_t length) noexcept
+ResultValue<std::uint32_t> capsuleCrc32(const std::uint8_t *const data,
+                                        const std::size_t         length) noexcept
 {
     std::uint32_t crc = 0xFFFFFFFFU;
 
     if (data == nullptr && length != 0U)
     {
-        return 0U;
+        return ResultValue<std::uint32_t>{Result::InvalidArgument};
     }
 
     for (std::size_t index = 0U; index < length; ++index)
@@ -115,7 +116,7 @@ std::uint32_t capsuleCrc32(const std::uint8_t *const data, const std::size_t len
         }
     }
 
-    return ~crc;
+    return ResultValue<std::uint32_t>{~crc};
 }
 
 CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_t capacity,
@@ -170,9 +171,14 @@ CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_
         writeU32Le(&buffer[entryOffset + 12U], section.usedLength);
     }
 
-    const std::uint32_t contentCrc32 =
+    const ResultValue<std::uint32_t> contentCrc32 =
         capsuleCrc32(&buffer[kCapsuleHeaderSize], descriptor.totalLength - kCapsuleHeaderSize);
-    writeU32Le(&buffer[20], contentCrc32);
+    if (!contentCrc32.hasValue())
+    {
+        return CapsuleEncodeResult{contentCrc32.result(), 0U};
+    }
+
+    writeU32Le(&buffer[20], contentCrc32.value());
 
     return CapsuleEncodeResult{Result::Ok, descriptor.totalLength};
 }
@@ -249,9 +255,14 @@ ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *const buffer,
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    const std::uint32_t actualContentCrc32 =
+    const ResultValue<std::uint32_t> actualContentCrc32 =
         capsuleCrc32(&buffer[kCapsuleHeaderSize], totalLength - kCapsuleHeaderSize);
-    if (actualContentCrc32 != descriptor.contentCrc32)
+    if (!actualContentCrc32.hasValue())
+    {
+        return ResultValue<CapsuleDescriptor>{actualContentCrc32.result()};
+    }
+
+    if (actualContentCrc32.value() != descriptor.contentCrc32)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }

@@ -45,6 +45,12 @@ TEST(DiagCapsule, MapsSectionTypesToOwners)
     EXPECT_EQ(diag::capsuleSectionOwnerFromType(0x1234U), diag::CapsuleSectionOwner::Unknown);
 }
 
+TEST(DiagCapsule, CrcRejectsInvalidArguments)
+{
+    EXPECT_EQ(diag::capsuleCrc32(nullptr, 1U).result(), diag::Result::InvalidArgument);
+    EXPECT_TRUE(diag::capsuleCrc32(nullptr, 0U).hasValue());
+}
+
 TEST(DiagCapsule, EncodesHeaderAndSectionTableLittleEndian)
 {
     std::array<std::uint8_t, kCapsuleBytes> buffer{};
@@ -234,6 +240,8 @@ TEST(DiagCapsule, RejectsOverlappingSections)
     std::array<std::uint8_t, kCapsuleBytes> buffer{};
     diag::CapsuleDescriptor                 descriptor = makeOneSectionDescriptor();
     descriptor.sectionCount = 2U;
+    descriptor.sections[0].offset =
+        diag::kCapsuleHeaderSize + (2U * diag::kCapsuleSectionEntrySize);
     descriptor.sections[1].type = static_cast<std::uint16_t>(diag::CapsuleSectionType::Lifecycle);
     descriptor.sections[1].version = 1U;
     descriptor.sections[1].offset = descriptor.sections[0].offset + 8U;
