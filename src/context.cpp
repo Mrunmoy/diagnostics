@@ -1,5 +1,6 @@
 #include "diag/context.hpp"
 
+#include "byte_order.hpp"
 #include "diag/capsule.hpp"
 
 #include <cstddef>
@@ -120,20 +121,6 @@ constexpr DtcStatusFlags kKnownDtcStatusMask =
     return ResultValue<std::size_t>{value + padding};
 }
 
-void writeU16Le(std::uint8_t *const buffer, const std::uint16_t value) noexcept
-{
-    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
-    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
-}
-
-void writeU32Le(std::uint8_t *const buffer, const std::uint32_t value) noexcept
-{
-    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
-    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
-    buffer[2] = static_cast<std::uint8_t>((value >> 16U) & 0xFFU);
-    buffer[3] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
-}
-
 void fillBytes(std::uint8_t *const buffer, const std::size_t offset, const std::size_t length,
                const std::uint8_t value) noexcept
 {
@@ -141,18 +128,6 @@ void fillBytes(std::uint8_t *const buffer, const std::size_t offset, const std::
     {
         buffer[offset + index] = value;
     }
-}
-
-[[nodiscard]] std::uint16_t readU16Le(const std::uint8_t *const buffer) noexcept
-{
-    return static_cast<std::uint16_t>(buffer[0] | (static_cast<std::uint16_t>(buffer[1]) << 8U));
-}
-
-[[nodiscard]] std::uint32_t readU32Le(const std::uint8_t *const buffer) noexcept
-{
-    return static_cast<std::uint32_t>(buffer[0] | (static_cast<std::uint32_t>(buffer[1]) << 8U) |
-                                      (static_cast<std::uint32_t>(buffer[2]) << 16U) |
-                                      (static_cast<std::uint32_t>(buffer[3]) << 24U));
 }
 
 } // namespace
@@ -178,17 +153,17 @@ Result Context::encodeDtcPayload(const State &state, std::uint8_t *const payload
         return Result::Capacity;
     }
 
-    writeU16Le(&payload[0], static_cast<std::uint16_t>(state.dtcCount));
-    writeU16Le(&payload[2], static_cast<std::uint16_t>(kDtcPayloadRecordSize));
+    internal::writeU16Le(&payload[0], static_cast<std::uint16_t>(state.dtcCount));
+    internal::writeU16Le(&payload[2], static_cast<std::uint16_t>(kDtcPayloadRecordSize));
 
     for (std::size_t index = 0U; index < state.dtcCount; ++index)
     {
         const DtcRecord  &record = state.config.dtcRecords[index];
         const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
 
-        writeU32Le(&payload[offset], record.id.value);
-        writeU32Le(&payload[offset + 4U], record.occurrenceCount);
-        writeU32Le(&payload[offset + 8U], record.clearCount);
+        internal::writeU32Le(&payload[offset], record.id.value);
+        internal::writeU32Le(&payload[offset + 4U], record.occurrenceCount);
+        internal::writeU32Le(&payload[offset + 8U], record.clearCount);
         payload[offset + 12U] = record.status;
         payload[offset + 13U] = static_cast<std::uint8_t>(record.severity);
         payload[offset + 14U] = 0U;
@@ -212,8 +187,8 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
         return Result::CorruptData;
     }
 
-    const std::uint16_t count = readU16Le(&payload[0]);
-    const std::uint16_t recordSize = readU16Le(&payload[2]);
+    const std::uint16_t count = internal::readU16Le(&payload[0]);
+    const std::uint16_t recordSize = internal::readU16Le(&payload[2]);
     const std::size_t   expected =
         kDtcPayloadHeaderSize + (static_cast<std::size_t>(count) * kDtcPayloadRecordSize);
 
@@ -238,11 +213,11 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
             return Result::CorruptData;
         }
 
-        const std::uint32_t idValue = readU32Le(&payload[offset]);
+        const std::uint32_t idValue = internal::readU32Le(&payload[offset]);
         for (std::size_t prior = 0U; prior < index; ++prior)
         {
             const std::size_t priorOffset = kDtcPayloadHeaderSize + (prior * kDtcPayloadRecordSize);
-            if (readU32Le(&payload[priorOffset]) == idValue)
+            if (internal::readU32Le(&payload[priorOffset]) == idValue)
             {
                 return Result::CorruptData;
             }
@@ -254,9 +229,9 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
     {
         const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
         DtcRecord        &record = state.config.dtcRecords[index];
-        record.id = DtcId{readU32Le(&payload[offset])};
-        record.occurrenceCount = readU32Le(&payload[offset + 4U]);
-        record.clearCount = readU32Le(&payload[offset + 8U]);
+        record.id = DtcId{internal::readU32Le(&payload[offset])};
+        record.occurrenceCount = internal::readU32Le(&payload[offset + 4U]);
+        record.clearCount = internal::readU32Le(&payload[offset + 8U]);
         record.status = payload[offset + 12U];
         record.severity = static_cast<DtcSeverity>(payload[offset + 13U]);
         record.reserved0 = 0U;
@@ -291,12 +266,12 @@ Result Context::encodeLifecyclePayload(const State &state, std::uint8_t *const p
         return Result::InvalidArgument;
     }
 
-    writeU16Le(&payload[0], static_cast<std::uint16_t>(kLifecyclePayloadSize));
+    internal::writeU16Le(&payload[0], static_cast<std::uint16_t>(kLifecyclePayloadSize));
     payload[2] = static_cast<std::uint8_t>(state.lifecycleSnapshot.lastResetReason);
     payload[3] = static_cast<std::uint8_t>(state.lifecycleSnapshot.resetCounterPolicy);
-    writeU32Le(&payload[4], state.lifecycleSnapshot.resetCount);
-    writeU32Le(&payload[8], state.lifecycleSnapshot.abnormalResetCount);
-    writeU32Le(&payload[12], 0U);
+    internal::writeU32Le(&payload[4], state.lifecycleSnapshot.resetCount);
+    internal::writeU32Le(&payload[8], state.lifecycleSnapshot.abnormalResetCount);
+    internal::writeU32Le(&payload[12], 0U);
 
     usedLength = kLifecyclePayloadSize;
     return Result::Ok;
@@ -315,10 +290,10 @@ Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const p
         return Result::CorruptData;
     }
 
-    if (readU16Le(&payload[0]) != kLifecyclePayloadSize ||
+    if (internal::readU16Le(&payload[0]) != kLifecyclePayloadSize ||
         payload[2] > static_cast<std::uint8_t>(ResetReason::Fault) ||
         payload[3] > static_cast<std::uint8_t>(ResetCounterPolicy::Platform) ||
-        readU32Le(&payload[12]) != 0U)
+        internal::readU32Le(&payload[12]) != 0U)
     {
         return Result::CorruptData;
     }
@@ -331,8 +306,8 @@ Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const p
 
     state.lifecycleSnapshot.lastResetReason = static_cast<ResetReason>(payload[2]);
     state.lifecycleSnapshot.resetCounterPolicy = state.lifecycleConfig.resetCounterPolicy;
-    state.lifecycleSnapshot.resetCount = readU32Le(&payload[4]);
-    state.lifecycleSnapshot.abnormalResetCount = readU32Le(&payload[8]);
+    state.lifecycleSnapshot.resetCount = internal::readU32Le(&payload[4]);
+    state.lifecycleSnapshot.abnormalResetCount = internal::readU32Le(&payload[8]);
     state.lifecycleSnapshot.dirtyFlags = 0U;
     state.lifecycleSnapshot.persistRequested = false;
     state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Lifecycle);

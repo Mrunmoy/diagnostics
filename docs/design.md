@@ -84,9 +84,12 @@ remains with the caller.
 
 The storage slice binds a context to a caller-owned adapter. The adapter is a
 small copied value: callback table, opaque user pointer, medium capabilities, and
-a caller-owned capsule staging buffer. `savePersistent()` writes only dirty DTC
-or lifecycle sections, pads the serialized capsule to the adapter write
-alignment, and clears dirty flags only after the save callback succeeds.
+a caller-owned capsule staging buffer. Dirty flags decide whether
+`savePersistent()` calls the adapter at all. When a save is needed, the function
+writes a complete replacement capsule containing every attached persistable
+section, so a DTC-only update does not erase a clean lifecycle section or the
+reverse. The serialized capsule is padded to the adapter write alignment, and
+dirty flags clear only after the save callback succeeds.
 `loadPersistent()` reads the capsule, validates it, restores known sections, and
 leaves unknown section types to future feature slices. `clearPersistent()` simply
 delegates to the adapter clear callback. The core still owns no flash, EEPROM,

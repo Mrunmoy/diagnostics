@@ -222,6 +222,7 @@ def clean(args: argparse.Namespace) -> None:
 def source_files() -> list[Path]:
     patterns = [
         "include/**/*.hpp",
+        "src/**/*.hpp",
         "src/**/*.cpp",
         "tests/**/*.cpp",
         "examples/**/*.hpp",
