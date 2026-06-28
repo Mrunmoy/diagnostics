@@ -23,6 +23,7 @@ struct Context::State
     bool              identityAttached{false};
     bool              lifecycleAttached{false};
     bool              storageAttached{false};
+    bool              persistentLoadAttempted{false};
     Storage           storage{};
 };
 
@@ -653,6 +654,7 @@ Result Context::attachStorage(const Storage &storage) noexcept
 
     m_state->storage = storage;
     m_state->storageAttached = true;
+    m_state->persistentLoadAttempted = false;
     return Result::Ok;
 }
 
@@ -679,8 +681,7 @@ Result Context::savePersistent() noexcept
         return Result::InvalidArgument;
     }
 
-    const bool dtcDirty =
-        (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
+    const bool dtcDirty = (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
     const bool lifecycleDirty =
         (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
     if ((dtcDirty && m_state->config.dtcRecords == nullptr) ||
@@ -689,8 +690,17 @@ Result Context::savePersistent() noexcept
         return Result::NotInitialized;
     }
 
-    const bool includeDtcSection = m_state->config.dtcRecords != nullptr;
-    const bool includeLifecycleSection = m_state->lifecycleAttached;
+    const bool dtcClean = (m_state->config.dtcRecords != nullptr) && !dtcDirty;
+    const bool lifecycleClean = m_state->lifecycleAttached && !lifecycleDirty;
+    // Guard against overwriting previously persisted data with default in-memory values.
+    // Callers must invoke loadPersistent() after attaching storage before the first save.
+    if (!m_state->persistentLoadAttempted && (dtcClean || lifecycleClean))
+    {
+        return Result::NotInitialized;
+    }
+
+    const bool    includeDtcSection = m_state->config.dtcRecords != nullptr;
+    const bool    includeLifecycleSection = m_state->lifecycleAttached;
     std::uint16_t sectionCount = 0U;
     if (includeDtcSection)
     {
@@ -847,6 +857,8 @@ Result Context::loadPersistent() noexcept
         return Result::NotFound;
     }
 
+    m_state->persistentLoadAttempted = true;
+
     Storage &storage = m_state->storage;
     if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize == 0U)
     {
@@ -933,7 +945,13 @@ Result Context::clearPersistent() noexcept
         return Result::NotFound;
     }
 
-    return storageClear(m_state->storage);
+    const Result cleared = storageClear(m_state->storage);
+    if (cleared == Result::Ok)
+    {
+        m_state->persistentLoadAttempted = true;
+    }
+
+    return cleared;
 }
 
 } // namespace diag

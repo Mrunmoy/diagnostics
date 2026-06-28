@@ -105,7 +105,9 @@ if (diagnostics.observeReset(diag::ResetReason::Watchdog) != diag::Result::Ok)
 ```
 
 Persistent diagnostics use a downstream storage adapter. The library validates
-the callback table and writes only when `savePersistent()` is called:
+the callback table and writes only when `savePersistent()` is called. Always call
+`loadPersistent()` after attaching storage to restore previously saved state before
+calling `savePersistent()`:
 
 ```cpp
 std::uint8_t capsule[256]{};
@@ -121,6 +123,10 @@ if (diagnostics.attachStorage(storageAdapter) != diag::Result::Ok)
 {
     // handle error
 }
+
+// Restore previously persisted state. On first boot this returns Ok with nothing
+// to load; on subsequent boots it restores DTC records and lifecycle counters.
+diagnostics.loadPersistent();
 
 if (diagnostics.savePersistent() != diag::Result::Ok)
 {

@@ -324,6 +324,7 @@ TEST_F(StorageFixture, SaveDirtyDtcPreservesCleanLifecycleSection)
 
     ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
     ASSERT_EQ(source.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(source.loadPersistent(), diag::Result::Ok);
     ASSERT_EQ(source.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
     ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
     ASSERT_EQ(source.dirtyFlags(), diag::DirtyFlags{0U});
@@ -361,6 +362,76 @@ TEST_F(StorageFixture, SaveDirtyDtcPreservesCleanLifecycleSection)
     EXPECT_EQ(snapshot.value().lastResetReason, diag::ResetReason::Watchdog);
     EXPECT_EQ(snapshot.value().abnormalResetCount, 1U);
     EXPECT_EQ(restored.dtcCount(), 1U);
+}
+
+TEST_F(StorageFixture, SaveBeforeLoadWithCleanSectionReturnsNotInitialized)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+
+    // lifecycle is dirty but DTC section is attached and clean: load was never attempted
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotInitialized);
+    EXPECT_EQ(m_storage.saveCalls, 0U);
+}
+
+TEST_F(StorageFixture, SaveAfterLoadWithCleanSectionSucceeds)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.loadPersistent(), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+
+    // lifecycle dirty, DTC clean, but load was attempted: save is allowed
+    EXPECT_EQ(context.savePersistent(), diag::Result::Ok);
+    EXPECT_EQ(m_storage.saveCalls, 1U);
+}
+
+TEST_F(StorageFixture, SaveAfterClearWithCleanSectionSucceeds)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.clearPersistent(), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+
+    // lifecycle dirty, DTC clean, but clear was done: save is allowed
+    EXPECT_EQ(context.savePersistent(), diag::Result::Ok);
+    EXPECT_EQ(m_storage.saveCalls, 1U);
+}
+
+TEST_F(StorageFixture, ReattachStorageRequiresLoadBeforeSaveWithCleanSection)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.loadPersistent(), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+    ASSERT_EQ(context.savePersistent(), diag::Result::Ok);
+
+    // re-attach storage resets the load-attempted flag
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotInitialized);
+    EXPECT_EQ(m_storage.saveCalls, 1U);
 }
 
 TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)

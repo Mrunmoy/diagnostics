@@ -90,6 +90,13 @@ writes a complete replacement capsule containing every attached persistable
 section, so a DTC-only update does not erase a clean lifecycle section or the
 reverse. The serialized capsule is padded to the adapter write alignment, and
 dirty flags clear only after the save callback succeeds.
+Callers must invoke `loadPersistent()` after attaching storage and all relevant
+slices, and before any `savePersistent()` call that would write a clean (non-dirty)
+section. This ensures previously persisted data is restored into the in-memory
+state before it can be overwritten. `savePersistent()` returns `NotInitialized`
+when an attached section is clean but `loadPersistent()` has not yet been attempted
+with the current storage adapter. Calling `loadPersistent()` on first boot (when no
+capsule has been saved yet) is safe and returns `Ok` with nothing to restore.
 `loadPersistent()` reads the capsule, validates it, restores known sections, and
 leaves unknown section types to future feature slices. `clearPersistent()` simply
 delegates to the adapter clear callback. The core still owns no flash, EEPROM,
