@@ -305,6 +305,54 @@ TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
     EXPECT_EQ(restored.dirtyFlags(), diag::DirtyFlags{0U});
 }
 
+TEST_F(StorageFixture, SaveDirtyDtcPreservesCleanLifecycleSection)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            sourceStorage{};
+    diag::Context               source{sourceStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(source.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(source.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+    ASSERT_EQ(source.dirtyFlags(), diag::DirtyFlags{0U});
+
+    ASSERT_EQ(source.registerDtc(diag::DtcId{0x313233U}, diag::DtcSeverity::Warning),
+              diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+
+    const diag::ResultValue<diag::CapsuleDescriptor> descriptor =
+        diag::decodeCapsule(m_storage.persisted.data(), m_storage.persistedLength);
+    ASSERT_TRUE(descriptor.hasValue());
+    EXPECT_EQ(descriptor.value().sectionCount, 2U);
+
+    const diag::ResultValue<diag::CapsuleSection> lifecycleSection = diag::findCapsuleSectionByType(
+        descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::Lifecycle));
+    ASSERT_TRUE(lifecycleSection.hasValue());
+
+    std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
+    std::array<diag::DtcRecord, 2U>         restoredRecords{};
+    diag::ContextStorage                    restoredStorage{};
+    diag::Config                            restoredConfig{};
+    restoredConfig.dtcRecords = restoredRecords.data();
+    restoredConfig.dtcCapacity = restoredRecords.size();
+    diag::Context restored{restoredStorage, restoredConfig};
+    diag::Storage restoreAdapter = makeStorage();
+    restoreAdapter.capsuleBuffer = restoreCapsule.data();
+    restoreAdapter.capsuleBufferSize = restoreCapsule.size();
+
+    ASSERT_EQ(restored.attachStorage(restoreAdapter), diag::Result::Ok);
+    ASSERT_EQ(restored.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(restored.loadPersistent(), diag::Result::Ok);
+
+    const diag::ResultValue<diag::LifecycleSnapshot> snapshot = restored.lifecycle();
+    ASSERT_TRUE(snapshot.hasValue());
+    EXPECT_EQ(snapshot.value().lastResetReason, diag::ResetReason::Watchdog);
+    EXPECT_EQ(snapshot.value().abnormalResetCount, 1U);
+    EXPECT_EQ(restored.dtcCount(), 1U);
+}
+
 TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
 {
     diag::ContextStorage        sourceStorage{};

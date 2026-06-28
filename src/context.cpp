@@ -704,13 +704,16 @@ Result Context::savePersistent() noexcept
         return Result::InvalidArgument;
     }
 
+    const bool includeDtcSection = m_state->config.dtcRecords != nullptr;
+    const bool includeLifecycleSection = m_state->lifecycleAttached;
+
     std::uint16_t sectionCount = 0U;
-    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U)
+    if (includeDtcSection)
     {
         ++sectionCount;
     }
 
-    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
+    if (includeLifecycleSection)
     {
         ++sectionCount;
     }
@@ -730,7 +733,7 @@ Result Context::savePersistent() noexcept
     std::size_t payloadOffset = payloadStart;
     std::size_t sectionIndex = 0U;
 
-    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U)
+    if (includeDtcSection)
     {
         std::size_t  usedLength = 0U;
         const Result result =
@@ -769,7 +772,7 @@ Result Context::savePersistent() noexcept
         payloadOffset += length;
     }
 
-    if ((m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
+    if (includeLifecycleSection)
     {
         std::size_t  usedLength = 0U;
         const Result result =
