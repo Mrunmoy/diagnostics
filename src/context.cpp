@@ -91,11 +91,16 @@ template <typename Record>
     return nullptr;
 }
 
-constexpr std::uint16_t kDtcCapsuleSectionVersion = 1U;
-constexpr std::uint16_t kLifecycleCapsuleSectionVersion = 1U;
-constexpr std::size_t   kDtcPayloadHeaderSize = 4U;
-constexpr std::size_t   kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
-constexpr std::size_t   kLifecyclePayloadSize = 16U;
+constexpr std::uint16_t  kDtcCapsuleSectionVersion = 1U;
+constexpr std::uint16_t  kLifecycleCapsuleSectionVersion = 1U;
+constexpr std::size_t    kDtcPayloadHeaderSize = 4U;
+constexpr std::size_t    kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
+constexpr std::size_t    kLifecyclePayloadSize = 16U;
+constexpr DtcStatusFlags kKnownDtcStatusMask =
+    static_cast<DtcStatusFlags>(DtcStatus::TestFailed) |
+    static_cast<DtcStatusFlags>(DtcStatus::Pending) |
+    static_cast<DtcStatusFlags>(DtcStatus::Confirmed) |
+    static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
 
 [[nodiscard]] ResultValue<std::size_t> alignUp(const std::size_t value,
                                                const std::size_t alignment) noexcept
@@ -216,7 +221,8 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
     for (std::size_t index = 0U; index < count; ++index)
     {
         const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
-        if (payload[offset + 13U] > static_cast<std::uint8_t>(DtcSeverity::Critical) ||
+        if ((payload[offset + 12U] & ~kKnownDtcStatusMask) != 0U ||
+            payload[offset + 13U] > static_cast<std::uint8_t>(DtcSeverity::Critical) ||
             payload[offset + 14U] != 0U || payload[offset + 15U] != 0U)
         {
             return Result::CorruptData;

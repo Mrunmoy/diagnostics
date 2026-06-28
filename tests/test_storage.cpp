@@ -78,6 +78,15 @@ diag::Result oversizedLoad(void *, std::uint8_t *, const std::size_t capacity,
     return diag::Result::Ok;
 }
 
+void writeU32Le(std::array<std::uint8_t, kStorageBytes> &buffer, const std::size_t offset,
+                const std::uint32_t value)
+{
+    buffer[offset] = static_cast<std::uint8_t>(value & 0xFFU);
+    buffer[offset + 1U] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
+    buffer[offset + 2U] = static_cast<std::uint8_t>((value >> 16U) & 0xFFU);
+    buffer[offset + 3U] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
+}
+
 class StorageFixture : public testing::Test
 {
   protected:
@@ -206,6 +215,52 @@ TEST_F(StorageFixture, LoadSavedDtcCapsuleRestoresRecords)
     EXPECT_EQ(record.value().severity, diag::DtcSeverity::Warning);
     EXPECT_TRUE(diag::hasStatus(record.value(), diag::DtcStatus::TestFailed));
     EXPECT_EQ(record.value().occurrenceCount, 1U);
+}
+
+TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
+{
+    std::array<diag::DtcRecord, 2U> sourceRecords{};
+    diag::ContextStorage            sourceStorage{};
+    diag::Context source{sourceStorage, diag::Config{sourceRecords.data(), sourceRecords.size()}};
+
+    ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(source.registerDtc(diag::DtcId{0x070809U}, diag::DtcSeverity::Critical),
+              diag::Result::Ok);
+    ASSERT_EQ(source.setDtcActive(diag::DtcId{0x070809U}, true), diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+
+    const diag::ResultValue<diag::CapsuleDescriptor> descriptor =
+        diag::decodeCapsule(m_storage.persisted.data(), m_storage.persistedLength);
+    ASSERT_TRUE(descriptor.hasValue());
+
+    const diag::ResultValue<diag::CapsuleSection> section = diag::findCapsuleSectionByType(
+        descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc));
+    ASSERT_TRUE(section.hasValue());
+
+    constexpr std::uint8_t kUnknownStatusBit = 0x80U;
+    m_storage.persisted[section.value().offset + 16U] |= kUnknownStatusBit;
+
+    const diag::ResultValue<std::uint32_t> crc =
+        diag::capsuleCrc32(&m_storage.persisted[diag::kCapsuleHeaderSize],
+                           m_storage.persistedLength - diag::kCapsuleHeaderSize);
+    ASSERT_TRUE(crc.hasValue());
+    writeU32Le(m_storage.persisted, 20U, crc.value());
+
+    std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
+    std::array<diag::DtcRecord, 2U>         restoredRecords{};
+    diag::ContextStorage                    restoredStorage{};
+    diag::Config                            restoredConfig{};
+    restoredConfig.dtcRecords = restoredRecords.data();
+    restoredConfig.dtcCapacity = restoredRecords.size();
+    diag::Context restored{restoredStorage, restoredConfig};
+    diag::Storage restoreAdapter = makeStorage();
+    restoreAdapter.capsuleBuffer = restoreCapsule.data();
+    restoreAdapter.capsuleBufferSize = restoreCapsule.size();
+
+    ASSERT_EQ(restored.attachStorage(restoreAdapter), diag::Result::Ok);
+
+    EXPECT_EQ(restored.loadPersistent(), diag::Result::CorruptData);
+    EXPECT_EQ(restored.dtcCount(), 0U);
 }
 
 TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
