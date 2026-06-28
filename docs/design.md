@@ -77,10 +77,10 @@ storage from `observeReset()`.
 The capsule slice defines the portable persistent byte format. It writes a
 little-endian header and a bounded section table made from fixed-size entries.
 Only `sectionCount` entries are encoded, so payloads may begin immediately after
-the active table. The decoder validates section bounds before copying payloads
-and rejects corrupt capsules with a CRC over all bytes after the header. Payload
-ownership remains with the caller; storage integration decides where those bytes
-live.
+the active table. The decoder validates section bounds and rejects corrupt
+capsules with a CRC over all bytes after the header. Separate payload-copy
+helpers copy used section bytes into caller-owned buffers. Payload ownership
+remains with the caller; storage integration decides where those bytes live.
 
 ## Planned Feature Slices
 
