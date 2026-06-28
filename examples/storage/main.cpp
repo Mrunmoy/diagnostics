@@ -99,6 +99,11 @@ int main()
         return fail("failed to attach save storage");
     }
 
+    if (source.loadPersistent() != diag::Result::Ok)
+    {
+        return fail("failed to load initial persistent diagnostics");
+    }
+
     if (source.registerDtc(diag::DtcId{0x040101U}, diag::DtcSeverity::Critical) != diag::Result::Ok)
     {
         return fail("failed to register DTC");
