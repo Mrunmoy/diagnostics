@@ -43,7 +43,10 @@ def ctest_show_only(preset: str) -> dict:
 def test_working_directory(test: dict, preset: str) -> Path:
     for prop in test.get("properties", []):
         if prop.get("name") == "WORKING_DIRECTORY":
-            return Path(prop["value"])
+            working_directory = Path(prop["value"])
+            if working_directory.is_absolute():
+                return working_directory
+            return build_dir_for_preset(preset) / working_directory
     return build_dir_for_preset(preset)
 
 
