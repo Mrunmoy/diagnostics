@@ -13,6 +13,7 @@ endif()
 FetchContent_MakeAvailable(googletest)
 
 set(diag_test_sources
+    test_capsule.cpp
     test_context.cpp
     test_dtc.cpp
     test_identity.cpp
