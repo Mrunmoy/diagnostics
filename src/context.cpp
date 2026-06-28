@@ -218,6 +218,7 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
         return Result::Capacity;
     }
 
+    // First pass: validate the payload without mutating state.
     for (std::size_t index = 0U; index < count; ++index)
     {
         const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
@@ -228,14 +229,23 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
             return Result::CorruptData;
         }
 
-        const DtcId id{readU32Le(&payload[offset])};
-        if (findDtcRecord(state.config.dtcRecords, index, id) != nullptr)
+        const std::uint32_t idValue = readU32Le(&payload[offset]);
+        for (std::size_t prior = 0U; prior < index; ++prior)
         {
-            return Result::CorruptData;
+            const std::size_t priorOffset = kDtcPayloadHeaderSize + (prior * kDtcPayloadRecordSize);
+            if (readU32Le(&payload[priorOffset]) == idValue)
+            {
+                return Result::CorruptData;
+            }
         }
+    }
 
-        DtcRecord &record = state.config.dtcRecords[index];
-        record.id = id;
+    // Second pass: apply decoded records.
+    for (std::size_t index = 0U; index < count; ++index)
+    {
+        const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
+        DtcRecord         &record = state.config.dtcRecords[index];
+        record.id = DtcId{readU32Le(&payload[offset])};
         record.occurrenceCount = readU32Le(&payload[offset + 4U]);
         record.clearCount = readU32Le(&payload[offset + 8U]);
         record.status = payload[offset + 12U];
