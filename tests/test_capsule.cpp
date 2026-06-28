@@ -209,6 +209,13 @@ TEST(DiagCapsule, RejectsCorruptCapsuleMetadata)
 
     ASSERT_EQ(diag::encodeCapsuleV1(buffer.data(), buffer.size(), descriptor).result,
               diag::Result::Ok);
+    buffer[18] = 1U;
+    buffer[19] = 0U;
+    EXPECT_EQ(diag::decodeCapsule(buffer.data(), buffer.size()).result(),
+              diag::Result::CorruptData);
+
+    ASSERT_EQ(diag::encodeCapsuleV1(buffer.data(), buffer.size(), descriptor).result,
+              diag::Result::Ok);
     buffer[16] = static_cast<std::uint8_t>(diag::kCapsuleMaxSections + 1U);
     buffer[17] = 0U;
     EXPECT_EQ(diag::decodeCapsule(buffer.data(), buffer.size()).result(),
@@ -306,4 +313,20 @@ TEST(DiagCapsule, PayloadCopyRejectsInvalidArgumentsAndShortCapsule)
                   payload.data(), payload.size())
                   .result,
               diag::Result::CorruptData);
+}
+
+TEST(DiagCapsule, PayloadCopyAllowsNullOutputForEmptyPayload)
+{
+    std::array<std::uint8_t, kCapsuleBytes> buffer{};
+    diag::CapsuleDescriptor                 descriptor = makeOneSectionDescriptor();
+    descriptor.sections[0].usedLength = 0U;
+    ASSERT_EQ(diag::encodeCapsuleV1(buffer.data(), buffer.size(), descriptor).result,
+              diag::Result::Ok);
+
+    const diag::CapsulePayloadCopyResult result = diag::copyCapsuleSectionPayloadByType(
+        buffer.data(), buffer.size(), descriptor,
+        static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc), nullptr, 0U);
+
+    EXPECT_EQ(result.result, diag::Result::Ok);
+    EXPECT_EQ(result.copiedLength, 0U);
 }

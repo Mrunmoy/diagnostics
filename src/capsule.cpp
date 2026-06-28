@@ -211,6 +211,11 @@ ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *const buffer,
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
+    if (readU16Le(&buffer[18]) != 0U)
+    {
+        return ResultValue<CapsuleDescriptor>{Result::CorruptData};
+    }
+
     const std::uint32_t totalLength = readU32Le(&buffer[8]);
     if (totalLength > length)
     {
@@ -370,7 +375,7 @@ copyCapsuleSectionPayload(const std::uint8_t *const capsule, const std::size_t c
                           const CapsuleDescriptor &descriptor, const CapsuleSection &section,
                           std::uint8_t *const outPayload, const std::size_t outCapacity) noexcept
 {
-    if (capsule == nullptr || outPayload == nullptr)
+    if (capsule == nullptr)
     {
         return CapsulePayloadCopyResult{Result::InvalidArgument, 0U};
     }
@@ -389,6 +394,11 @@ copyCapsuleSectionPayload(const std::uint8_t *const capsule, const std::size_t c
     if (section.usedLength > outCapacity)
     {
         return CapsulePayloadCopyResult{Result::Capacity, 0U};
+    }
+
+    if (section.usedLength != 0U && outPayload == nullptr)
+    {
+        return CapsulePayloadCopyResult{Result::InvalidArgument, 0U};
     }
 
     if (section.usedLength != 0U)

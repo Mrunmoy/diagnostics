@@ -68,10 +68,10 @@ struct CapsulePayloadCopyResult
 [[nodiscard]] ResultValue<std::uint32_t> capsuleCrc32(const std::uint8_t *data,
                                                       std::size_t         length) noexcept;
 
-// Encodes only the fixed header and section table. Callers own payload bytes and
-// must initialize every byte in [kCapsuleHeaderSize, descriptor.totalLength)
-// deterministically before encoding because that whole range is covered by the
-// capsule CRC, including unused section capacity and padding.
+// Encodes only the fixed header and active section table entries. Callers own
+// payload, gap, and padding bytes after the active table and must initialize
+// them deterministically before encoding because the capsule CRC covers every
+// byte after the fixed header.
 [[nodiscard]] CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *buffer, std::size_t capacity,
                                                   const CapsuleDescriptor &descriptor) noexcept;
 [[nodiscard]] ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *buffer,
