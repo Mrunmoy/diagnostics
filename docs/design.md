@@ -83,7 +83,7 @@ helpers copy used section bytes into caller-owned buffers. Payload ownership
 remains with the caller.
 
 The storage slice binds a context to a caller-owned adapter. The adapter is a
-small copied value: callback table, opaque user pointer, medium capabilities, and
+small copied value: callback table, opaque user pointer, storage capabilities, and
 a caller-owned capsule staging buffer. Dirty flags decide whether
 `savePersistent()` calls the adapter at all. When a save is needed, the function
 writes a complete replacement capsule containing every attached persistable
