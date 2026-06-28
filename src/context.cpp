@@ -662,6 +662,11 @@ Result Context::attachStorage(const Storage &storage) noexcept
         return validation;
     }
 
+    if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize < kCapsuleHeaderSize)
+    {
+        return Result::InvalidArgument;
+    }
+
     m_state->storage = storage;
     m_state->storageAttached = true;
     return Result::Ok;
