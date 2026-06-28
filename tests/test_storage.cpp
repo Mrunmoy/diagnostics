@@ -90,12 +90,10 @@ void writeU32Le(std::array<std::uint8_t, kStorageBytes> &buffer, const std::size
 class StorageFixture : public testing::Test
 {
   protected:
-    static constexpr diag::StorageOps kOps{memoryLoad, memorySave, memoryClear};
-
     diag::Storage makeStorage()
     {
         return diag::Storage{
-            &kOps,
+            diag::StorageOps{memoryLoad, memorySave, memoryClear},
             &m_storage,
             diag::StorageCapabilities{0xFFU, 8U, diag::StorageAtomicCommit::Adapter,
                                       diag::StorageWearLeveling::Adapter},
@@ -112,29 +110,31 @@ class StorageFixture : public testing::Test
 
 TEST(DiagStorage, ValidatesCallbacksAndCapabilities)
 {
-    const diag::StorageOps                  ops{memoryLoad, memorySave, memoryClear};
     MemoryStorage                           memory{};
     std::array<std::uint8_t, kStorageBytes> capsule{};
 
-    diag::Storage storage{&ops, &memory, {}, capsule.data(), capsule.size()};
+    diag::Storage storage{diag::StorageOps{memoryLoad, memorySave, memoryClear},
+                          &memory,
+                          {},
+                          capsule.data(),
+                          capsule.size()};
     EXPECT_EQ(diag::validateStorage(storage), diag::Result::Ok);
 
-    storage.ops = nullptr;
+    storage.ops.load = nullptr;
     EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
 
-    storage.ops = &ops;
+    storage.ops.load = memoryLoad;
     storage.capabilities.writeAlignment = 0U;
     EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
 }
 
 TEST(DiagStorage, LoadRejectsAdapterReportedOverflow)
 {
-    static constexpr diag::StorageOps ops{oversizedLoad, memorySave, memoryClear};
-
     MemoryStorage                           memory{};
     std::array<std::uint8_t, kStorageBytes> buffer{};
     std::size_t                             bytesRead = 7U;
-    const diag::Storage                     storage{&ops, &memory, {}, nullptr, 0U};
+    const diag::Storage                     storage{
+        diag::StorageOps{oversizedLoad, memorySave, memoryClear}, &memory, {}, nullptr, 0U};
 
     EXPECT_EQ(diag::storageLoad(storage, buffer.data(), buffer.size(), bytesRead),
               diag::Result::Storage);
@@ -244,7 +244,7 @@ TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
         diag::capsuleCrc32(&m_storage.persisted[diag::kCapsuleHeaderSize],
                            m_storage.persistedLength - diag::kCapsuleHeaderSize);
     ASSERT_TRUE(crc.hasValue());
-    writeU32Le(m_storage.persisted, 20U, crc.value());
+    writeU32Le(m_storage.persisted, diag::kCapsuleHeaderSize - 4U, crc.value());
 
     std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
     std::array<diag::DtcRecord, 2U>         restoredRecords{};
@@ -294,6 +294,77 @@ TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
     EXPECT_EQ(snapshot.value().abnormalResetCount, 1U);
     EXPECT_FALSE(snapshot.value().persistRequested);
     EXPECT_EQ(restored.dirtyFlags(), diag::DirtyFlags{0U});
+}
+
+TEST_F(StorageFixture, LoadSkipsDtcSectionWhenDtcStorageIsNotAttached)
+{
+    std::array<diag::DtcRecord, 2U> sourceRecords{};
+    diag::ContextStorage            sourceStorage{};
+    diag::Context source{sourceStorage, diag::Config{sourceRecords.data(), sourceRecords.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(source.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(source.registerDtc(diag::DtcId{0x111213U}, diag::DtcSeverity::Warning),
+              diag::Result::Ok);
+    ASSERT_EQ(source.setDtcActive(diag::DtcId{0x111213U}, true), diag::Result::Ok);
+    ASSERT_EQ(source.observeReset(diag::ResetReason::Fault), diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+
+    diag::ContextStorage                    restoredStorage{};
+    diag::Context                           restored{restoredStorage};
+    std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
+    diag::Storage                           restoreAdapter = makeStorage();
+    restoreAdapter.capsuleBuffer = restoreCapsule.data();
+    restoreAdapter.capsuleBufferSize = restoreCapsule.size();
+
+    ASSERT_EQ(restored.attachStorage(restoreAdapter), diag::Result::Ok);
+    ASSERT_EQ(restored.attachLifecycle(config), diag::Result::Ok);
+
+    EXPECT_EQ(restored.loadPersistent(), diag::Result::Ok);
+
+    const diag::ResultValue<diag::LifecycleSnapshot> snapshot = restored.lifecycle();
+    ASSERT_TRUE(snapshot.hasValue());
+    EXPECT_EQ(snapshot.value().lastResetReason, diag::ResetReason::Fault);
+    EXPECT_EQ(snapshot.value().abnormalResetCount, 1U);
+    EXPECT_EQ(restored.dtcCount(), 0U);
+}
+
+TEST_F(StorageFixture, LoadSkipsLifecycleSectionWhenLifecycleIsNotAttached)
+{
+    std::array<diag::DtcRecord, 2U> sourceRecords{};
+    diag::ContextStorage            sourceStorage{};
+    diag::Context source{sourceStorage, diag::Config{sourceRecords.data(), sourceRecords.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(source.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(source.registerDtc(diag::DtcId{0x212223U}, diag::DtcSeverity::Critical),
+              diag::Result::Ok);
+    ASSERT_EQ(source.setDtcActive(diag::DtcId{0x212223U}, true), diag::Result::Ok);
+    ASSERT_EQ(source.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+
+    std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
+    std::array<diag::DtcRecord, 2U>         restoredRecords{};
+    diag::ContextStorage                    restoredStorage{};
+    diag::Config                            restoredConfig{};
+    restoredConfig.dtcRecords = restoredRecords.data();
+    restoredConfig.dtcCapacity = restoredRecords.size();
+    diag::Context restored{restoredStorage, restoredConfig};
+    diag::Storage restoreAdapter = makeStorage();
+    restoreAdapter.capsuleBuffer = restoreCapsule.data();
+    restoreAdapter.capsuleBufferSize = restoreCapsule.size();
+
+    ASSERT_EQ(restored.attachStorage(restoreAdapter), diag::Result::Ok);
+
+    EXPECT_EQ(restored.loadPersistent(), diag::Result::Ok);
+    EXPECT_EQ(restored.dtcCount(), 1U);
+    EXPECT_EQ(restored.lifecycle().result(), diag::Result::NotFound);
+
+    const diag::ResultValue<diag::DtcRecord> record = restored.dtc(diag::DtcId{0x212223U});
+    ASSERT_TRUE(record.hasValue());
+    EXPECT_EQ(record.value().severity, diag::DtcSeverity::Critical);
 }
 
 TEST_F(StorageFixture, ClearPersistentInvokesAdapterClear)

@@ -42,7 +42,7 @@ struct StorageOps
 
 struct Storage
 {
-    const StorageOps   *ops{nullptr};
+    StorageOps          ops{};
     void               *user{nullptr};
     StorageCapabilities capabilities{};
     std::uint8_t       *capsuleBuffer{nullptr};

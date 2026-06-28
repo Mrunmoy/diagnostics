@@ -110,7 +110,7 @@ the callback table and writes only when `savePersistent()` is called:
 ```cpp
 std::uint8_t capsule[256]{};
 diag::Storage storageAdapter{
-    &platformStorageOps,
+    diag::StorageOps{platformLoad, platformSave, platformClear},
     platformStorageUser,
     diag::StorageCapabilities{0xFFU, 8U},
     capsule,

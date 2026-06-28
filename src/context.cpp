@@ -868,7 +868,7 @@ Result Context::loadPersistent() noexcept
         const Result result =
             decodeDtcPayload(*m_state, &storage.capsuleBuffer[dtcSection.value().offset],
                              dtcSection.value().usedLength);
-        if (result != Result::Ok)
+        if (result != Result::Ok && result != Result::NotInitialized)
         {
             return result;
         }
@@ -890,7 +890,7 @@ Result Context::loadPersistent() noexcept
         const Result result = decodeLifecyclePayload(
             *m_state, &storage.capsuleBuffer[lifecycleSection.value().offset],
             lifecycleSection.value().usedLength);
-        if (result != Result::Ok)
+        if (result != Result::Ok && result != Result::NotInitialized)
         {
             return result;
         }

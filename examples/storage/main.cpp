@@ -69,10 +69,8 @@ int fail(const char *const message)
 
 diag::Storage makeStorage(MemoryStore &store, std::array<std::uint8_t, kStorageBytes> &capsule)
 {
-    static constexpr diag::StorageOps kOps{loadBytes, saveBytes, clearBytes};
-
     return diag::Storage{
-        &kOps,
+        diag::StorageOps{loadBytes, saveBytes, clearBytes},
         &store,
         diag::StorageCapabilities{0xFFU, 8U, diag::StorageAtomicCommit::Adapter,
                                   diag::StorageWearLeveling::Adapter},

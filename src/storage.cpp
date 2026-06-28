@@ -37,8 +37,7 @@ Result validateStorageCapabilities(const StorageCapabilities &capabilities) noex
 
 Result validateStorage(const Storage &storage) noexcept
 {
-    if (storage.ops == nullptr || storage.ops->load == nullptr || storage.ops->save == nullptr ||
-        storage.ops->clear == nullptr)
+    if (storage.ops.load == nullptr || storage.ops.save == nullptr || storage.ops.clear == nullptr)
     {
         return Result::InvalidArgument;
     }
@@ -62,7 +61,7 @@ Result storageLoad(const Storage &storage, std::uint8_t *const buffer, const std
         return Result::InvalidArgument;
     }
 
-    const Result result = storage.ops->load(storage.user, buffer, capacity, bytesRead);
+    const Result result = storage.ops.load(storage.user, buffer, capacity, bytesRead);
     if (result == Result::Ok && bytesRead > capacity)
     {
         bytesRead = 0U;
@@ -87,7 +86,7 @@ Result storageSave(const Storage &storage, const std::uint8_t *const buffer,
         return Result::InvalidArgument;
     }
 
-    return storage.ops->save(storage.user, buffer, length);
+    return storage.ops.save(storage.user, buffer, length);
 }
 
 Result storageClear(const Storage &storage) noexcept
@@ -98,7 +97,7 @@ Result storageClear(const Storage &storage) noexcept
         return validation;
     }
 
-    return storage.ops->clear(storage.user);
+    return storage.ops.clear(storage.user);
 }
 
 } // namespace diag

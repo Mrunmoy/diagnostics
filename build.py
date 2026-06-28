@@ -40,11 +40,11 @@ def ctest_show_only(preset: str) -> dict:
     return json.loads(output)
 
 
-def test_working_directory(test: dict) -> Path:
+def test_working_directory(test: dict, preset: str) -> Path:
     for prop in test.get("properties", []):
         if prop.get("name") == "WORKING_DIRECTORY":
             return Path(prop["value"])
-    return ROOT
+    return build_dir_for_preset(preset)
 
 
 def run_asan_tests_direct(preset: str) -> None:
@@ -55,7 +55,7 @@ def run_asan_tests_direct(preset: str) -> None:
         if not command:
             raise SystemExit(f"ASAN test '{name}' has no command")
 
-        working_directory = test_working_directory(test)
+        working_directory = test_working_directory(test, preset)
         for attempt in range(1, ASAN_TEST_ATTEMPTS + 1):
             print(f"+ asan test {name} attempt {attempt}/{ASAN_TEST_ATTEMPTS}", flush=True)
             try:
