@@ -253,7 +253,7 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
     for (std::size_t index = 0U; index < count; ++index)
     {
         const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
-        DtcRecord         &record = state.config.dtcRecords[index];
+        DtcRecord        &record = state.config.dtcRecords[index];
         record.id = DtcId{readU32Le(&payload[offset])};
         record.occurrenceCount = readU32Le(&payload[offset + 4U]);
         record.clearCount = readU32Le(&payload[offset + 8U]);
