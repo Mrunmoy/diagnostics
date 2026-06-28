@@ -296,6 +296,37 @@ TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
     EXPECT_EQ(restored.dirtyFlags(), diag::DirtyFlags{0U});
 }
 
+TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
+{
+    diag::ContextStorage        sourceStorage{};
+    diag::Context               source{sourceStorage};
+    const diag::LifecycleConfig savedConfig{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+    const diag::LifecycleConfig restoredConfig{diag::ResetCounterPolicy::EveryN, 4U, 0U};
+
+    ASSERT_EQ(source.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(source.attachLifecycle(savedConfig), diag::Result::Ok);
+    ASSERT_EQ(source.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+    ASSERT_EQ(source.savePersistent(), diag::Result::Ok);
+
+    diag::ContextStorage                    restoredStorage{};
+    diag::Context                           restored{restoredStorage};
+    std::array<std::uint8_t, kStorageBytes> restoreCapsule{};
+    diag::Storage                           restoreAdapter = makeStorage();
+    restoreAdapter.capsuleBuffer = restoreCapsule.data();
+    restoreAdapter.capsuleBufferSize = restoreCapsule.size();
+
+    ASSERT_EQ(restored.attachStorage(restoreAdapter), diag::Result::Ok);
+    ASSERT_EQ(restored.attachLifecycle(restoredConfig), diag::Result::Ok);
+
+    EXPECT_EQ(restored.loadPersistent(), diag::Result::CorruptData);
+
+    const diag::ResultValue<diag::LifecycleSnapshot> snapshot = restored.lifecycle();
+    ASSERT_TRUE(snapshot.hasValue());
+    EXPECT_EQ(snapshot.value().resetCounterPolicy, diag::ResetCounterPolicy::EveryN);
+    EXPECT_EQ(snapshot.value().resetCount, 0U);
+    EXPECT_EQ(snapshot.value().abnormalResetCount, 0U);
+}
+
 TEST_F(StorageFixture, LoadSkipsDtcSectionWhenDtcStorageIsNotAttached)
 {
     std::array<diag::DtcRecord, 2U> sourceRecords{};

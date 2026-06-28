@@ -304,13 +304,18 @@ Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const p
         return Result::CorruptData;
     }
 
+    const ResetCounterPolicy persistedPolicy = static_cast<ResetCounterPolicy>(payload[3]);
+    if (persistedPolicy != state.lifecycleConfig.resetCounterPolicy)
+    {
+        return Result::CorruptData;
+    }
+
     state.lifecycleSnapshot.lastResetReason = static_cast<ResetReason>(payload[2]);
-    state.lifecycleSnapshot.resetCounterPolicy = static_cast<ResetCounterPolicy>(payload[3]);
+    state.lifecycleSnapshot.resetCounterPolicy = state.lifecycleConfig.resetCounterPolicy;
     state.lifecycleSnapshot.resetCount = readU32Le(&payload[4]);
     state.lifecycleSnapshot.abnormalResetCount = readU32Le(&payload[8]);
     state.lifecycleSnapshot.dirtyFlags = 0U;
     state.lifecycleSnapshot.persistRequested = false;
-    state.lifecycleConfig.resetCounterPolicy = state.lifecycleSnapshot.resetCounterPolicy;
     state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Lifecycle);
     return Result::Ok;
 }
