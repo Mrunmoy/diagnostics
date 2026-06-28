@@ -690,7 +690,7 @@ Result Context::savePersistent() noexcept
 
     if (!m_state->storageAttached)
     {
-        return Result::NotInitialized;
+        return Result::NotFound;
     }
 
     if (m_state->dirtyFlags == 0U)
@@ -860,7 +860,7 @@ Result Context::loadPersistent() noexcept
 
     if (!m_state->storageAttached)
     {
-        return Result::NotInitialized;
+        return Result::NotFound;
     }
 
     Storage &storage = m_state->storage;
@@ -946,7 +946,7 @@ Result Context::clearPersistent() noexcept
 
     if (!m_state->storageAttached)
     {
-        return Result::NotInitialized;
+        return Result::NotFound;
     }
 
     return storageClear(m_state->storage);

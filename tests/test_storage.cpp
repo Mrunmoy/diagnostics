@@ -153,6 +153,16 @@ TEST_F(StorageFixture, SaveCleanContextDoesNotCallAdapter)
     EXPECT_EQ(m_storage.persistedLength, 0U);
 }
 
+TEST_F(StorageFixture, PersistenceOperationsReportMissingStorageWhenNotAttached)
+{
+    diag::ContextStorage contextStorage{};
+    diag::Context        context{contextStorage};
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotFound);
+    EXPECT_EQ(context.loadPersistent(), diag::Result::NotFound);
+    EXPECT_EQ(context.clearPersistent(), diag::Result::NotFound);
+}
+
 TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
 {
     constexpr std::uint8_t kUntouchedByte = 0xA5U;
