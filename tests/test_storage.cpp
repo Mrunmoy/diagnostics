@@ -433,6 +433,24 @@ TEST_F(StorageFixture, SaveAfterClearWithCleanSectionSucceeds)
     EXPECT_EQ(m_storage.saveCalls, 1U);
 }
 
+TEST_F(StorageFixture, AttachLifecycleAfterLoadRequiresAnotherLoadBeforeCleanSectionSave)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.loadPersistent(), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.registerDtc(diag::DtcId{0x515253U}, diag::DtcSeverity::Warning),
+              diag::Result::Ok);
+
+    // Lifecycle was attached after the load attempt, so its clean default state is not protected.
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotInitialized);
+    EXPECT_EQ(m_storage.saveCalls, 0U);
+}
+
 TEST_F(StorageFixture, ReattachStorageRequiresLoadBeforeSaveWithCleanSection)
 {
     std::array<diag::DtcRecord, 2U> records{};

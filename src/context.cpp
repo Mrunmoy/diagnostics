@@ -418,6 +418,7 @@ Result Context::attachLifecycle(const LifecycleConfig &config) noexcept
     }
 
     m_state->lifecycleAttached = true;
+    m_state->persistentLoadAttempted = false;
     return clearDirty(DirtyFlag::Lifecycle);
 }
 
