@@ -397,6 +397,25 @@ TEST_F(StorageFixture, SaveAfterLoadWithCleanSectionSucceeds)
     EXPECT_EQ(m_storage.saveCalls, 1U);
 }
 
+TEST_F(StorageFixture, SaveAfterFailedLoadWithCleanSectionSucceeds)
+{
+    std::array<diag::DtcRecord, 2U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context context{contextStorage, diag::Config{records.data(), records.size()}};
+    const diag::LifecycleConfig config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+    diag::Storage               storage = makeStorage();
+    storage.ops.load = oversizedLoad;
+
+    ASSERT_EQ(context.attachStorage(storage), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.loadPersistent(), diag::Result::Storage);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+
+    // A hardware/load failure still counts as a load attempt for overwrite protection.
+    EXPECT_EQ(context.savePersistent(), diag::Result::Ok);
+    EXPECT_EQ(m_storage.saveCalls, 1U);
+}
+
 TEST_F(StorageFixture, SaveAfterClearWithCleanSectionSucceeds)
 {
     std::array<diag::DtcRecord, 2U> records{};

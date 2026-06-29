@@ -676,10 +676,6 @@ Result Context::savePersistent() noexcept
     }
 
     Storage &storage = m_state->storage;
-    if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize < kCapsuleHeaderSize)
-    {
-        return Result::InvalidArgument;
-    }
 
     const bool dtcDirty = (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
     const bool lifecycleDirty =
@@ -722,6 +718,7 @@ Result Context::savePersistent() noexcept
     CapsuleDescriptor descriptor{};
     descriptor.schemaVersion = kCapsuleSchemaVersion;
     descriptor.sectionCount = sectionCount;
+    // Single-bank persistence does not order multiple copies, so generation is unused.
     descriptor.generation = 0U;
 
     std::size_t payloadOffset = payloadStart;
@@ -860,10 +857,6 @@ Result Context::loadPersistent() noexcept
     m_state->persistentLoadAttempted = true;
 
     Storage &storage = m_state->storage;
-    if (storage.capsuleBuffer == nullptr || storage.capsuleBufferSize == 0U)
-    {
-        return Result::InvalidArgument;
-    }
 
     std::size_t  bytesRead = 0U;
     const Result loaded =
