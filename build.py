@@ -52,6 +52,7 @@ def test_working_directory(test: dict, preset: str) -> Path:
 
 def run_asan_tests_direct(preset: str) -> None:
     env = sanitizer_env()
+    failures: list[str] = []
     for test in ctest_show_only(preset).get("tests", []):
         command = test.get("command", [])
         name = test.get("name", "<unnamed>")
@@ -68,6 +69,12 @@ def run_asan_tests_direct(preset: str) -> None:
                 if attempt == ASAN_TEST_ATTEMPTS:
                     raise
                 print(f"ASAN test '{name}' timed out; retrying", flush=True)
+            except subprocess.CalledProcessError as error:
+                failures.append(f"{name} (exit {error.returncode})")
+                break
+
+    if failures:
+        raise SystemExit("ASAN tests failed:\n" + "\n".join(failures))
 
 
 def cmake_options(options: list[str]) -> list[str]:
