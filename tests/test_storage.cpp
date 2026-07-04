@@ -380,6 +380,34 @@ TEST_F(StorageFixture, SaveBeforeLoadWithCleanSectionReturnsNotInitialized)
     EXPECT_EQ(m_storage.saveCalls, 0U);
 }
 
+TEST_F(StorageFixture, ZeroCapacityDtcBufferIsNotPersistedAsAttachedSection)
+{
+    std::array<diag::DtcRecord, 1U> records{};
+    diag::ContextStorage            contextStorage{};
+    diag::Context                   context{contextStorage, diag::Config{records.data(), 0U}};
+    const diag::LifecycleConfig     config{diag::ResetCounterPolicy::AbnormalOnly, 0U, 0U};
+
+    ASSERT_EQ(context.attachStorage(makeStorage()), diag::Result::Ok);
+    ASSERT_EQ(context.attachLifecycle(config), diag::Result::Ok);
+    ASSERT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::Ok);
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::Ok);
+    EXPECT_EQ(m_storage.saveCalls, 1U);
+
+    const diag::ResultValue<diag::CapsuleDescriptor> descriptor =
+        diag::decodeCapsule(m_storage.persisted.data(), m_storage.persistedLength);
+    ASSERT_TRUE(descriptor.hasValue());
+    EXPECT_EQ(descriptor.value().sectionCount, 1U);
+
+    const diag::ResultValue<diag::CapsuleSection> dtcSection = diag::findCapsuleSectionByType(
+        descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc));
+    const diag::ResultValue<diag::CapsuleSection> lifecycleSection = diag::findCapsuleSectionByType(
+        descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::Lifecycle));
+
+    EXPECT_EQ(dtcSection.result(), diag::Result::NotFound);
+    EXPECT_TRUE(lifecycleSection.hasValue());
+}
+
 TEST_F(StorageFixture, SaveAfterLoadWithCleanSectionSucceeds)
 {
     std::array<diag::DtcRecord, 2U> records{};

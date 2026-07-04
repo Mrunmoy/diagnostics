@@ -138,7 +138,7 @@ Result Context::encodeDtcPayload(const State &state, std::uint8_t *const payload
 {
     usedLength = 0U;
 
-    if (state.config.dtcRecords == nullptr)
+    if (state.config.dtcRecords == nullptr || state.config.dtcCapacity == 0U)
     {
         return Result::NotInitialized;
     }
@@ -681,13 +681,14 @@ Result Context::savePersistent() noexcept
     const bool dtcDirty = (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
     const bool lifecycleDirty =
         (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
-    if ((dtcDirty && m_state->config.dtcRecords == nullptr) ||
-        (lifecycleDirty && !m_state->lifecycleAttached))
+    const bool dtcAttached =
+        (m_state->config.dtcRecords != nullptr) && (m_state->config.dtcCapacity != 0U);
+    if ((dtcDirty && !dtcAttached) || (lifecycleDirty && !m_state->lifecycleAttached))
     {
         return Result::NotInitialized;
     }
 
-    const bool dtcClean = (m_state->config.dtcRecords != nullptr) && !dtcDirty;
+    const bool dtcClean = dtcAttached && !dtcDirty;
     const bool lifecycleClean = m_state->lifecycleAttached && !lifecycleDirty;
     // Guard against overwriting previously persisted data with default in-memory values.
     // Callers must invoke loadPersistent() after attaching storage before the first save.
@@ -696,7 +697,7 @@ Result Context::savePersistent() noexcept
         return Result::NotInitialized;
     }
 
-    const bool    includeDtcSection = m_state->config.dtcRecords != nullptr;
+    const bool    includeDtcSection = dtcAttached;
     const bool    includeLifecycleSection = m_state->lifecycleAttached;
     std::uint16_t sectionCount = 0U;
     if (includeDtcSection)
