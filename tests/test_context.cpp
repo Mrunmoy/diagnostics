@@ -69,7 +69,12 @@ TEST(DiagContextIdentity, AttachesAndReturnsCompactIdentity)
 
 TEST(DiagContextStorage, HasStableBoundedSizeAndAlignment)
 {
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_IDENTITY && DIAG_FEATURE_STORAGE && \
+    DIAG_FEATURE_CAPSULE
     EXPECT_EQ(diag::ContextStorage::kSize, 176U);
+#else
+    EXPECT_LT(diag::ContextStorage::kSize, 176U);
+#endif
     EXPECT_GE(diag::ContextStorage::kAlignment, alignof(std::max_align_t));
     EXPECT_EQ(sizeof(diag::ContextStorage), diag::ContextStorage::kSize);
 }

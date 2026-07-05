@@ -47,7 +47,29 @@ class Context;
 
 struct ContextStorage
 {
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_IDENTITY
     static constexpr std::size_t kSize = 176U;
+#elif DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
+    static constexpr std::size_t kSize = 160U;
+#elif DIAG_FEATURE_DTC || DIAG_FEATURE_LIFECYCLE
+    static constexpr std::size_t kSize = 144U;
+#else
+    static constexpr std::size_t kSize = 128U;
+#endif
+#else
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_IDENTITY
+    static constexpr std::size_t kSize = 96U;
+#elif DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
+    static constexpr std::size_t kSize = 80U;
+#elif DIAG_FEATURE_DTC || DIAG_FEATURE_LIFECYCLE
+    static constexpr std::size_t kSize = 64U;
+#elif DIAG_FEATURE_IDENTITY
+    static constexpr std::size_t kSize = 48U;
+#else
+    static constexpr std::size_t kSize = 32U;
+#endif
+#endif
     static constexpr std::size_t kAlignment = alignof(std::max_align_t);
     static_assert((kSize % kAlignment) == 0U,
                   "ContextStorage::kSize must be a multiple of kAlignment");
