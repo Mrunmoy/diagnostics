@@ -733,18 +733,25 @@ Result Context::savePersistent() noexcept
 
     Storage &storage = m_state->storage;
 
-    const bool dtcDirty =
-#if DIAG_FEATURE_DTC
-        (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
-#else
-        false;
-#endif
-    const bool lifecycleDirty =
-#if DIAG_FEATURE_LIFECYCLE
+    const bool rawDtcDirty = (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
+    const bool rawLifecycleDirty =
         (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
-#else
-        false;
+
+#if !DIAG_FEATURE_DTC
+    if (rawDtcDirty)
+    {
+        return Result::NotSupported;
+    }
 #endif
+#if !DIAG_FEATURE_LIFECYCLE
+    if (rawLifecycleDirty)
+    {
+        return Result::NotSupported;
+    }
+#endif
+
+    const bool dtcDirty = rawDtcDirty;
+    const bool lifecycleDirty = rawLifecycleDirty;
     const bool dtcAttached =
 #if DIAG_FEATURE_DTC
         (m_state->config.dtcRecords != nullptr) && (m_state->config.dtcCapacity != 0U);
@@ -760,6 +767,11 @@ Result Context::savePersistent() noexcept
     if ((dtcDirty && !dtcAttached) || (lifecycleDirty && !lifecycleAttached))
     {
         return Result::NotInitialized;
+    }
+
+    if (!dtcDirty && !lifecycleDirty)
+    {
+        return Result::NotSupported;
     }
 
     const bool dtcClean = dtcAttached && !dtcDirty;
@@ -784,6 +796,11 @@ Result Context::savePersistent() noexcept
         ++sectionCount;
     }
 
+    if (sectionCount == 0U)
+    {
+        return Result::NotSupported;
+    }
+
     const std::size_t payloadStart =
         kCapsuleHeaderSize + (static_cast<std::size_t>(sectionCount) * kCapsuleSectionEntrySize);
     if (storage.capsuleBufferSize < payloadStart)
@@ -798,7 +815,9 @@ Result Context::savePersistent() noexcept
     descriptor.generation = 0U;
 
     std::size_t payloadOffset = payloadStart;
+#if DIAG_FEATURE_DTC || DIAG_FEATURE_LIFECYCLE
     std::size_t sectionIndex = 0U;
+#endif
 
     if (includeDtcSection)
     {

@@ -1,7 +1,57 @@
 #include "diag/context.hpp"
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#endif
+
 #include <gtest/gtest.h>
 #include <type_traits>
+
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+namespace
+{
+
+struct ContextTestStorage
+{
+    std::array<std::uint8_t, 64U> persisted{};
+    std::size_t                   saveCalls{0U};
+};
+
+diag::Result contextTestLoad(void *, std::uint8_t *, const std::size_t,
+                             std::size_t &bytesRead) noexcept
+{
+    bytesRead = 0U;
+    return diag::Result::Ok;
+}
+
+diag::Result contextTestSave(void *const user, const std::uint8_t *const,
+                             const std::size_t) noexcept
+{
+    ContextTestStorage &storage = *static_cast<ContextTestStorage *>(user);
+    ++storage.saveCalls;
+    return diag::Result::Ok;
+}
+
+diag::Result contextTestClear(void *) noexcept
+{
+    return diag::Result::Ok;
+}
+
+diag::Storage makeContextTestStorage(ContextTestStorage &storage)
+{
+    return diag::Storage{
+        diag::StorageOps{contextTestLoad, contextTestSave, contextTestClear},
+        &storage,
+        diag::StorageCapabilities{0xFFU, 8U},
+        storage.persisted.data(),
+        storage.persisted.size(),
+    };
+}
+
+} // namespace
+#endif
 
 TEST(DiagContext, InitializesInCallerOwnedStorage)
 {
@@ -101,3 +151,50 @@ TEST(DiagContextStorage, ReusesStorageAfterFirstContextIsDestroyed)
     diag::Context second{storage};
     EXPECT_TRUE(second.isInitialized());
 }
+
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE && !DIAG_FEATURE_DTC
+TEST(DiagContextPersistence, RejectsDtcDirtyFlagWhenDtcFeatureIsDisabled)
+{
+    ContextTestStorage   storageAdapter{};
+    diag::ContextStorage contextStorage{};
+    diag::Context        context{contextStorage};
+
+    ASSERT_EQ(context.attachStorage(makeContextTestStorage(storageAdapter)), diag::Result::Ok);
+    ASSERT_EQ(context.markDirty(diag::DirtyFlag::Dtc), diag::Result::Ok);
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(storageAdapter.saveCalls, 0U);
+}
+#endif
+
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE && !DIAG_FEATURE_LIFECYCLE
+TEST(DiagContextPersistence, RejectsLifecycleDirtyFlagWhenLifecycleFeatureIsDisabled)
+{
+    ContextTestStorage   storageAdapter{};
+    diag::ContextStorage contextStorage{};
+    diag::Context        context{contextStorage};
+
+    ASSERT_EQ(context.attachStorage(makeContextTestStorage(storageAdapter)), diag::Result::Ok);
+    ASSERT_EQ(context.markDirty(diag::DirtyFlag::Lifecycle), diag::Result::Ok);
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(storageAdapter.saveCalls, 0U);
+}
+#endif
+
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+TEST(DiagContextPersistence, RejectsUnknownDirtyFlagBeforeEncodingEmptyCapsule)
+{
+    constexpr diag::DirtyFlags kUnknownDirtyFlag = 1U << 8U;
+
+    ContextTestStorage   storageAdapter{};
+    diag::ContextStorage contextStorage{};
+    diag::Context        context{contextStorage};
+
+    ASSERT_EQ(context.attachStorage(makeContextTestStorage(storageAdapter)), diag::Result::Ok);
+    ASSERT_EQ(context.markDirty(static_cast<diag::DirtyFlag>(kUnknownDirtyFlag)), diag::Result::Ok);
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(storageAdapter.saveCalls, 0U);
+}
+#endif

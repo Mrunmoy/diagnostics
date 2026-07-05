@@ -74,6 +74,26 @@ FEATURE_MATRIX_PROFILES = [
         },
     },
     {
+        "name": "dtc-persistence",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "capsule-storage-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
         "name": "full",
         "features": {
             "DTC": True,
@@ -218,9 +238,7 @@ def feature_options(features: dict[str, bool]) -> list[str]:
 
 
 def feature_matrix(args: argparse.Namespace) -> None:
-    family = preset_family(args.preset)
     for profile in FEATURE_MATRIX_PROFILES:
-        preset = f"{family}-debug"
         options = [
             "DIAG_BUILD_EXAMPLES=ON",
             "DIAG_TEST_SPLIT_GTEST=OFF",
@@ -228,7 +246,7 @@ def feature_matrix(args: argparse.Namespace) -> None:
             *args.cmake_options,
         ]
         print(f"feature profile: {profile['name']}", flush=True)
-        test_preset(preset, options)
+        test_preset(args.preset, options)
 
 
 def install_library_for_preset(preset: str, prefix: Path, extra_options: list[str]) -> None:
