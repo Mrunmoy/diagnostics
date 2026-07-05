@@ -13,15 +13,34 @@ endif()
 FetchContent_MakeAvailable(googletest)
 
 set(diag_test_sources
-    test_capsule.cpp
     test_context.cpp
-    test_dtc.cpp
-    test_identity.cpp
-    test_lifecycle.cpp
+    test_features.cpp
     test_result.cpp
-    test_storage.cpp
     test_types.cpp
 )
+
+if(DIAG_FEATURE_CAPSULE)
+    list(APPEND diag_test_sources test_capsule.cpp)
+endif()
+
+if(DIAG_FEATURE_DTC)
+    list(APPEND diag_test_sources test_dtc.cpp)
+endif()
+
+if(DIAG_FEATURE_IDENTITY)
+    list(APPEND diag_test_sources test_identity.cpp)
+endif()
+
+if(DIAG_FEATURE_LIFECYCLE)
+    list(APPEND diag_test_sources test_lifecycle.cpp)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    list(APPEND diag_test_sources test_storage.cpp)
+endif()
 
 add_executable(diag_tests ${diag_test_sources})
 

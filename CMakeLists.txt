@@ -12,11 +12,14 @@ include(GNUInstallDirs)
 option(DIAG_BUILD_TESTS "Build diagnostics tests" ON)
 option(DIAG_BUILD_EXAMPLES "Build diagnostics examples" ON)
 option(DIAG_TEST_SPLIT_GTEST "Register each GoogleTest case separately" ON)
+option(DIAG_FEATURE_DTC "Enable Diagnostic Trouble Code APIs" ON)
+option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
+option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
+option(DIAG_FEATURE_STORAGE "Enable storage adapter APIs" ON)
+option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
 
 add_library(diag
-    src/capsule.cpp
     src/context.cpp
-    src/storage.cpp
 )
 
 add_library(diag::diag ALIAS diag)
@@ -33,6 +36,28 @@ target_include_directories(diag
 )
 
 target_compile_features(diag PUBLIC cxx_std_17)
+
+foreach(feature
+    DTC
+    LIFECYCLE
+    IDENTITY
+    STORAGE
+    CAPSULE
+)
+    if(DIAG_FEATURE_${feature})
+        target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=1)
+    else()
+        target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=0)
+    endif()
+endforeach()
+
+if(DIAG_FEATURE_CAPSULE)
+    target_sources(diag PRIVATE src/capsule.cpp)
+endif()
+
+if(DIAG_FEATURE_STORAGE)
+    target_sources(diag PRIVATE src/storage.cpp)
+endif()
 
 if(MSVC)
     target_compile_options(diag PRIVATE /W4 /WX /GR- /EHs-c-)

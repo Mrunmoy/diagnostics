@@ -61,6 +61,28 @@ On a host with `clang++-16` and `clang-format-14`:
 
 The installed package is written to `build/install/diag`.
 
+## Feature Selection
+
+Builds default to the full library. Disable unused slices with CMake options
+after `--`:
+
+```sh
+./build.py build -- DIAG_FEATURE_IDENTITY=OFF DIAG_FEATURE_STORAGE=OFF
+./build.py feature-matrix --preset container-debug
+```
+
+Available switches:
+
+- `DIAG_FEATURE_DTC`: fixed-capacity DTC registration and runtime state.
+- `DIAG_FEATURE_LIFECYCLE`: reset counters and lifecycle snapshots.
+- `DIAG_FEATURE_IDENTITY`: compact numeric device identity.
+- `DIAG_FEATURE_STORAGE`: storage adapter validation and wrapper functions.
+- `DIAG_FEATURE_CAPSULE`: versioned serialized capsule helpers.
+
+`diag::Context` persistence requires both storage and capsule support. The
+storage adapter contract can still be built alone when a project only wants the
+callback validation layer.
+
 ## Consuming The Library
 
 After `./build.py library`, a downstream CMake project can use:

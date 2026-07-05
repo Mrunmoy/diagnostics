@@ -33,6 +33,7 @@ TEST(DiagContext, TracksDirtyFlagsExplicitly)
     EXPECT_EQ(context.dirtyFlags(), static_cast<diag::DirtyFlags>(diag::DirtyFlag::Lifecycle));
 }
 
+#if DIAG_FEATURE_IDENTITY
 TEST(DiagContextIdentity, ReportsMissingIdentityBeforeAttach)
 {
     diag::ContextStorage storage{};
@@ -64,6 +65,7 @@ TEST(DiagContextIdentity, AttachesAndReturnsCompactIdentity)
     ASSERT_TRUE(actual.hasValue());
     EXPECT_EQ(actual.value(), configured);
 }
+#endif
 
 TEST(DiagContextStorage, HasStableBoundedSizeAndAlignment)
 {

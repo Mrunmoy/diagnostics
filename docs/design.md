@@ -66,6 +66,13 @@ The first scaffold establishes this direction with `diag::Context`, fixed
 `diag::ContextStorage`, strong IDs, compact `diag::Identity`, volatile DTC
 records, lifecycle counters, and a CMake package export.
 
+Feature slices are compile-time switches. The umbrella header exposes only
+enabled slices, CMake compiles only enabled source files, and the context state
+drops disabled slice fields. This keeps disabled APIs out of downstream firmware
+and avoids linking unused capsule or storage code. The narrow module headers
+remain useful for direct type declarations, but applications should include
+`<diag/diag.hpp>` when they want the configured API surface.
+
 The DTC slice stores records in caller-owned RAM supplied through `diag::Config`.
 Registration, lookup, listing, active-state updates, and clear counters are
 bounded by the configured capacity. Runtime DTC mutation marks the DTC dirty flag

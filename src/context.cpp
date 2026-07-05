@@ -1,7 +1,9 @@
 #include "diag/context.hpp"
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 #include "byte_order.hpp"
 #include "diag/capsule.hpp"
+#endif
 
 #include <cstddef>
 #include <cstdint>
@@ -13,18 +15,26 @@ namespace diag
 
 struct Context::State
 {
-    Config            config{};
-    DirtyFlags        dirtyFlags{0U};
-    std::size_t       dtcCount{0U};
-    Identity          identity{};
+    Config     config{};
+    DirtyFlags dirtyFlags{0U};
+#if DIAG_FEATURE_DTC
+    std::size_t dtcCount{0U};
+#endif
+#if DIAG_FEATURE_IDENTITY
+    Identity identity{};
+    bool     identityAttached{false};
+#endif
+#if DIAG_FEATURE_LIFECYCLE
     LifecycleConfig   lifecycleConfig{};
     LifecycleSnapshot lifecycleSnapshot{};
-    bool              initialized{false};
-    bool              identityAttached{false};
     bool              lifecycleAttached{false};
-    bool              storageAttached{false};
-    bool              persistentLoadAttempted{false};
-    Storage           storage{};
+#endif
+    bool initialized{false};
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+    bool    storageAttached{false};
+    bool    persistentLoadAttempted{false};
+    Storage storage{};
+#endif
 };
 
 struct Context::StorageLayout
@@ -78,6 +88,7 @@ DirtyFlags Context::dirtyFlags() const noexcept
 namespace
 {
 
+#if DIAG_FEATURE_DTC
 template <typename Record>
 [[nodiscard]] Record *findDtcRecord(Record *records, const std::size_t count,
                                     const DtcId id) noexcept
@@ -92,17 +103,23 @@ template <typename Record>
 
     return nullptr;
 }
+#endif
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
+#if DIAG_FEATURE_DTC
 constexpr std::uint16_t  kDtcCapsuleSectionVersion = 1U;
-constexpr std::uint16_t  kLifecycleCapsuleSectionVersion = 1U;
 constexpr std::size_t    kDtcPayloadHeaderSize = 4U;
 constexpr std::size_t    kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
-constexpr std::size_t    kLifecyclePayloadSize = 16U;
 constexpr DtcStatusFlags kKnownDtcStatusMask =
     static_cast<DtcStatusFlags>(DtcStatus::TestFailed) |
     static_cast<DtcStatusFlags>(DtcStatus::Pending) |
     static_cast<DtcStatusFlags>(DtcStatus::Confirmed) |
     static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
+#endif
+#if DIAG_FEATURE_LIFECYCLE
+constexpr std::uint16_t kLifecycleCapsuleSectionVersion = 1U;
+constexpr std::size_t   kLifecyclePayloadSize = 16U;
+#endif
 
 [[nodiscard]] ResultValue<std::size_t> alignUp(const std::size_t value,
                                                const std::size_t alignment) noexcept
@@ -130,9 +147,11 @@ void fillBytes(std::uint8_t *const buffer, const std::size_t offset, const std::
         buffer[offset + index] = value;
     }
 }
+#endif
 
 } // namespace
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::encodeDtcPayload(const State &state, std::uint8_t *const payload,
                                  const std::size_t capacity, std::size_t &usedLength) noexcept
 {
@@ -174,7 +193,9 @@ Result Context::encodeDtcPayload(const State &state, std::uint8_t *const payload
     usedLength = required;
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload,
                                  const std::size_t length) noexcept
 {
@@ -243,7 +264,9 @@ Result Context::decodeDtcPayload(State &state, const std::uint8_t *const payload
     state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Dtc);
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::encodeLifecyclePayload(const State &state, std::uint8_t *const payload,
                                        const std::size_t capacity, std::size_t &usedLength) noexcept
 {
@@ -277,7 +300,9 @@ Result Context::encodeLifecyclePayload(const State &state, std::uint8_t *const p
     usedLength = kLifecyclePayloadSize;
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const payload,
                                        const std::size_t length) noexcept
 {
@@ -314,7 +339,9 @@ Result Context::decodeLifecyclePayload(State &state, const std::uint8_t *const p
     state.dirtyFlags &= ~static_cast<DirtyFlags>(DirtyFlag::Lifecycle);
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_IDENTITY
 ResultValue<Identity> Context::identity() const noexcept
 {
     if (!isInitialized())
@@ -329,7 +356,9 @@ ResultValue<Identity> Context::identity() const noexcept
 
     return ResultValue<Identity>{m_state->identity};
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 ResultValue<LifecycleSnapshot> Context::lifecycle() const noexcept
 {
     if (!isInitialized())
@@ -344,12 +373,16 @@ ResultValue<LifecycleSnapshot> Context::lifecycle() const noexcept
 
     return ResultValue<LifecycleSnapshot>{m_state->lifecycleSnapshot};
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 std::size_t Context::dtcCount() const noexcept
 {
     return isInitialized() ? m_state->dtcCount : 0U;
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 ResultValue<DtcRecord> Context::dtc(const DtcId id) const noexcept
 {
     if (!isInitialized())
@@ -366,6 +399,7 @@ ResultValue<DtcRecord> Context::dtc(const DtcId id) const noexcept
 
     return ResultValue<DtcRecord>{*record};
 }
+#endif
 
 Result Context::markDirty(const DirtyFlag flag) noexcept
 {
@@ -389,6 +423,7 @@ Result Context::clearDirty(const DirtyFlag flag) noexcept
     return Result::Ok;
 }
 
+#if DIAG_FEATURE_IDENTITY
 Result Context::attachIdentity(const Identity &identity) noexcept
 {
     if (!isInitialized())
@@ -401,7 +436,9 @@ Result Context::attachIdentity(const Identity &identity) noexcept
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 Result Context::attachLifecycle(const LifecycleConfig &config) noexcept
 {
     if (!isInitialized())
@@ -418,10 +455,14 @@ Result Context::attachLifecycle(const LifecycleConfig &config) noexcept
     }
 
     m_state->lifecycleAttached = true;
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
     m_state->persistentLoadAttempted = false;
+#endif
     return clearDirty(DirtyFlag::Lifecycle);
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 Result Context::observeReset(const ResetReason reason) noexcept
 {
     if (!isInitialized())
@@ -487,7 +528,9 @@ Result Context::observeReset(const ResetReason reason) noexcept
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 Result Context::clearLifecycleDirty(const LifecycleDirtyFlags dirtyFlags) noexcept
 {
     if (!isInitialized())
@@ -509,7 +552,9 @@ Result Context::clearLifecycleDirty(const LifecycleDirtyFlags dirtyFlags) noexce
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 Result Context::registerDtc(const DtcId id, const DtcSeverity severity) noexcept
 {
     if (!isInitialized())
@@ -540,7 +585,9 @@ Result Context::registerDtc(const DtcId id, const DtcSeverity severity) noexcept
 
     return markDirty(DirtyFlag::Dtc);
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 Result Context::listDtcs(DtcRecord *records, const std::size_t capacity,
                          std::size_t &count) const noexcept
 {
@@ -567,7 +614,9 @@ Result Context::listDtcs(DtcRecord *records, const std::size_t capacity,
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 Result Context::setDtcActive(const DtcId id, const bool active) noexcept
 {
     if (!isInitialized())
@@ -606,7 +655,9 @@ Result Context::setDtcActive(const DtcId id, const bool active) noexcept
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_DTC
 Result Context::clearDtc(const DtcId id) noexcept
 {
     if (!isInitialized())
@@ -634,7 +685,9 @@ Result Context::clearDtc(const DtcId id) noexcept
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::attachStorage(const Storage &storage) noexcept
 {
     if (!isInitialized())
@@ -658,7 +711,9 @@ Result Context::attachStorage(const Storage &storage) noexcept
     m_state->persistentLoadAttempted = false;
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::savePersistent() noexcept
 {
     if (!isInitialized())
@@ -678,18 +733,37 @@ Result Context::savePersistent() noexcept
 
     Storage &storage = m_state->storage;
 
-    const bool dtcDirty = (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
+    const bool dtcDirty =
+#if DIAG_FEATURE_DTC
+        (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
+#else
+        false;
+#endif
     const bool lifecycleDirty =
+#if DIAG_FEATURE_LIFECYCLE
         (m_state->dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
+#else
+        false;
+#endif
     const bool dtcAttached =
+#if DIAG_FEATURE_DTC
         (m_state->config.dtcRecords != nullptr) && (m_state->config.dtcCapacity != 0U);
-    if ((dtcDirty && !dtcAttached) || (lifecycleDirty && !m_state->lifecycleAttached))
+#else
+        false;
+#endif
+    const bool lifecycleAttached =
+#if DIAG_FEATURE_LIFECYCLE
+        m_state->lifecycleAttached;
+#else
+        false;
+#endif
+    if ((dtcDirty && !dtcAttached) || (lifecycleDirty && !lifecycleAttached))
     {
         return Result::NotInitialized;
     }
 
     const bool dtcClean = dtcAttached && !dtcDirty;
-    const bool lifecycleClean = m_state->lifecycleAttached && !lifecycleDirty;
+    const bool lifecycleClean = lifecycleAttached && !lifecycleDirty;
     // Guard against overwriting previously persisted data with default in-memory values.
     // Callers must invoke loadPersistent() after attaching storage before the first save.
     if (!m_state->persistentLoadAttempted && (dtcClean || lifecycleClean))
@@ -698,7 +772,7 @@ Result Context::savePersistent() noexcept
     }
 
     const bool    includeDtcSection = dtcAttached;
-    const bool    includeLifecycleSection = m_state->lifecycleAttached;
+    const bool    includeLifecycleSection = lifecycleAttached;
     std::uint16_t sectionCount = 0U;
     if (includeDtcSection)
     {
@@ -728,6 +802,7 @@ Result Context::savePersistent() noexcept
 
     if (includeDtcSection)
     {
+#if DIAG_FEATURE_DTC
         std::size_t  usedLength = 0U;
         const Result result =
             encodeDtcPayload(*m_state, &storage.capsuleBuffer[payloadOffset],
@@ -763,10 +838,12 @@ Result Context::savePersistent() noexcept
                   storage.capabilities.eraseValue);
         ++sectionIndex;
         payloadOffset += length;
+#endif
     }
 
     if (includeLifecycleSection)
     {
+#if DIAG_FEATURE_LIFECYCLE
         std::size_t  usedLength = 0U;
         const Result result =
             encodeLifecyclePayload(*m_state, &storage.capsuleBuffer[payloadOffset],
@@ -802,6 +879,7 @@ Result Context::savePersistent() noexcept
                   storage.capabilities.eraseValue);
         ++sectionIndex;
         payloadOffset += length;
+#endif
     }
 
     const ResultValue<std::size_t> alignedTotalLength =
@@ -836,14 +914,18 @@ Result Context::savePersistent() noexcept
         m_state->dirtyFlags &= ~savedFlags;
         if ((savedFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U)
         {
+#if DIAG_FEATURE_LIFECYCLE
             m_state->lifecycleSnapshot.dirtyFlags = 0U;
             m_state->lifecycleSnapshot.persistRequested = false;
+#endif
         }
     }
 
     return saved;
 }
+#endif
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::loadPersistent() noexcept
 {
     if (!isInitialized())
@@ -885,6 +967,7 @@ Result Context::loadPersistent() noexcept
         descriptor, static_cast<std::uint16_t>(CapsuleSectionType::ApplicationDtc));
     if (dtcSection.hasValue())
     {
+#if DIAG_FEATURE_DTC
         if (dtcSection.value().version != kDtcCapsuleSectionVersion)
         {
             return Result::CorruptData;
@@ -897,6 +980,7 @@ Result Context::loadPersistent() noexcept
         {
             return result;
         }
+#endif
     }
     else if (dtcSection.result() != Result::NotFound)
     {
@@ -907,6 +991,7 @@ Result Context::loadPersistent() noexcept
         descriptor, static_cast<std::uint16_t>(CapsuleSectionType::Lifecycle));
     if (lifecycleSection.hasValue())
     {
+#if DIAG_FEATURE_LIFECYCLE
         if (lifecycleSection.value().version != kLifecycleCapsuleSectionVersion)
         {
             return Result::CorruptData;
@@ -919,6 +1004,7 @@ Result Context::loadPersistent() noexcept
         {
             return result;
         }
+#endif
     }
     else if (lifecycleSection.result() != Result::NotFound)
     {
@@ -927,7 +1013,9 @@ Result Context::loadPersistent() noexcept
 
     return Result::Ok;
 }
+#endif
 
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 Result Context::clearPersistent() noexcept
 {
     if (!isInitialized())
@@ -948,5 +1036,6 @@ Result Context::clearPersistent() noexcept
 
     return cleared;
 }
+#endif
 
 } // namespace diag
