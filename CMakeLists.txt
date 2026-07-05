@@ -19,7 +19,9 @@ option(DIAG_FEATURE_STORAGE "Enable storage adapter APIs" ON)
 option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
 
 add_library(diag
+    src/capsule.cpp
     src/context.cpp
+    src/storage.cpp
 )
 
 add_library(diag::diag ALIAS diag)
@@ -50,14 +52,6 @@ foreach(feature
         target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=0)
     endif()
 endforeach()
-
-if(DIAG_FEATURE_CAPSULE)
-    target_sources(diag PRIVATE src/capsule.cpp)
-endif()
-
-if(DIAG_FEATURE_STORAGE)
-    target_sources(diag PRIVATE src/storage.cpp)
-endif()
 
 if(MSVC)
     target_compile_options(diag PRIVATE /W4 /WX /GR- /EHs-c-)
