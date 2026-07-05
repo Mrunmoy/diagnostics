@@ -83,6 +83,18 @@ TEST(DiagContext, TracksDirtyFlagsExplicitly)
     EXPECT_EQ(context.dirtyFlags(), static_cast<diag::DirtyFlags>(diag::DirtyFlag::Lifecycle));
 }
 
+#if !DIAG_FEATURE_IDENTITY
+TEST(DiagContextIdentity, DisabledFeatureReportsNotSupported)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+    const diag::Identity identity{};
+
+    EXPECT_EQ(context.attachIdentity(identity), diag::Result::NotSupported);
+    EXPECT_EQ(context.identity().result(), diag::Result::NotSupported);
+}
+#endif
+
 #if DIAG_FEATURE_IDENTITY
 TEST(DiagContextIdentity, ReportsMissingIdentityBeforeAttach)
 {
@@ -114,6 +126,41 @@ TEST(DiagContextIdentity, AttachesAndReturnsCompactIdentity)
     const diag::ResultValue<diag::Identity> actual = context.identity();
     ASSERT_TRUE(actual.hasValue());
     EXPECT_EQ(actual.value(), configured);
+}
+#endif
+
+#if !DIAG_FEATURE_DTC
+TEST(DiagContextDtc, DisabledFeatureReportsNotSupported)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+    diag::DtcRecord      records[1]{};
+    std::size_t          count = 7U;
+
+    EXPECT_EQ(context.registerDtc(diag::DtcId{1U}, diag::DtcSeverity::Warning),
+              diag::Result::NotSupported);
+    EXPECT_EQ(context.dtc(diag::DtcId{1U}).result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.listDtcs(records, 1U, count), diag::Result::NotSupported);
+    EXPECT_EQ(count, 0U);
+    EXPECT_EQ(context.setDtcActive(diag::DtcId{1U}, true), diag::Result::NotSupported);
+    EXPECT_EQ(context.clearDtc(diag::DtcId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.dtcCount(), 0U);
+}
+#endif
+
+#if !DIAG_FEATURE_LIFECYCLE
+TEST(DiagContextLifecycle, DisabledFeatureReportsNotSupported)
+{
+    diag::ContextStorage        storage{};
+    diag::Context               context{storage};
+    const diag::LifecycleConfig config{};
+
+    EXPECT_EQ(context.attachLifecycle(config), diag::Result::NotSupported);
+    EXPECT_EQ(context.lifecycle().result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.observeReset(diag::ResetReason::Watchdog), diag::Result::NotSupported);
+    EXPECT_EQ(context.clearLifecycleDirty(
+                  static_cast<diag::LifecycleDirtyFlags>(diag::LifecycleDirtyFlag::ResetCounter)),
+              diag::Result::NotSupported);
 }
 #endif
 
@@ -151,6 +198,20 @@ TEST(DiagContextStorage, ReusesStorageAfterFirstContextIsDestroyed)
     diag::Context second{storage};
     EXPECT_TRUE(second.isInitialized());
 }
+
+#if !(DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE)
+TEST(DiagContextPersistence, DisabledFeatureReportsNotSupported)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+    diag::Storage        adapter{};
+
+    EXPECT_EQ(context.attachStorage(adapter), diag::Result::NotSupported);
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(context.loadPersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(context.clearPersistent(), diag::Result::NotSupported);
+}
+#endif
 
 #if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE && !DIAG_FEATURE_DTC
 TEST(DiagContextPersistence, RejectsDtcDirtyFlagWhenDtcFeatureIsDisabled)
