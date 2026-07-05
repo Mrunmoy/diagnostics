@@ -4,6 +4,7 @@
 #include "diag/identity.hpp"
 #include "diag/lifecycle.hpp"
 #include "diag/result.hpp"
+#include "diag/storage.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -35,7 +36,7 @@ class Context;
 
 struct ContextStorage
 {
-    static constexpr std::size_t kSize = 128U;
+    static constexpr std::size_t kSize = 176U;
     static constexpr std::size_t kAlignment = alignof(std::max_align_t);
     static_assert((kSize % kAlignment) == 0U,
                   "ContextStorage::kSize must be a multiple of kAlignment");
@@ -72,10 +73,25 @@ class Context
                                   std::size_t &count) const noexcept;
     [[nodiscard]] Result setDtcActive(DtcId id, bool active) noexcept;
     [[nodiscard]] Result clearDtc(DtcId id) noexcept;
+    [[nodiscard]] Result attachStorage(const Storage &storage) noexcept;
+    [[nodiscard]] Result savePersistent() noexcept;
+    [[nodiscard]] Result loadPersistent() noexcept;
+    [[nodiscard]] Result clearPersistent() noexcept;
 
   private:
     struct State;
     struct StorageLayout;
+
+    [[nodiscard]] static Result encodeDtcPayload(const State &state, std::uint8_t *payload,
+                                                 std::size_t  capacity,
+                                                 std::size_t &usedLength) noexcept;
+    [[nodiscard]] static Result decodeDtcPayload(State &state, const std::uint8_t *payload,
+                                                 std::size_t length) noexcept;
+    [[nodiscard]] static Result encodeLifecyclePayload(const State &state, std::uint8_t *payload,
+                                                       std::size_t  capacity,
+                                                       std::size_t &usedLength) noexcept;
+    [[nodiscard]] static Result decodeLifecyclePayload(State &state, const std::uint8_t *payload,
+                                                       std::size_t length) noexcept;
 
     StorageLayout *m_storage{nullptr};
     State         *m_state{nullptr};

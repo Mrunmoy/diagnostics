@@ -13,7 +13,8 @@ diagnostic core to its storage and transport adapters.
 ## Current Status
 
 This branch has the first C++ scaffold, identity slice, volatile DTC slice,
-lifecycle/reset-counter slice, and capsule serialization slice:
+lifecycle/reset-counter slice, capsule serialization slice, and explicit storage
+persistence slice:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
@@ -26,9 +27,9 @@ lifecycle/reset-counter slice, and capsule serialization slice:
   platform-owned counter policies.
 - Versioned diagnostic capsules with bounded section tables, fixed-size table
   entries, little-endian fields, CRC validation, and caller-owned payload buffers.
+- Storage adapter callbacks for explicit save, load, and clear operations.
 
-The next slices will add storage integration and example tester workflows in
-idiomatic C++.
+The next slices will add example tester workflows in idiomatic C++.
 
 ## Quick Start
 
@@ -48,6 +49,7 @@ Inside the container:
 ./build/container-debug/examples/diag_dtc_example
 ./build/container-debug/examples/diag_identity_example
 ./build/container-debug/examples/diag_lifecycle_example
+./build/container-debug/examples/diag_storage_example
 ```
 
 On a host with `clang++-16` and `clang-format-14`:
@@ -97,6 +99,36 @@ if (diagnostics.attachLifecycle(lifecycle) != diag::Result::Ok)
 }
 
 if (diagnostics.observeReset(diag::ResetReason::Watchdog) != diag::Result::Ok)
+{
+    // handle error
+}
+```
+
+Persistent diagnostics use a downstream storage adapter. The library validates
+the callback table and writes only when `savePersistent()` is called. Always call
+`loadPersistent()` after attaching storage to restore previously saved state before
+calling `savePersistent()`:
+
+```cpp
+std::uint8_t capsule[256]{};
+diag::Storage storageAdapter{
+    diag::StorageOps{platformLoad, platformSave, platformClear},
+    platformStorageUser,
+    diag::StorageCapabilities{0xFFU, 8U},
+    capsule,
+    sizeof(capsule),
+};
+
+if (diagnostics.attachStorage(storageAdapter) != diag::Result::Ok)
+{
+    // handle error
+}
+
+// Restore previously persisted state. On first boot this returns Ok with nothing
+// to load; on subsequent boots it restores DTC records and lifecycle counters.
+diagnostics.loadPersistent();
+
+if (diagnostics.savePersistent() != diag::Result::Ok)
 {
     // handle error
 }

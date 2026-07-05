@@ -1,39 +1,13 @@
 #include "diag/capsule.hpp"
 
+#include "byte_order.hpp"
+
 #include <cstring>
 
 namespace diag
 {
 namespace
 {
-
-void writeU16Le(std::uint8_t *const buffer, const std::uint16_t value) noexcept
-{
-    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
-    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
-}
-
-void writeU32Le(std::uint8_t *const buffer, const std::uint32_t value) noexcept
-{
-    buffer[0] = static_cast<std::uint8_t>(value & 0xFFU);
-    buffer[1] = static_cast<std::uint8_t>((value >> 8U) & 0xFFU);
-    buffer[2] = static_cast<std::uint8_t>((value >> 16U) & 0xFFU);
-    buffer[3] = static_cast<std::uint8_t>((value >> 24U) & 0xFFU);
-}
-
-[[nodiscard]] std::uint16_t readU16Le(const std::uint8_t *const buffer) noexcept
-{
-    return static_cast<std::uint16_t>(static_cast<std::uint16_t>(buffer[0]) |
-                                      (static_cast<std::uint16_t>(buffer[1]) << 8U));
-}
-
-[[nodiscard]] std::uint32_t readU32Le(const std::uint8_t *const buffer) noexcept
-{
-    return static_cast<std::uint32_t>(static_cast<std::uint32_t>(buffer[0]) |
-                                      (static_cast<std::uint32_t>(buffer[1]) << 8U) |
-                                      (static_cast<std::uint32_t>(buffer[2]) << 16U) |
-                                      (static_cast<std::uint32_t>(buffer[3]) << 24U));
-}
 
 [[nodiscard]] std::size_t sectionTableEnd(const std::uint16_t sectionCount) noexcept
 {
@@ -154,14 +128,14 @@ CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_
         return CapsuleEncodeResult{Result::InvalidArgument, 0U};
     }
 
-    writeU32Le(&buffer[0], kCapsuleMagic);
-    writeU16Le(&buffer[4], kCapsuleSchemaVersion);
-    writeU16Le(&buffer[6], static_cast<std::uint16_t>(kCapsuleHeaderSize));
-    writeU32Le(&buffer[8], descriptor.totalLength);
-    writeU32Le(&buffer[12], descriptor.generation);
-    writeU16Le(&buffer[16], descriptor.sectionCount);
-    writeU16Le(&buffer[18], 0U);
-    writeU32Le(&buffer[20], 0U);
+    internal::writeU32Le(&buffer[0], kCapsuleMagic);
+    internal::writeU16Le(&buffer[4], kCapsuleSchemaVersion);
+    internal::writeU16Le(&buffer[6], static_cast<std::uint16_t>(kCapsuleHeaderSize));
+    internal::writeU32Le(&buffer[8], descriptor.totalLength);
+    internal::writeU32Le(&buffer[12], descriptor.generation);
+    internal::writeU16Le(&buffer[16], descriptor.sectionCount);
+    internal::writeU16Le(&buffer[18], 0U);
+    internal::writeU32Le(&buffer[20], 0U);
 
     for (std::uint16_t index = 0U; index < descriptor.sectionCount; ++index)
     {
@@ -169,11 +143,11 @@ CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_
         const std::size_t     entryOffset =
             kCapsuleHeaderSize + (static_cast<std::size_t>(index) * kCapsuleSectionEntrySize);
 
-        writeU16Le(&buffer[entryOffset], section.type);
-        writeU16Le(&buffer[entryOffset + 2U], section.version);
-        writeU32Le(&buffer[entryOffset + 4U], section.offset);
-        writeU32Le(&buffer[entryOffset + 8U], section.length);
-        writeU32Le(&buffer[entryOffset + 12U], section.usedLength);
+        internal::writeU16Le(&buffer[entryOffset], section.type);
+        internal::writeU16Le(&buffer[entryOffset + 2U], section.version);
+        internal::writeU32Le(&buffer[entryOffset + 4U], section.offset);
+        internal::writeU32Le(&buffer[entryOffset + 8U], section.length);
+        internal::writeU32Le(&buffer[entryOffset + 12U], section.usedLength);
     }
 
     const ResultValue<std::uint32_t> contentCrc32 =
@@ -183,7 +157,7 @@ CapsuleEncodeResult encodeCapsuleV1(std::uint8_t *const buffer, const std::size_
         return CapsuleEncodeResult{contentCrc32.result(), 0U};
     }
 
-    writeU32Le(&buffer[20], contentCrc32.value());
+    internal::writeU32Le(&buffer[20], contentCrc32.value());
 
     return CapsuleEncodeResult{Result::Ok, descriptor.totalLength};
 }
@@ -201,33 +175,33 @@ ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *const buffer,
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    if (readU32Le(&buffer[0]) != kCapsuleMagic)
+    if (internal::readU32Le(&buffer[0]) != kCapsuleMagic)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    if (readU16Le(&buffer[4]) != kCapsuleSchemaVersion)
+    if (internal::readU16Le(&buffer[4]) != kCapsuleSchemaVersion)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    if (readU16Le(&buffer[6]) != kCapsuleHeaderSize)
+    if (internal::readU16Le(&buffer[6]) != kCapsuleHeaderSize)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    if (readU16Le(&buffer[18]) != 0U)
+    if (internal::readU16Le(&buffer[18]) != 0U)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    const std::uint32_t totalLength = readU32Le(&buffer[8]);
+    const std::uint32_t totalLength = internal::readU32Le(&buffer[8]);
     if (totalLength > length)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
     }
 
-    const std::uint16_t sectionCount = readU16Le(&buffer[16]);
+    const std::uint16_t sectionCount = internal::readU16Le(&buffer[16]);
     if (sectionCount > kCapsuleMaxSections)
     {
         return ResultValue<CapsuleDescriptor>{Result::CorruptData};
@@ -243,8 +217,8 @@ ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *const buffer,
     descriptor.schemaVersion = kCapsuleSchemaVersion;
     descriptor.sectionCount = sectionCount;
     descriptor.totalLength = totalLength;
-    descriptor.generation = readU32Le(&buffer[12]);
-    descriptor.contentCrc32 = readU32Le(&buffer[20]);
+    descriptor.generation = internal::readU32Le(&buffer[12]);
+    descriptor.contentCrc32 = internal::readU32Le(&buffer[20]);
 
     for (std::uint16_t index = 0U; index < sectionCount; ++index)
     {
@@ -252,11 +226,11 @@ ResultValue<CapsuleDescriptor> decodeCapsule(const std::uint8_t *const buffer,
         const std::size_t entryOffset =
             kCapsuleHeaderSize + (static_cast<std::size_t>(index) * kCapsuleSectionEntrySize);
 
-        section.type = readU16Le(&buffer[entryOffset]);
-        section.version = readU16Le(&buffer[entryOffset + 2U]);
-        section.offset = readU32Le(&buffer[entryOffset + 4U]);
-        section.length = readU32Le(&buffer[entryOffset + 8U]);
-        section.usedLength = readU32Le(&buffer[entryOffset + 12U]);
+        section.type = internal::readU16Le(&buffer[entryOffset]);
+        section.version = internal::readU16Le(&buffer[entryOffset + 2U]);
+        section.offset = internal::readU32Le(&buffer[entryOffset + 4U]);
+        section.length = internal::readU32Le(&buffer[entryOffset + 8U]);
+        section.usedLength = internal::readU32Le(&buffer[entryOffset + 12U]);
     }
 
     if (validateSections(descriptor.sections, sectionCount, totalLength, payloadStart) !=
