@@ -163,6 +163,7 @@ TEST_F(StorageFixture, PersistenceOperationsReportMissingStorageWhenNotAttached)
     EXPECT_EQ(context.clearPersistent(), diag::Result::NotFound);
 }
 
+#if DIAG_FEATURE_DTC
 TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
 {
     constexpr std::uint8_t kUntouchedByte = 0xA5U;
@@ -281,7 +282,9 @@ TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
     EXPECT_EQ(restored.loadPersistent(), diag::Result::CorruptData);
     EXPECT_EQ(restored.dtcCount(), 0U);
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
 {
     diag::ContextStorage        sourceStorage{};
@@ -314,7 +317,9 @@ TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
     EXPECT_FALSE(snapshot.value().persistRequested);
     EXPECT_EQ(restored.dirtyFlags(), diag::DirtyFlags{0U});
 }
+#endif
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, SaveDirtyDtcPreservesCleanLifecycleSection)
 {
     std::array<diag::DtcRecord, 2U> records{};
@@ -498,7 +503,9 @@ TEST_F(StorageFixture, ReattachStorageRequiresLoadBeforeSaveWithCleanSection)
     EXPECT_EQ(context.savePersistent(), diag::Result::NotInitialized);
     EXPECT_EQ(m_storage.saveCalls, 1U);
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
 {
     diag::ContextStorage        sourceStorage{};
@@ -529,7 +536,9 @@ TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
     EXPECT_EQ(snapshot.value().resetCount, 0U);
     EXPECT_EQ(snapshot.value().abnormalResetCount, 0U);
 }
+#endif
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, LoadSkipsDtcSectionWhenDtcStorageIsNotAttached)
 {
     std::array<diag::DtcRecord, 2U> sourceRecords{};
@@ -600,6 +609,7 @@ TEST_F(StorageFixture, LoadSkipsLifecycleSectionWhenLifecycleIsNotAttached)
     ASSERT_TRUE(record.hasValue());
     EXPECT_EQ(record.value().severity, diag::DtcSeverity::Critical);
 }
+#endif
 
 TEST_F(StorageFixture, ClearPersistentInvokesAdapterClear)
 {

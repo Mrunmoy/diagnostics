@@ -35,10 +35,7 @@ if(DIAG_FEATURE_LIFECYCLE)
     list(APPEND diag_test_sources test_lifecycle.cpp)
 endif()
 
-if(DIAG_FEATURE_DTC
-   AND DIAG_FEATURE_LIFECYCLE
-   AND DIAG_FEATURE_STORAGE
-   AND DIAG_FEATURE_CAPSULE)
+if(DIAG_FEATURE_STORAGE AND DIAG_FEATURE_CAPSULE)
     list(APPEND diag_test_sources test_storage.cpp)
 endif()
 
