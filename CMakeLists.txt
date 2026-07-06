@@ -15,8 +15,8 @@ option(DIAG_TEST_SPLIT_GTEST "Register each GoogleTest case separately" ON)
 option(DIAG_FEATURE_DTC "Enable Diagnostic Trouble Code APIs" ON)
 option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
 option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
-option(DIAG_FEATURE_STORAGE "Enable storage adapter APIs" ON)
-option(DIAG_FEATURE_CAPSULE "Enable serialized capsule APIs" ON)
+option(DIAG_FEATURE_STORAGE "Enable Context persistent storage integration" ON)
+option(DIAG_FEATURE_CAPSULE "Enable Context persistent capsule integration" ON)
 
 add_library(diag
     src/capsule.cpp

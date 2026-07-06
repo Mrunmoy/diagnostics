@@ -76,12 +76,13 @@ Available switches:
 - `DIAG_FEATURE_DTC`: fixed-capacity DTC registration and runtime state.
 - `DIAG_FEATURE_LIFECYCLE`: reset counters and lifecycle snapshots.
 - `DIAG_FEATURE_IDENTITY`: compact numeric device identity.
-- `DIAG_FEATURE_STORAGE`: storage adapter validation and wrapper functions.
-- `DIAG_FEATURE_CAPSULE`: versioned serialized capsule helpers.
+- `DIAG_FEATURE_STORAGE`: `diag::Context` integration with a storage adapter.
+- `DIAG_FEATURE_CAPSULE`: `diag::Context` integration with the capsule format.
 
 `diag::Context` persistence requires both storage and capsule support. The
-storage adapter contract can still be built alone when a project only wants the
-callback validation layer.
+standalone storage adapter and capsule helper APIs remain available from the
+installed headers and static library; these switches decide whether `Context`
+uses them for persistent diagnostic state.
 
 ## Consuming The Library
 
