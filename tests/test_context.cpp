@@ -1,8 +1,9 @@
 #include "diag/context.hpp"
 
+#include <cstddef>
+
 #if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #endif
 

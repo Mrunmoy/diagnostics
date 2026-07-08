@@ -19,9 +19,7 @@ set(diag_test_sources
     test_types.cpp
 )
 
-if(DIAG_FEATURE_CAPSULE)
-    list(APPEND diag_test_sources test_capsule.cpp)
-endif()
+list(APPEND diag_test_sources test_capsule.cpp)
 
 if(DIAG_FEATURE_DTC)
     list(APPEND diag_test_sources test_dtc.cpp)
