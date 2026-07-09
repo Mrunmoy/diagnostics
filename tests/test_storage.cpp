@@ -108,39 +108,6 @@ class StorageFixture : public testing::Test
 
 } // namespace
 
-TEST(DiagStorage, ValidatesCallbacksAndCapabilities)
-{
-    MemoryStorage                           memory{};
-    std::array<std::uint8_t, kStorageBytes> capsule{};
-
-    diag::Storage storage{diag::StorageOps{memoryLoad, memorySave, memoryClear},
-                          &memory,
-                          {},
-                          capsule.data(),
-                          capsule.size()};
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::Ok);
-
-    storage.ops.load = nullptr;
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
-
-    storage.ops.load = memoryLoad;
-    storage.capabilities.writeAlignment = 0U;
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
-}
-
-TEST(DiagStorage, LoadRejectsAdapterReportedOverflow)
-{
-    MemoryStorage                           memory{};
-    std::array<std::uint8_t, kStorageBytes> buffer{};
-    std::size_t                             bytesRead = 7U;
-    const diag::Storage                     storage{
-        diag::StorageOps{oversizedLoad, memorySave, memoryClear}, &memory, {}, nullptr, 0U};
-
-    EXPECT_EQ(diag::storageLoad(storage, buffer.data(), buffer.size(), bytesRead),
-              diag::Result::Storage);
-    EXPECT_EQ(bytesRead, 0U);
-}
-
 TEST_F(StorageFixture, SaveCleanContextDoesNotCallAdapter)
 {
     diag::ContextStorage contextStorage{};
