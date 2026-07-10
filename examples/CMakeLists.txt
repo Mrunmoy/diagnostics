@@ -3,11 +3,9 @@ target_link_libraries(diag_basic_example PRIVATE diag::diag)
 
 set(diag_example_targets diag_basic_example)
 
-if(DIAG_FEATURE_CAPSULE)
-    add_executable(diag_capsule_example capsule/main.cpp)
-    target_link_libraries(diag_capsule_example PRIVATE diag::diag)
-    list(APPEND diag_example_targets diag_capsule_example)
-endif()
+add_executable(diag_capsule_example capsule/main.cpp)
+target_link_libraries(diag_capsule_example PRIVATE diag::diag)
+list(APPEND diag_example_targets diag_capsule_example)
 
 if(DIAG_FEATURE_DTC)
     add_executable(diag_dtc_example dtc/main.cpp)
