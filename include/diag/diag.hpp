@@ -3,6 +3,7 @@
 #include "diag/capsule.hpp"
 #include "diag/context.hpp"
 #include "diag/dtc.hpp"
+#include "diag/features.hpp"
 #include "diag/identity.hpp"
 #include "diag/lifecycle.hpp"
 #include "diag/result.hpp"

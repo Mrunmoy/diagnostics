@@ -15,6 +15,125 @@ DEFAULT_INSTALL_PREFIX = ROOT / "build" / "install" / "diag"
 CLANG_FORMAT_VERSION = "14"
 ASAN_TEST_ATTEMPTS = 5
 ASAN_TEST_TIMEOUT_SECONDS = 30
+FEATURE_NAMES = [
+    "DTC",
+    "LIFECYCLE",
+    "IDENTITY",
+    "STORAGE",
+    "CAPSULE",
+]
+FEATURE_MATRIX_PROFILES = [
+    {
+        "name": "core-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "CAPSULE": False,
+        },
+    },
+    {
+        "name": "runtime-dtc",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "CAPSULE": False,
+        },
+    },
+    {
+        "name": "identity-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": True,
+            "STORAGE": False,
+            "CAPSULE": False,
+        },
+    },
+    {
+        "name": "lifecycle-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": True,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "CAPSULE": False,
+        },
+    },
+    {
+        "name": "capsule-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "storage-contract",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": False,
+        },
+    },
+    {
+        "name": "persistent-diagnostics",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": True,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "lifecycle-persistence",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": True,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "dtc-persistence",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "capsule-storage-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+    {
+        "name": "full",
+        "features": {
+            "DTC": True,
+            "LIFECYCLE": True,
+            "IDENTITY": True,
+            "STORAGE": True,
+            "CAPSULE": True,
+        },
+    },
+]
 
 
 def run(
@@ -139,6 +258,24 @@ def all_checks(args: argparse.Namespace) -> None:
     test_preset(f"{family}-asan", args.cmake_options)
     install_library_for_preset(f"{family}-release", DEFAULT_INSTALL_PREFIX, args.cmake_options)
     package_test(DEFAULT_INSTALL_PREFIX)
+
+
+def feature_options(features: dict[str, bool]) -> list[str]:
+    return [
+        f"DIAG_FEATURE_{name}={'ON' if features[name] else 'OFF'}" for name in FEATURE_NAMES
+    ]
+
+
+def feature_matrix(args: argparse.Namespace) -> None:
+    for profile in FEATURE_MATRIX_PROFILES:
+        options = [
+            "DIAG_BUILD_EXAMPLES=ON",
+            "DIAG_TEST_SPLIT_GTEST=OFF",
+            *feature_options(profile["features"]),
+            *args.cmake_options,
+        ]
+        print(f"feature profile: {profile['name']}", flush=True)
+        test_preset(args.preset, options)
 
 
 def install_library_for_preset(preset: str, prefix: Path, extra_options: list[str]) -> None:
@@ -300,6 +437,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     package_parser = subcommands.add_parser("package-test")
     package_parser.add_argument("--prefix", type=Path, default=DEFAULT_INSTALL_PREFIX)
     package_parser.set_defaults(func=lambda args: package_test(args.prefix))
+
+    feature_matrix_parser = subcommands.add_parser("feature-matrix")
+    add_preset(feature_matrix_parser)
+    feature_matrix_parser.set_defaults(func=feature_matrix)
 
     format_parser = subcommands.add_parser("format")
     format_parser.add_argument("--check", action="store_true")

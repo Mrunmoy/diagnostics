@@ -60,11 +60,26 @@ prefer:
 ownership**: exactly one `diag::Context` may be attached to a storage block at a
 time, and reusing that storage requires destroying the previous context first.
 The current C++ storage bound is 176 bytes on the supported Linux toolchains,
-covering the context state, copied storage adapter, and persistence guard state.
+covering the full feature set: context state, copied storage adapter, and
+persistence guard state. Feature-disabled builds use smaller
+`diag::ContextStorage` bounds.
 
 The first scaffold establishes this direction with `diag::Context`, fixed
 `diag::ContextStorage`, strong IDs, compact `diag::Identity`, volatile DTC
 records, lifecycle counters, and a CMake package export.
+
+Feature slices are compile-time switches. `diag::Context` keeps the same method
+names across feature sets; a disabled slice returns `diag::Result::NotSupported`
+at runtime. However, not all public types remain fully available when a feature is
+off: `diag::Config` drops feature-specific fields (for example `dtcRecords` and
+`dtcCapacity` are absent when `DIAG_FEATURE_DTC=0`), and `diag::ContextStorage::kSize`
+is smaller for reduced feature sets. Code that accesses these fields or relies on
+a specific storage size must be guarded by the relevant feature macro.
+This keeps application code, examples, and generic tooling simple while the
+context state still drops disabled slice fields. Disabled feature code is kept in
+unreferenced static-library members or empty compile-time blocks, so normal
+embedded links do not pull unused capsule or storage functions unless the
+application calls them.
 
 The DTC slice stores records in caller-owned RAM supplied through `diag::Config`.
 Registration, lookup, listing, active-state updates, and clear counters are
