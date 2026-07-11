@@ -68,10 +68,13 @@ The first scaffold establishes this direction with `diag::Context`, fixed
 `diag::ContextStorage`, strong IDs, compact `diag::Identity`, volatile DTC
 records, lifecycle counters, and a CMake package export.
 
-Feature slices are compile-time switches. The C++ API keeps a stable public
-surface: `<diag/diag.hpp>` includes the public type declarations and
-`diag::Context` keeps the same method names across feature sets. A disabled
-slice returns `diag::Result::NotSupported` instead of disappearing from the API.
+Feature slices are compile-time switches. `diag::Context` keeps the same method
+names across feature sets; a disabled slice returns `diag::Result::NotSupported`
+at runtime. However, not all public types remain fully available when a feature is
+off: `diag::Config` drops feature-specific fields (for example `dtcRecords` and
+`dtcCapacity` are absent when `DIAG_FEATURE_DTC=0`), and `diag::ContextStorage::kSize`
+is smaller for reduced feature sets. Code that accesses these fields or relies on
+a specific storage size must be guarded by the relevant feature macro.
 This keeps application code, examples, and generic tooling simple while the
 context state still drops disabled slice fields. Disabled feature code is kept in
 unreferenced static-library members or empty compile-time blocks, so normal
