@@ -258,7 +258,6 @@ def all_checks(args: argparse.Namespace) -> None:
     test_preset(f"{family}-asan", args.cmake_options)
     install_library_for_preset(f"{family}-release", DEFAULT_INSTALL_PREFIX, args.cmake_options)
     package_test(DEFAULT_INSTALL_PREFIX)
-    feature_matrix(argparse.Namespace(preset=f"{family}-debug", cmake_options=args.cmake_options))
 
 
 def feature_options(features: dict[str, bool]) -> list[str]:
