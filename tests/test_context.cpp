@@ -260,3 +260,28 @@ TEST(DiagContextPersistence, RejectsUnknownDirtyFlagBeforeEncodingEmptyCapsule)
     EXPECT_EQ(storageAdapter.saveCalls, 0U);
 }
 #endif
+
+#if DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE && DIAG_FEATURE_DTC
+TEST(DiagContextPersistence, RejectsUnknownDirtyFlagCombinedWithKnownDirtyFlag)
+{
+    constexpr diag::DirtyFlags kUnknownDirtyFlag = 1U << 8U;
+
+    ContextTestStorage   storageAdapter{};
+    diag::DtcRecord      records[1]{};
+    diag::ContextStorage contextStorage{};
+    diag::Config         config{};
+    config.dtcRecords = records;
+    config.dtcCapacity = 1U;
+    diag::Context context{contextStorage, config};
+
+    ASSERT_EQ(context.attachStorage(makeContextTestStorage(storageAdapter)), diag::Result::Ok);
+    ASSERT_EQ(context.registerDtc(diag::DtcId{0x010203U}, diag::DtcSeverity::Warning),
+              diag::Result::Ok);
+    ASSERT_EQ(context.markDirty(static_cast<diag::DirtyFlag>(kUnknownDirtyFlag)), diag::Result::Ok);
+
+    EXPECT_EQ(context.savePersistent(), diag::Result::NotSupported);
+    EXPECT_EQ(storageAdapter.saveCalls, 0U);
+    EXPECT_EQ(context.dirtyFlags(),
+              (static_cast<diag::DirtyFlags>(diag::DirtyFlag::Dtc) | kUnknownDirtyFlag));
+}
+#endif

@@ -78,6 +78,8 @@ constexpr DtcStatusFlags kKnownDtcStatusMask =
     static_cast<DtcStatusFlags>(DtcStatus::Pending) |
     static_cast<DtcStatusFlags>(DtcStatus::Confirmed) |
     static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
+constexpr DirtyFlags kKnownDirtyFlagsMask =
+    static_cast<DirtyFlags>(DirtyFlag::Dtc) | static_cast<DirtyFlags>(DirtyFlag::Lifecycle);
 constexpr std::uint16_t kLifecycleCapsuleSectionVersion = 1U;
 constexpr std::size_t   kLifecyclePayloadSize = 16U;
 
@@ -569,6 +571,11 @@ template <> struct PersistenceOps<true>
         const bool rawDtcDirty = (state.dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Dtc)) != 0U;
         const bool rawLifecycleDirty =
             (state.dirtyFlags & static_cast<DirtyFlags>(DirtyFlag::Lifecycle)) != 0U;
+
+        if ((state.dirtyFlags & ~kKnownDirtyFlagsMask) != 0U)
+        {
+            return Result::NotSupported;
+        }
 
         if ((rawDtcDirty && !features::kDtc) || (rawLifecycleDirty && !features::kLifecycle))
         {
