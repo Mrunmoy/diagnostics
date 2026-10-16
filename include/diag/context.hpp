@@ -6,6 +6,7 @@
 #include "diag/lifecycle.hpp"
 #include "diag/result.hpp"
 #include "diag/storage.hpp"
+#include "diag/transport.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -68,6 +69,11 @@ template <> struct ConfigDtcFields<true>
         size += 80U;
     }
 
+    if (features::kTransport)
+    {
+        size += 32U;
+    }
+
     return size;
 }
 
@@ -121,6 +127,7 @@ class Context
     [[nodiscard]] Result savePersistent() noexcept;
     [[nodiscard]] Result loadPersistent() noexcept;
     [[nodiscard]] Result clearPersistent() noexcept;
+    [[nodiscard]] Result attachTransport(const Transport &transport) noexcept;
 
   private:
     struct State;

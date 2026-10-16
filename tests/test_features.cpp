@@ -19,4 +19,5 @@ TEST(DiagFeatures, DefinesBooleanFeatureSwitches)
     EXPECT_TRUE(isBooleanFeature(DIAG_FEATURE_IDENTITY));
     EXPECT_TRUE(isBooleanFeature(DIAG_FEATURE_STORAGE));
     EXPECT_TRUE(isBooleanFeature(DIAG_FEATURE_CAPSULE));
+    EXPECT_TRUE(isBooleanFeature(DIAG_FEATURE_TRANSPORT));
 }

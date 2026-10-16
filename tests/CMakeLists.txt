@@ -17,6 +17,8 @@ set(diag_test_sources
     test_features.cpp
     test_result.cpp
     test_storage_contract.cpp
+    test_transport_contract.cpp
+    test_transport.cpp
     test_types.cpp
 )
 

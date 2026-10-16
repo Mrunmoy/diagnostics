@@ -8,4 +8,5 @@
 #include "diag/lifecycle.hpp"
 #include "diag/result.hpp"
 #include "diag/storage.hpp"
+#include "diag/transport.hpp"
 #include "diag/types.hpp"
