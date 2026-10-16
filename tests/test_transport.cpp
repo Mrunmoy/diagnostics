@@ -1,7 +1,6 @@
 #include "diag/context.hpp"
 #include "diag/transport.hpp"
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 

@@ -100,3 +100,34 @@ TEST(DiagTransport, ReceiveRejectsAdapterReportedOverflow)
               diag::Result::Transport);
     EXPECT_EQ(bytesRead, 0U);
 }
+
+TEST(DiagTransport, SendAndReceiveRejectInvalidArguments)
+{
+    MemoryTransport       transportState{};
+    const diag::Transport transport{diag::TransportOps{memorySend, memoryReceive}, &transportState};
+    const std::array<std::uint8_t, 1U> payload{0x11U};
+    std::array<std::uint8_t, 4U>       buffer{};
+    std::size_t                        bytesRead = 9U;
+
+    EXPECT_EQ(diag::transportSend(transport, nullptr, payload.size()),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(diag::transportSend(transport, payload.data(), 0U), diag::Result::InvalidArgument);
+    EXPECT_EQ(diag::transportReceive(transport, nullptr, buffer.size(), bytesRead),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(bytesRead, 0U);
+
+    bytesRead = 9U;
+    EXPECT_EQ(diag::transportReceive(transport, buffer.data(), 0U, bytesRead),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(bytesRead, 0U);
+
+    diag::Transport invalid{diag::TransportOps{nullptr, memoryReceive}, &transportState};
+    bytesRead = 9U;
+    EXPECT_EQ(diag::transportSend(invalid, payload.data(), payload.size()),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(diag::transportReceive(invalid, buffer.data(), buffer.size(), bytesRead),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(bytesRead, 0U);
+    EXPECT_EQ(transportState.sendCalls, 0U);
+    EXPECT_EQ(transportState.receiveCalls, 0U);
+}
