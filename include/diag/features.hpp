@@ -26,6 +26,10 @@
 #define DIAG_FEATURE_CAPSULE (1)
 #endif
 
+#ifndef DIAG_FEATURE_TRANSPORT
+#define DIAG_FEATURE_TRANSPORT (1)
+#endif
+
 namespace diag::features
 {
 
@@ -34,6 +38,7 @@ static constexpr bool kLifecycle = (DIAG_FEATURE_LIFECYCLE != 0);
 static constexpr bool kIdentity = (DIAG_FEATURE_IDENTITY != 0);
 static constexpr bool kStorage = (DIAG_FEATURE_STORAGE != 0);
 static constexpr bool kCapsule = (DIAG_FEATURE_CAPSULE != 0);
+static constexpr bool kTransport = (DIAG_FEATURE_TRANSPORT != 0);
 static constexpr bool kPersistence = kStorage && kCapsule;
 
 } // namespace diag::features

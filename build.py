@@ -21,6 +21,7 @@ FEATURE_NAMES = [
     "IDENTITY",
     "STORAGE",
     "CAPSULE",
+    "TRANSPORT",
 ]
 FEATURE_MATRIX_PROFILES = [
     {
@@ -31,6 +32,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": False,
             "CAPSULE": False,
+            "TRANSPORT": False,
         },
     },
     {
@@ -41,6 +43,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": False,
             "CAPSULE": False,
+            "TRANSPORT": False,
         },
     },
     {
@@ -51,6 +54,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": True,
             "STORAGE": False,
             "CAPSULE": False,
+            "TRANSPORT": False,
         },
     },
     {
@@ -61,6 +65,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": False,
             "CAPSULE": False,
+            "TRANSPORT": False,
         },
     },
     {
@@ -71,6 +76,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": False,
             "CAPSULE": True,
+            "TRANSPORT": False,
         },
     },
     {
@@ -81,6 +87,18 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": True,
             "CAPSULE": False,
+            "TRANSPORT": False,
+        },
+    },
+    {
+        "name": "transport-only",
+        "features": {
+            "DTC": False,
+            "LIFECYCLE": False,
+            "IDENTITY": False,
+            "STORAGE": False,
+            "CAPSULE": False,
+            "TRANSPORT": True,
         },
     },
     {
@@ -91,6 +109,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": True,
             "CAPSULE": True,
+            "TRANSPORT": False,
         },
     },
     {
@@ -101,6 +120,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": True,
             "CAPSULE": True,
+            "TRANSPORT": False,
         },
     },
     {
@@ -111,6 +131,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": True,
             "CAPSULE": True,
+            "TRANSPORT": False,
         },
     },
     {
@@ -121,6 +142,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": False,
             "STORAGE": True,
             "CAPSULE": True,
+            "TRANSPORT": False,
         },
     },
     {
@@ -131,6 +153,7 @@ FEATURE_MATRIX_PROFILES = [
             "IDENTITY": True,
             "STORAGE": True,
             "CAPSULE": True,
+            "TRANSPORT": True,
         },
     },
 ]

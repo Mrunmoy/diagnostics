@@ -17,11 +17,13 @@ option(DIAG_FEATURE_LIFECYCLE "Enable lifecycle/reset counter APIs" ON)
 option(DIAG_FEATURE_IDENTITY "Enable device identity APIs" ON)
 option(DIAG_FEATURE_STORAGE "Enable Context persistent storage integration" ON)
 option(DIAG_FEATURE_CAPSULE "Enable Context persistent capsule integration" ON)
+option(DIAG_FEATURE_TRANSPORT "Enable Context transport adapter integration" ON)
 
 add_library(diag
     src/capsule.cpp
     src/context.cpp
     src/storage.cpp
+    src/transport.cpp
 )
 
 add_library(diag::diag ALIAS diag)
@@ -45,6 +47,7 @@ foreach(feature
     IDENTITY
     STORAGE
     CAPSULE
+    TRANSPORT
 )
     if(DIAG_FEATURE_${feature})
         target_compile_definitions(diag PUBLIC DIAG_FEATURE_${feature}=1)

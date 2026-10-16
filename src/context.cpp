@@ -55,6 +55,16 @@ template <> struct PersistenceState<true>
     Storage storage{};
 };
 
+template <bool Enabled> struct TransportState : internal::EmptyFeature
+{
+};
+
+template <> struct TransportState<true>
+{
+    bool      transportAttached{false};
+    Transport transport{};
+};
+
 template <typename Record>
 [[nodiscard]] Record *findDtcRecord(Record *records, const std::size_t count,
                                     const DtcId id) noexcept
@@ -463,12 +473,44 @@ template <> struct LifecycleOps<true>
 struct Context::State : DtcState<features::kDtc>,
                         IdentityState<features::kIdentity>,
                         LifecycleState<features::kLifecycle>,
-                        PersistenceState<features::kPersistence>
+                        PersistenceState<features::kPersistence>,
+                        TransportState<features::kTransport>
 {
     Config     config{};
     DirtyFlags dirtyFlags{0U};
     bool       initialized{false};
 };
+
+namespace
+{
+
+template <bool Enabled> struct TransportFeatureOps
+{
+    template <typename State>
+    [[nodiscard]] static Result attach(State &, const Transport &) noexcept
+    {
+        return Result::NotSupported;
+    }
+};
+
+template <> struct TransportFeatureOps<true>
+{
+    template <typename State>
+    [[nodiscard]] static Result attach(State &state, const Transport &transport) noexcept
+    {
+        const Result validation = validateTransport(transport);
+        if (validation != Result::Ok)
+        {
+            return validation;
+        }
+
+        state.transport = transport;
+        state.transportAttached = true;
+        return Result::Ok;
+    }
+};
+
+} // namespace
 
 struct Context::StorageLayout
 {
@@ -1358,6 +1400,16 @@ Result Context::clearPersistent() noexcept
     }
 
     return PersistenceOps<features::kPersistence>::clear(*m_state);
+}
+
+Result Context::attachTransport(const Transport &transport) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return TransportFeatureOps<features::kTransport>::attach(*m_state, transport);
 }
 
 } // namespace diag

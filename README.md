@@ -78,6 +78,7 @@ Available switches:
 - `DIAG_FEATURE_IDENTITY`: compact numeric device identity.
 - `DIAG_FEATURE_STORAGE`: `diag::Context` integration with a storage adapter.
 - `DIAG_FEATURE_CAPSULE`: `diag::Context` integration with the capsule format.
+- `DIAG_FEATURE_TRANSPORT`: `diag::Context` integration with a transport adapter.
 
 `diag::Context` persistence requires both storage and capsule support. The
 standalone storage adapter and capsule helper APIs remain available from the
