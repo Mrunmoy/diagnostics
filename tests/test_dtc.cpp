@@ -245,5 +245,27 @@ TEST_F(DtcFixture, UnknownDtcOperationsReturnNotFound)
     EXPECT_EQ(m_context.dtcByFault(diag::LocalFaultId{99U}).result(), diag::Result::NotFound);
     EXPECT_EQ(m_context.dtcStatus(diag::DtcId{99U}).result(), diag::Result::NotFound);
     EXPECT_EQ(m_context.setDtcActive(diag::DtcId{99U}, true), diag::Result::NotFound);
+    EXPECT_EQ(m_context.setFaultTestFailed(diag::LocalFaultId{99U}), diag::Result::NotFound);
+    EXPECT_EQ(m_context.setFaultTestPassed(diag::LocalFaultId{99U}), diag::Result::NotFound);
     EXPECT_EQ(m_context.clearDtc(diag::DtcId{99U}), diag::Result::NotFound);
+    EXPECT_EQ(m_context.resetDtcCounter(diag::DtcId{99U}), diag::Result::NotFound);
+}
+
+TEST(DiagDtc, RejectsInvalidSeverityAndMissingBufferForCycleApis)
+{
+    diag::ContextStorage storage{};
+    diag::Context        context{storage};
+    diag::DtcRecord      records[1]{};
+    diag::Config         config{records, 1U};
+
+    EXPECT_EQ(context.clearAllDtcs(), diag::Result::InvalidArgument);
+    EXPECT_EQ(context.operationCycle(), diag::Result::InvalidArgument);
+
+    diag::ContextStorage configuredStorage{};
+    diag::Context        configured{configuredStorage, config};
+    const auto           invalidSeverity = static_cast<diag::DtcSeverity>(4U);
+    EXPECT_EQ(configured.registerDtc(diag::DtcId{1U}, invalidSeverity),
+              diag::Result::InvalidArgument);
+    EXPECT_EQ(configured.registerFault(diag::LocalFaultId{1U}, diag::DtcId{1U}, invalidSeverity),
+              diag::Result::InvalidArgument);
 }

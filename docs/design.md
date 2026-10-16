@@ -59,7 +59,7 @@ prefer:
 `diag::ContextStorage` is caller-owned raw storage with **exclusive live
 ownership**: exactly one `diag::Context` may be attached to a storage block at a
 time, and reusing that storage requires destroying the previous context first.
-The current C++ storage bound is 208 bytes on the supported Linux toolchains,
+The current C++ storage bound is 224 bytes on the supported Linux toolchains,
 covering the full feature set: context state, copied storage adapter,
 persistence guard state, and transport adapter. Feature-disabled builds use
 smaller `diag::ContextStorage` bounds.

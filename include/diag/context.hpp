@@ -58,7 +58,9 @@ template <> struct ConfigDtcFields<true>
 
     if (features::kDtc && features::kLifecycle)
     {
-        size = 80U;
+        // Config carries confirmation/aging thresholds when DTC is enabled, so the
+        // combined DTC+lifecycle state needs 96 bytes (16-byte aligned).
+        size = 96U;
     }
 
     if (features::kIdentity)

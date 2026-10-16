@@ -329,6 +329,11 @@ template <> struct DtcOps<true>
             return Result::InvalidArgument;
         }
 
+        if (static_cast<std::uint8_t>(severity) > static_cast<std::uint8_t>(DtcSeverity::Critical))
+        {
+            return Result::InvalidArgument;
+        }
+
         if (findDtcRecord(state.config.dtcRecords, state.dtcCount, id) != nullptr ||
             findDtcByFault(state.config.dtcRecords, state.dtcCount, localFaultId) != nullptr)
         {
