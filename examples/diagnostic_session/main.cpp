@@ -16,7 +16,15 @@ class InProcessTransport final : public example_diag_client::Transport
     [[nodiscard]] diag::Result exchange(const example_diag::Frame &request,
                                         example_diag::Frame       &response) override
     {
-        return example_diag::handleRequest(m_device, request, response);
+        const diag::Result result = example_diag::handleRequest(m_device, request, response);
+        // Encoded negative responses are still successful transport exchanges; the
+        // service status lives in response.bytes[0] for the client to decode.
+        if (response.size > 0U)
+        {
+            return diag::Result::Ok;
+        }
+
+        return result;
     }
 
   private:

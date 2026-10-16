@@ -66,24 +66,45 @@ diag::Result DiagnosticDevice::setup() noexcept
         return diag::Result::NotInitialized;
     }
 
-    if (m_context.attachIdentity(identity) != diag::Result::Ok ||
-        m_context.attachStorage(storage) != diag::Result::Ok)
+    diag::Result result = m_context.attachIdentity(identity);
+    if (result != diag::Result::Ok)
     {
-        return diag::Result::NotInitialized;
+        return result;
     }
 
-    if (m_context.registerFault(diag::LocalFaultId{11U}, diag::DtcId{0x030101U},
-                                diag::DtcSeverity::Error) != diag::Result::Ok ||
-        m_context.registerFault(diag::LocalFaultId{12U}, diag::DtcId{0x030102U},
-                                diag::DtcSeverity::Warning) != diag::Result::Ok ||
-        m_context.setFaultTestFailed(diag::LocalFaultId{11U}) != diag::Result::Ok ||
-        m_context.operationCycle() != diag::Result::Ok ||
-        m_context.savePersistent() != diag::Result::Ok)
+    result = m_context.attachStorage(storage);
+    if (result != diag::Result::Ok)
     {
-        return diag::Result::NotInitialized;
+        return result;
     }
 
-    return diag::Result::Ok;
+    result = m_context.registerFault(diag::LocalFaultId{11U}, diag::DtcId{0x030101U},
+                                     diag::DtcSeverity::Error);
+    if (result != diag::Result::Ok)
+    {
+        return result;
+    }
+
+    result = m_context.registerFault(diag::LocalFaultId{12U}, diag::DtcId{0x030102U},
+                                     diag::DtcSeverity::Warning);
+    if (result != diag::Result::Ok)
+    {
+        return result;
+    }
+
+    result = m_context.setFaultTestFailed(diag::LocalFaultId{11U});
+    if (result != diag::Result::Ok)
+    {
+        return result;
+    }
+
+    result = m_context.operationCycle();
+    if (result != diag::Result::Ok)
+    {
+        return result;
+    }
+
+    return m_context.savePersistent();
 }
 
 diag::Context &DiagnosticDevice::context() noexcept

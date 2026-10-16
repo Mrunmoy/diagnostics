@@ -96,6 +96,10 @@ namespace
     if (result == diag::Result::Ok && device.persistedSize != nullptr)
     {
         result = device.context->savePersistent();
+        if (result == diag::Result::Ok && device.persistedSize(device.user) == 0U)
+        {
+            result = diag::Result::CorruptData;
+        }
     }
 #endif
 

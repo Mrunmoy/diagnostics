@@ -131,6 +131,7 @@ const char *resultName(const diag::Result result)
     }
 
     out << toolName << ": DTC count=" << count << "\n";
+    bool foundClearTarget = false;
     for (std::size_t index = 0U; index < count; ++index)
     {
         const std::uint8_t *const record =
@@ -143,12 +144,20 @@ const char *resultName(const diag::Result result)
         if (id == clearTarget)
         {
             outClearTargetStatus = status;
+            foundClearTarget = true;
         }
 
         out << toolName << ": DTC 0x" << std::hex << std::setw(6) << std::setfill('0') << id.value
             << std::setfill(' ') << std::dec << " status=0x" << std::hex << std::setw(2)
             << std::setfill('0') << static_cast<int>(status) << std::setfill(' ') << std::dec
             << " severity=" << static_cast<int>(severity) << " occurrences=" << occurrences << "\n";
+    }
+
+    if (!foundClearTarget)
+    {
+        err << toolName << ": clear target DTC 0x" << std::hex << std::setw(6) << std::setfill('0')
+            << clearTarget.value << std::setfill(' ') << std::dec << " not present\n";
+        return diag::Result::NotFound;
     }
 
     return diag::Result::Ok;
