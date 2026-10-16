@@ -71,7 +71,19 @@ def main():
         if not bridge_until_done(device, tester, master_device, master_tester, 5.0):
             device.kill()
             tester.kill()
+            try:
+                tester_output, _ = tester.communicate(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                tester.kill()
+                tester_output, _ = tester.communicate()
+            try:
+                device_output, _ = device.communicate(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                device.kill()
+                device_output, _ = device.communicate()
             print("modbus demo: timed out while bridging PTYs")
+            print(tester_output, end="")
+            print(device_output, end="")
             return 1
 
         tester_output, _ = tester.communicate(timeout=1.0)

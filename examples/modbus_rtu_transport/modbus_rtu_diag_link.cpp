@@ -60,9 +60,17 @@ bool receiveFrame(diag_serial::SerialPort &port, std::uint8_t slaveAddress,
     std::size_t                           payloadLength = 0u;
     std::size_t                           frameLength = 0u;
 
+    std::uint8_t pending = 0u;
+    bool         havePending = false;
+
     while (std::chrono::steady_clock::now() < deadline)
     {
-        if (!readByteWithDeadline(port, byte, deadline))
+        if (havePending)
+        {
+            byte = pending;
+            havePending = false;
+        }
+        else if (!readByteWithDeadline(port, byte, deadline))
         {
             return false;
         }
@@ -78,6 +86,11 @@ bool receiveFrame(diag_serial::SerialPort &port, std::uint8_t slaveAddress,
         }
         if (adu[1] != kDiagnosticFunction)
         {
+            if (adu[1] == slaveAddress)
+            {
+                pending = adu[1];
+                havePending = true;
+            }
             continue;
         }
         if (!readByteWithDeadline(port, adu[2], deadline) ||

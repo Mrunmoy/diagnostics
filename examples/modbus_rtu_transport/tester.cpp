@@ -2,6 +2,7 @@
 #include "example_diag_tool.hpp"
 #include "modbus_rtu_diag_link.hpp"
 
+#include <cerrno>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -49,9 +50,15 @@ void printUsage(const char *program)
 
 bool parseU32(const char *text, std::uint32_t &outValue)
 {
-    char               *end = nullptr;
+    if (text == nullptr || *text == '\0' || *text == '-')
+    {
+        return false;
+    }
+
+    char *end = nullptr;
+    errno = 0;
     const unsigned long value = std::strtoul(text, &end, 0);
-    if (text == nullptr || *text == '\0' || *end != '\0' || value > UINT32_MAX)
+    if (errno == ERANGE || end == text || *end != '\0' || value > UINT32_MAX)
     {
         return false;
     }

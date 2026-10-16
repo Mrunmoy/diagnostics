@@ -2,12 +2,12 @@
 
 This example moves the existing diagnostic request/response workflow onto Linux
 SocketCAN. It uses your `Mrunmoy/socket-can` C++17 wrapper on the PC side and
-keeps the diagnostics library itself as C99.
+keeps the diagnostics library itself as C++17.
 
 Two processes run on the same CAN interface:
 
-- `diag_socketcan_device_cpp` simulates embedded firmware. It owns the C
-  diagnostics context, DTCs, identity, and persistent capsule.
+- `diag_socketcan_device_cpp` simulates embedded firmware. It owns the C++17
+  `diag::Context`, DTCs, identity, and persistent capsule.
 - `diag_socketcan_tester_cpp` acts as the PC diagnostic tester. It sends
   requests over CAN FD, reads responses, prints identity/DTCs, clears one DTC,
   and verifies that the clear was observable.
@@ -20,8 +20,8 @@ The demo uses one diagnostic payload per CAN FD frame:
 
 | Direction | CAN ID | Payload |
 |-----------|--------|---------|
-| tester to device | `0x650` | `example_diag_frame` request bytes |
-| device to tester | `0x651` | `example_diag_frame` response bytes |
+| tester to device | `0x650` | `example_diag::Frame` request bytes |
+| device to tester | `0x651` | `example_diag::Frame` response bytes |
 
 CAN FD is used because DTC list responses can exceed the 8-byte classic CAN
 payload. A production transport can add segmentation, counters, addressing, and

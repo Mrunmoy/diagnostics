@@ -17,7 +17,7 @@ The example uses a user-defined Modbus function code for diagnostics:
 | slave address | 1 byte | default `0x11` |
 | function | 1 byte | `0x41`, diagnostic payload |
 | length | 2 bytes | little-endian diagnostic payload size |
-| payload | 0..160 bytes | shared `example_diag_frame` bytes |
+| payload | 0..160 bytes | shared `example_diag::Frame` bytes |
 | CRC16 | 2 bytes | standard Modbus RTU CRC, low byte first |
 
 This keeps Modbus-specific framing below the shared diagnostic workflow. A real

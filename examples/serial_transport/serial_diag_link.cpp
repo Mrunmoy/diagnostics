@@ -118,31 +118,42 @@ bool SerialPort::readByte(std::uint8_t &outByte, std::chrono::milliseconds timeo
         throw std::runtime_error("readByte on closed serial port");
     }
 
-    pfd.fd = m_fd;
-    pfd.events = POLLIN;
-    pfd.revents = 0;
+    for (;;)
+    {
+        pfd.fd = m_fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
 
-    const int ret = ::poll(&pfd, 1, static_cast<int>(timeout.count()));
-    if (ret < 0)
-    {
-        throw makeErrnoError("poll");
-    }
-    if (ret == 0)
-    {
-        return false;
-    }
-
-    const ssize_t bytesRead = ::read(m_fd, &outByte, 1u);
-    if (bytesRead < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        const int ret = ::poll(&pfd, 1, static_cast<int>(timeout.count()));
+        if (ret < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            throw makeErrnoError("poll");
+        }
+        if (ret == 0)
         {
             return false;
         }
-        throw makeErrnoError("read");
-    }
 
-    return bytesRead == 1;
+        const ssize_t bytesRead = ::read(m_fd, &outByte, 1u);
+        if (bytesRead < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                return false;
+            }
+            throw makeErrnoError("read");
+        }
+
+        return bytesRead == 1;
+    }
 }
 
 void SerialPort::writeAll(const std::uint8_t *data, std::size_t size)
@@ -159,8 +170,29 @@ void SerialPort::writeAll(const std::uint8_t *data, std::size_t size)
         const ssize_t ret = ::write(m_fd, &data[written], size - written);
         if (ret < 0)
         {
+            if (errno == EINTR)
+            {
+                continue;
+            }
             if (errno == EAGAIN || errno == EWOULDBLOCK)
             {
+                struct pollfd pfd;
+                pfd.fd = m_fd;
+                pfd.events = POLLOUT;
+                pfd.revents = 0;
+                const int pollRet = ::poll(&pfd, 1, 1000);
+                if (pollRet < 0)
+                {
+                    if (errno == EINTR)
+                    {
+                        continue;
+                    }
+                    throw makeErrnoError("poll");
+                }
+                if (pollRet == 0)
+                {
+                    throw std::runtime_error("write timed out waiting for POLLOUT");
+                }
                 continue;
             }
             throw makeErrnoError("write");
@@ -179,36 +211,67 @@ void SerialPort::closeIfOpen() noexcept
     }
 }
 
+bool readByteWithDeadline(SerialPort &port, std::uint8_t &outByte,
+                          std::chrono::steady_clock::time_point deadline)
+{
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        if (port.readByte(outByte, std::chrono::milliseconds{25}))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool receiveFrame(SerialPort &port, example_diag::Frame &outFrame,
                   std::chrono::milliseconds timeout)
 {
     const auto   startedAt = std::chrono::steady_clock::now();
+    const auto   deadline = startedAt + timeout;
     std::uint8_t byte = 0u;
+    std::uint8_t pending = 0u;
+    bool         havePending = false;
     std::array<std::uint8_t, example_diag::kMaxFrameSize> payload = {0};
     std::size_t                                           length = 0u;
 
-    while (std::chrono::steady_clock::now() - startedAt < timeout)
+    while (std::chrono::steady_clock::now() < deadline)
     {
-        if (!port.readByte(byte, std::chrono::milliseconds{25}))
+        if (havePending)
         {
-            continue;
+            byte = pending;
+            havePending = false;
+        }
+        else if (!readByteWithDeadline(port, byte, deadline))
+        {
+            return false;
         }
         if (byte != kSync0)
         {
             continue;
         }
-        if (!port.readByte(byte, std::chrono::milliseconds{25}) || byte != kSync1)
+        if (!readByteWithDeadline(port, byte, deadline))
         {
+            return false;
+        }
+        if (byte != kSync1)
+        {
+            if (byte == kSync0)
+            {
+                pending = byte;
+                havePending = true;
+            }
             continue;
         }
-        if (!port.readByte(byte, std::chrono::milliseconds{25}))
+        if (!readByteWithDeadline(port, byte, deadline))
         {
-            continue;
+            return false;
         }
         length = byte;
-        if (!port.readByte(byte, std::chrono::milliseconds{25}))
+        if (!readByteWithDeadline(port, byte, deadline))
         {
-            continue;
+            return false;
         }
         length |= static_cast<std::size_t>(byte) << 8u;
         if (length > payload.size())
@@ -218,13 +281,13 @@ bool receiveFrame(SerialPort &port, example_diag::Frame &outFrame,
 
         for (std::size_t i = 0u; i < length; ++i)
         {
-            if (!port.readByte(payload[i], std::chrono::milliseconds{25}))
+            if (!readByteWithDeadline(port, payload[i], deadline))
             {
                 return false;
             }
         }
 
-        if (!port.readByte(byte, std::chrono::milliseconds{25}))
+        if (!readByteWithDeadline(port, byte, deadline))
         {
             return false;
         }

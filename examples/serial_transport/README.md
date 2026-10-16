@@ -6,8 +6,8 @@ normal Linux machine and inside CI.
 
 Two processes participate:
 
-- `diag_serial_device_cpp` simulates embedded firmware. It owns the C
-  diagnostics context, DTCs, identity, and persistent capsule.
+- `diag_serial_device_cpp` simulates embedded firmware. It owns the C++17
+  `diag::Context`, DTCs, identity, and persistent capsule.
 - `diag_serial_tester_cpp` acts as the PC diagnostic tester. It uses the shared
   client from `examples/common/example_diag_client.cpp`.
 
@@ -17,7 +17,7 @@ The serial link carries one bounded diagnostic payload per byte-stream frame:
 |-------|------|---------|
 | sync | 2 bytes | `0xA5 0x5A` frame marker |
 | length | 2 bytes | little-endian payload size |
-| payload | 0..160 bytes | `example_diag_frame` bytes |
+| payload | 0..160 bytes | `example_diag::Frame` bytes |
 | checksum | 1 byte | additive payload checksum |
 
 This is deliberately small. A production UART transport can add sequence
