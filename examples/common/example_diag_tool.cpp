@@ -113,12 +113,12 @@ namespace
 
 diag::Result handleRequest(const Device &device, const Frame &request, Frame &response) noexcept
 {
+    response.size = 0U;
     if (device.context == nullptr || request.size == 0U)
     {
         return diag::Result::InvalidArgument;
     }
 
-    response.size = 0U;
     diag::Result result = diag::Result::Ok;
 
     switch (static_cast<Service>(request.bytes[0]))
