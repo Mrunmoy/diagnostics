@@ -12,24 +12,27 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has the first C++ scaffold, identity slice, volatile DTC slice,
-lifecycle/reset-counter slice, capsule serialization slice, and explicit storage
-persistence slice:
+This branch has core C parity for the diagnostic state machine and workflow demos:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
-- `build.py` entry point for build, test, ASAN, format, install, and package smoke tests.
-- A small RAII `diag::Context` backed by caller-owned storage.
+- `build.py` entry point for build, test, ASAN, format, feature-matrix, install, and
+  package smoke tests.
+- RAII `diag::Context` backed by caller-owned, feature-sized storage.
 - Strong diagnostic ID types and `diag::Result` error handling.
-- Compact numeric `diag::Identity` records attached to a context.
-- Fixed-capacity DTC records backed by caller-owned RAM.
+- Compact numeric `diag::Identity` records.
+- UDS-style fixed-capacity DTCs with confirmation, aging, operation cycles, and
+  local-fault IDs (28-byte capsule records aligned with the C branch).
 - Reset lifecycle snapshots with disabled, RAM-only, abnormal-only, every-N, and
   platform-owned counter policies.
-- Versioned diagnostic capsules with bounded section tables, fixed-size table
-  entries, little-endian fields, CRC validation, and caller-owned payload buffers.
-- Storage adapter callbacks for explicit save, load, and clear operations.
+- Versioned diagnostic capsules and explicit storage save/load/clear.
+- Thin transport attach API (`send`/`receive` callbacks).
+- Shared example protocol plus in-process, serial, SocketCAN, and Modbus RTU
+  tester workflows under `examples/`.
 
-The next slices will add example tester workflows in idiomatic C++.
+Deferred relative to the C branch: product/UI demos such as Grafana, the browser
+viewer, and product-shaped nodes (`industrial_oven`, `sensor_node`, `ecu_node`,
+and similar).
 
 ## Quick Start
 
@@ -50,6 +53,18 @@ Inside the container:
 ./build/container-debug/examples/diag_identity_example
 ./build/container-debug/examples/diag_lifecycle_example
 ./build/container-debug/examples/diag_storage_example
+./build/container-debug/examples/diag_diagnostic_session_example
+./build/container-debug/examples/diag_adapters_example
+```
+
+Optional link demos (off by default):
+
+```sh
+./build.py test --preset container-debug -- \
+  DIAG_BUILD_SERIAL_EXAMPLE=ON \
+  DIAG_BUILD_MODBUS_RTU_EXAMPLE=ON
+# SocketCAN also needs a vcan interface for the demo test:
+# DIAG_BUILD_SOCKETCAN_EXAMPLE=ON
 ```
 
 On a host with `clang++-16` and `clang-format-14`:
