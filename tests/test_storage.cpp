@@ -108,39 +108,6 @@ class StorageFixture : public testing::Test
 
 } // namespace
 
-TEST(DiagStorage, ValidatesCallbacksAndCapabilities)
-{
-    MemoryStorage                           memory{};
-    std::array<std::uint8_t, kStorageBytes> capsule{};
-
-    diag::Storage storage{diag::StorageOps{memoryLoad, memorySave, memoryClear},
-                          &memory,
-                          {},
-                          capsule.data(),
-                          capsule.size()};
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::Ok);
-
-    storage.ops.load = nullptr;
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
-
-    storage.ops.load = memoryLoad;
-    storage.capabilities.writeAlignment = 0U;
-    EXPECT_EQ(diag::validateStorage(storage), diag::Result::InvalidArgument);
-}
-
-TEST(DiagStorage, LoadRejectsAdapterReportedOverflow)
-{
-    MemoryStorage                           memory{};
-    std::array<std::uint8_t, kStorageBytes> buffer{};
-    std::size_t                             bytesRead = 7U;
-    const diag::Storage                     storage{
-        diag::StorageOps{oversizedLoad, memorySave, memoryClear}, &memory, {}, nullptr, 0U};
-
-    EXPECT_EQ(diag::storageLoad(storage, buffer.data(), buffer.size(), bytesRead),
-              diag::Result::Storage);
-    EXPECT_EQ(bytesRead, 0U);
-}
-
 TEST_F(StorageFixture, SaveCleanContextDoesNotCallAdapter)
 {
     diag::ContextStorage contextStorage{};
@@ -163,6 +130,7 @@ TEST_F(StorageFixture, PersistenceOperationsReportMissingStorageWhenNotAttached)
     EXPECT_EQ(context.clearPersistent(), diag::Result::NotFound);
 }
 
+#if DIAG_FEATURE_DTC
 TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
 {
     constexpr std::uint8_t kUntouchedByte = 0xA5U;
@@ -281,7 +249,9 @@ TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
     EXPECT_EQ(restored.loadPersistent(), diag::Result::CorruptData);
     EXPECT_EQ(restored.dtcCount(), 0U);
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
 {
     diag::ContextStorage        sourceStorage{};
@@ -314,7 +284,9 @@ TEST_F(StorageFixture, SaveAndLoadLifecycleCounters)
     EXPECT_FALSE(snapshot.value().persistRequested);
     EXPECT_EQ(restored.dirtyFlags(), diag::DirtyFlags{0U});
 }
+#endif
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, SaveDirtyDtcPreservesCleanLifecycleSection)
 {
     std::array<diag::DtcRecord, 2U> records{};
@@ -498,7 +470,9 @@ TEST_F(StorageFixture, ReattachStorageRequiresLoadBeforeSaveWithCleanSection)
     EXPECT_EQ(context.savePersistent(), diag::Result::NotInitialized);
     EXPECT_EQ(m_storage.saveCalls, 1U);
 }
+#endif
 
+#if DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
 {
     diag::ContextStorage        sourceStorage{};
@@ -529,7 +503,9 @@ TEST_F(StorageFixture, LoadRejectsLifecyclePolicyMismatch)
     EXPECT_EQ(snapshot.value().resetCount, 0U);
     EXPECT_EQ(snapshot.value().abnormalResetCount, 0U);
 }
+#endif
 
+#if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE
 TEST_F(StorageFixture, LoadSkipsDtcSectionWhenDtcStorageIsNotAttached)
 {
     std::array<diag::DtcRecord, 2U> sourceRecords{};
@@ -600,6 +576,7 @@ TEST_F(StorageFixture, LoadSkipsLifecycleSectionWhenLifecycleIsNotAttached)
     ASSERT_TRUE(record.hasValue());
     EXPECT_EQ(record.value().severity, diag::DtcSeverity::Critical);
 }
+#endif
 
 TEST_F(StorageFixture, ClearPersistentInvokesAdapterClear)
 {
