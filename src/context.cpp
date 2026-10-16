@@ -65,6 +65,7 @@ template <> struct TransportState<true>
     Transport transport{};
 };
 
+#if DIAG_FEATURE_DTC
 template <typename Record>
 [[nodiscard]] Record *findDtcRecord(Record *records, const std::size_t count,
                                     const DtcId id) noexcept
@@ -155,6 +156,7 @@ void markDtcDirtyIfChanged(DirtyFlags &dirtyFlags, const DtcRecord &before,
         dirtyFlags |= static_cast<DirtyFlags>(DirtyFlag::Dtc);
     }
 }
+#endif
 
 constexpr std::uint16_t kDtcCapsuleSectionVersion = 1U;
 constexpr std::size_t   kDtcPayloadHeaderSize = 4U;
@@ -274,6 +276,7 @@ template <bool Enabled> struct DtcOps
     }
 };
 
+#if DIAG_FEATURE_DTC
 template <> struct DtcOps<true>
 {
     template <typename State> [[nodiscard]] static std::size_t count(const State &state) noexcept
@@ -594,6 +597,7 @@ template <> struct DtcOps<true>
         return Result::Ok;
     }
 };
+#endif
 
 template <bool Enabled> struct IdentityOps
 {
