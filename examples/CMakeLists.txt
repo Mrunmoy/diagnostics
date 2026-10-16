@@ -53,8 +53,168 @@ if(DIAG_FEATURE_DTC
     list(APPEND diag_example_targets diag_diagnostic_session_example)
 endif()
 
+if(DIAG_FEATURE_STORAGE AND DIAG_FEATURE_TRANSPORT)
+    add_executable(diag_adapters_example adapters/main.cpp)
+    target_link_libraries(diag_adapters_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_adapters_example)
+endif()
+
+set(diag_session_link_features_ok FALSE)
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    set(diag_session_link_features_ok TRUE)
+endif()
+
+if(DIAG_BUILD_SERIAL_EXAMPLE AND diag_session_link_features_ok)
+    add_executable(diag_serial_device_cpp
+        common/example_diag_tool.cpp
+        diagnostic_session/device.cpp
+        serial_transport/device.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_serial_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_serial_device_cpp PRIVATE diag::diag)
+
+    add_executable(diag_serial_tester_cpp
+        common/example_diag_client.cpp
+        common/example_diag_tool.cpp
+        serial_transport/serial_diag_link.cpp
+        serial_transport/tester.cpp
+    )
+    target_include_directories(diag_serial_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_serial_tester_cpp PRIVATE diag::diag)
+endif()
+
+if(DIAG_BUILD_MODBUS_RTU_EXAMPLE AND diag_session_link_features_ok)
+    add_executable(diag_modbus_rtu_device_cpp
+        common/example_diag_tool.cpp
+        diagnostic_session/device.cpp
+        modbus_rtu_transport/device.cpp
+        modbus_rtu_transport/modbus_rtu_diag_link.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_modbus_rtu_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_modbus_rtu_device_cpp PRIVATE diag::diag)
+
+    add_executable(diag_modbus_rtu_tester_cpp
+        common/example_diag_client.cpp
+        common/example_diag_tool.cpp
+        modbus_rtu_transport/modbus_rtu_diag_link.cpp
+        modbus_rtu_transport/tester.cpp
+        serial_transport/serial_diag_link.cpp
+    )
+    target_include_directories(diag_modbus_rtu_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport
+            ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport
+    )
+    target_link_libraries(diag_modbus_rtu_tester_cpp PRIVATE diag::diag)
+endif()
+
+if(DIAG_BUILD_SOCKETCAN_EXAMPLE AND diag_session_link_features_ok)
+    add_library(diag_socketcan_example_socketcan INTERFACE)
+    target_include_directories(diag_socketcan_example_socketcan
+        INTERFACE
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport/third_party/socket-can
+    )
+
+    add_executable(diag_socketcan_device_cpp
+        common/example_diag_tool.cpp
+        diagnostic_session/device.cpp
+        socketcan_transport/device.cpp
+        socketcan_transport/socketcan_diag_link.cpp
+    )
+    target_include_directories(diag_socketcan_device_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_session
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport
+    )
+    target_link_libraries(diag_socketcan_device_cpp
+        PRIVATE
+            diag::diag
+            diag_socketcan_example_socketcan
+    )
+
+    add_executable(diag_socketcan_tester_cpp
+        common/example_diag_client.cpp
+        common/example_diag_tool.cpp
+        socketcan_transport/socketcan_diag_link.cpp
+        socketcan_transport/tester.cpp
+    )
+    target_include_directories(diag_socketcan_tester_cpp
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport
+    )
+    target_link_libraries(diag_socketcan_tester_cpp
+        PRIVATE
+            diag::diag
+            diag_socketcan_example_socketcan
+    )
+endif()
+
 if(DIAG_BUILD_TESTS)
     foreach(example_target IN LISTS diag_example_targets)
         add_test(NAME ${example_target} COMMAND ${example_target})
     endforeach()
+
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+
+    if(TARGET diag_serial_device_cpp AND TARGET diag_serial_tester_cpp)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_serial_transport_pty_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/serial_transport/run_pty_demo.py
+                    --device $<TARGET_FILE:diag_serial_device_cpp>
+                    --tester $<TARGET_FILE:diag_serial_tester_cpp>
+            )
+        endif()
+    endif()
+
+    if(TARGET diag_modbus_rtu_device_cpp AND TARGET diag_modbus_rtu_tester_cpp)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_modbus_rtu_transport_pty_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/modbus_rtu_transport/run_pty_demo.py
+                    --device $<TARGET_FILE:diag_modbus_rtu_device_cpp>
+                    --tester $<TARGET_FILE:diag_modbus_rtu_tester_cpp>
+            )
+        endif()
+    endif()
+
+    if(TARGET diag_socketcan_device_cpp AND TARGET diag_socketcan_tester_cpp)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_socketcan_transport_vcan_demo
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/socketcan_transport/run_vcan_demo.py
+                    --device $<TARGET_FILE:diag_socketcan_device_cpp>
+                    --tester $<TARGET_FILE:diag_socketcan_tester_cpp>
+            )
+        endif()
+    endif()
 endif()
