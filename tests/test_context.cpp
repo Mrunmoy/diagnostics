@@ -140,11 +140,21 @@ TEST(DiagContextDtc, DisabledFeatureReportsNotSupported)
 
     EXPECT_EQ(context.registerDtc(diag::DtcId{1U}, diag::DtcSeverity::Warning),
               diag::Result::NotSupported);
+    EXPECT_EQ(
+        context.registerFault(diag::LocalFaultId{1U}, diag::DtcId{1U}, diag::DtcSeverity::Warning),
+        diag::Result::NotSupported);
     EXPECT_EQ(context.dtc(diag::DtcId{1U}).result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.dtcByFault(diag::LocalFaultId{1U}).result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.dtcStatus(diag::DtcId{1U}).result(), diag::Result::NotSupported);
     EXPECT_EQ(context.listDtcs(records, 1U, count), diag::Result::NotSupported);
     EXPECT_EQ(count, 0U);
     EXPECT_EQ(context.setDtcActive(diag::DtcId{1U}, true), diag::Result::NotSupported);
+    EXPECT_EQ(context.setFaultTestFailed(diag::LocalFaultId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.setFaultTestPassed(diag::LocalFaultId{1U}), diag::Result::NotSupported);
     EXPECT_EQ(context.clearDtc(diag::DtcId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.clearAllDtcs(), diag::Result::NotSupported);
+    EXPECT_EQ(context.resetDtcCounter(diag::DtcId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.operationCycle(), diag::Result::NotSupported);
     EXPECT_EQ(context.dtcCount(), 0U);
 }
 #endif

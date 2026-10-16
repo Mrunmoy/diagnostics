@@ -160,7 +160,7 @@ TEST_F(StorageFixture, SaveDirtyDtcWritesCapsuleAndClearsDirty)
     const diag::ResultValue<diag::CapsuleSection> section = diag::findCapsuleSectionByType(
         descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc));
     ASSERT_TRUE(section.hasValue());
-    EXPECT_EQ(section.value().usedLength, 20U);
+    EXPECT_EQ(section.value().usedLength, 32U);
 
     for (std::size_t index = m_storage.persistedLength; index < m_capsuleBuffer.size(); ++index)
     {
@@ -204,7 +204,7 @@ TEST_F(StorageFixture, LoadSavedDtcCapsuleRestoresRecords)
     EXPECT_EQ(record.value().occurrenceCount, 1U);
 }
 
-TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
+TEST_F(StorageFixture, LoadRejectsDtcPayloadWithNonZeroReservedByte)
 {
     std::array<diag::DtcRecord, 2U> sourceRecords{};
     diag::ContextStorage            sourceStorage{};
@@ -224,8 +224,8 @@ TEST_F(StorageFixture, LoadRejectsDtcPayloadWithUnknownStatusBits)
         descriptor.value(), static_cast<std::uint16_t>(diag::CapsuleSectionType::ApplicationDtc));
     ASSERT_TRUE(section.hasValue());
 
-    constexpr std::uint8_t kUnknownStatusBit = 0x80U;
-    m_storage.persisted[section.value().offset + 16U] |= kUnknownStatusBit;
+    // Payload header is 4 bytes; reserved pad is at record offset 13.
+    m_storage.persisted[section.value().offset + 4U + 13U] = 0x01U;
 
     const diag::ResultValue<std::uint32_t> crc =
         diag::capsuleCrc32(&m_storage.persisted[diag::kCapsuleHeaderSize],

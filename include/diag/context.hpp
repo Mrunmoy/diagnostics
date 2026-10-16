@@ -41,8 +41,10 @@ template <bool Enabled> struct ConfigDtcFields : EmptyFeature
 
 template <> struct ConfigDtcFields<true>
 {
-    DtcRecord  *dtcRecords{nullptr};
-    std::size_t dtcCapacity{0U};
+    DtcRecord    *dtcRecords{nullptr};
+    std::size_t   dtcCapacity{0U};
+    std::uint8_t  confirmationThreshold{0U};
+    std::uint16_t agingThreshold{0U};
 };
 
 [[nodiscard]] constexpr std::size_t contextStorageSize() noexcept
@@ -119,15 +121,24 @@ class Context
     [[nodiscard]] Result observeReset(ResetReason reason) noexcept;
     [[nodiscard]] Result clearLifecycleDirty(LifecycleDirtyFlags dirtyFlags) noexcept;
     [[nodiscard]] Result registerDtc(DtcId id, DtcSeverity severity) noexcept;
+    [[nodiscard]] Result registerFault(LocalFaultId localFaultId, DtcId id,
+                                       DtcSeverity severity) noexcept;
     [[nodiscard]] Result listDtcs(DtcRecord *records, std::size_t capacity,
                                   std::size_t &count) const noexcept;
     [[nodiscard]] Result setDtcActive(DtcId id, bool active) noexcept;
+    [[nodiscard]] Result setFaultTestFailed(LocalFaultId localFaultId) noexcept;
+    [[nodiscard]] Result setFaultTestPassed(LocalFaultId localFaultId) noexcept;
     [[nodiscard]] Result clearDtc(DtcId id) noexcept;
-    [[nodiscard]] Result attachStorage(const Storage &storage) noexcept;
-    [[nodiscard]] Result savePersistent() noexcept;
-    [[nodiscard]] Result loadPersistent() noexcept;
-    [[nodiscard]] Result clearPersistent() noexcept;
-    [[nodiscard]] Result attachTransport(const Transport &transport) noexcept;
+    [[nodiscard]] Result clearAllDtcs() noexcept;
+    [[nodiscard]] Result resetDtcCounter(DtcId id) noexcept;
+    [[nodiscard]] Result operationCycle() noexcept;
+    [[nodiscard]] ResultValue<DtcRecord>      dtcByFault(LocalFaultId localFaultId) const noexcept;
+    [[nodiscard]] ResultValue<DtcStatusFlags> dtcStatus(DtcId id) const noexcept;
+    [[nodiscard]] Result                      attachStorage(const Storage &storage) noexcept;
+    [[nodiscard]] Result                      savePersistent() noexcept;
+    [[nodiscard]] Result                      loadPersistent() noexcept;
+    [[nodiscard]] Result                      clearPersistent() noexcept;
+    [[nodiscard]] Result                      attachTransport(const Transport &transport) noexcept;
 
   private:
     struct State;
