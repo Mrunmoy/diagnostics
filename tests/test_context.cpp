@@ -140,11 +140,21 @@ TEST(DiagContextDtc, DisabledFeatureReportsNotSupported)
 
     EXPECT_EQ(context.registerDtc(diag::DtcId{1U}, diag::DtcSeverity::Warning),
               diag::Result::NotSupported);
+    EXPECT_EQ(
+        context.registerFault(diag::LocalFaultId{1U}, diag::DtcId{1U}, diag::DtcSeverity::Warning),
+        diag::Result::NotSupported);
     EXPECT_EQ(context.dtc(diag::DtcId{1U}).result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.dtcByFault(diag::LocalFaultId{1U}).result(), diag::Result::NotSupported);
+    EXPECT_EQ(context.dtcStatus(diag::DtcId{1U}).result(), diag::Result::NotSupported);
     EXPECT_EQ(context.listDtcs(records, 1U, count), diag::Result::NotSupported);
     EXPECT_EQ(count, 0U);
     EXPECT_EQ(context.setDtcActive(diag::DtcId{1U}, true), diag::Result::NotSupported);
+    EXPECT_EQ(context.setFaultTestFailed(diag::LocalFaultId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.setFaultTestPassed(diag::LocalFaultId{1U}), diag::Result::NotSupported);
     EXPECT_EQ(context.clearDtc(diag::DtcId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.clearAllDtcs(), diag::Result::NotSupported);
+    EXPECT_EQ(context.resetDtcCounter(diag::DtcId{1U}), diag::Result::NotSupported);
+    EXPECT_EQ(context.operationCycle(), diag::Result::NotSupported);
     EXPECT_EQ(context.dtcCount(), 0U);
 }
 #endif
@@ -169,12 +179,12 @@ TEST(DiagContextStorage, HasStableBoundedSizeAndAlignment)
 {
 #if DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_IDENTITY && DIAG_FEATURE_STORAGE && \
     DIAG_FEATURE_CAPSULE && DIAG_FEATURE_TRANSPORT
-    EXPECT_EQ(diag::ContextStorage::kSize, 208U);
+    EXPECT_EQ(diag::ContextStorage::kSize, 224U);
 #elif DIAG_FEATURE_DTC && DIAG_FEATURE_LIFECYCLE && DIAG_FEATURE_IDENTITY &&                       \
     DIAG_FEATURE_STORAGE && DIAG_FEATURE_CAPSULE
-    EXPECT_EQ(diag::ContextStorage::kSize, 176U);
+    EXPECT_EQ(diag::ContextStorage::kSize, 192U);
 #else
-    EXPECT_LT(diag::ContextStorage::kSize, 208U);
+    EXPECT_LT(diag::ContextStorage::kSize, 224U);
 #endif
     EXPECT_GE(diag::ContextStorage::kAlignment, alignof(std::max_align_t));
     EXPECT_EQ(sizeof(diag::ContextStorage), diag::ContextStorage::kSize);

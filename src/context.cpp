@@ -65,6 +65,7 @@ template <> struct TransportState<true>
     Transport transport{};
 };
 
+#if DIAG_FEATURE_DTC
 template <typename Record>
 [[nodiscard]] Record *findDtcRecord(Record *records, const std::size_t count,
                                     const DtcId id) noexcept
@@ -80,15 +81,87 @@ template <typename Record>
     return nullptr;
 }
 
-constexpr std::uint16_t  kDtcCapsuleSectionVersion = 1U;
-constexpr std::size_t    kDtcPayloadHeaderSize = 4U;
-constexpr std::size_t    kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
-constexpr DtcStatusFlags kKnownDtcStatusMask =
-    static_cast<DtcStatusFlags>(DtcStatus::TestFailed) |
-    static_cast<DtcStatusFlags>(DtcStatus::Pending) |
-    static_cast<DtcStatusFlags>(DtcStatus::Confirmed) |
-    static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
-constexpr DirtyFlags kKnownDirtyFlagsMask =
+template <typename Record>
+[[nodiscard]] Record *findDtcByFault(Record *records, const std::size_t count,
+                                     const LocalFaultId localFaultId) noexcept
+{
+    for (std::size_t index = 0U; index < count; ++index)
+    {
+        if (records[index].localFaultId == localFaultId)
+        {
+            return &records[index];
+        }
+    }
+
+    return nullptr;
+}
+
+[[nodiscard]] bool dtcRecordsEqual(const DtcRecord &left, const DtcRecord &right) noexcept
+{
+    return left.id == right.id && left.localFaultId == right.localFaultId &&
+           left.severity == right.severity && left.active == right.active &&
+           left.failedThisCycle == right.failedThisCycle && left.status == right.status &&
+           left.failedCycleCount == right.failedCycleCount &&
+           left.agingCounter == right.agingCounter &&
+           left.occurrenceCount == right.occurrenceCount && left.activeCount == right.activeCount &&
+           left.clearCount == right.clearCount;
+}
+
+template <typename T> [[nodiscard]] T incrementSaturating(const T value) noexcept
+{
+    if (value == (std::numeric_limits<T>::max)())
+    {
+        return value;
+    }
+
+    return static_cast<T>(value + 1U);
+}
+
+void markDtcTestFailed(DtcRecord &record) noexcept
+{
+    if (!record.active)
+    {
+        record.occurrenceCount = incrementSaturating(record.occurrenceCount);
+        record.activeCount = incrementSaturating(record.activeCount);
+    }
+
+    record.active = true;
+    record.failedThisCycle = true;
+    record.status = static_cast<DtcStatusFlags>(
+        record.status | static_cast<DtcStatusFlags>(DtcStatus::TestFailed) |
+        static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle) |
+        static_cast<DtcStatusFlags>(DtcStatus::Pending) |
+        static_cast<DtcStatusFlags>(DtcStatus::TestFailedSinceClear));
+    record.status = static_cast<DtcStatusFlags>(
+        record.status & static_cast<DtcStatusFlags>(
+                            ~(static_cast<DtcStatusFlags>(DtcStatus::TestNotCompletedSinceClear) |
+                              static_cast<DtcStatusFlags>(DtcStatus::TestNotCompletedThisCycle))));
+}
+
+void markDtcTestPassed(DtcRecord &record) noexcept
+{
+    record.active = false;
+    record.status = static_cast<DtcStatusFlags>(
+        record.status & static_cast<DtcStatusFlags>(
+                            ~(static_cast<DtcStatusFlags>(DtcStatus::TestFailed) |
+                              static_cast<DtcStatusFlags>(DtcStatus::TestNotCompletedSinceClear) |
+                              static_cast<DtcStatusFlags>(DtcStatus::TestNotCompletedThisCycle))));
+}
+
+void markDtcDirtyIfChanged(DirtyFlags &dirtyFlags, const DtcRecord &before,
+                           const DtcRecord &after) noexcept
+{
+    if (!dtcRecordsEqual(before, after))
+    {
+        dirtyFlags |= static_cast<DirtyFlags>(DirtyFlag::Dtc);
+    }
+}
+#endif
+
+constexpr std::uint16_t kDtcCapsuleSectionVersion = 1U;
+constexpr std::size_t   kDtcPayloadHeaderSize = 4U;
+constexpr std::size_t   kDtcPayloadRecordSize = DtcRecord::kEncodedSize;
+constexpr DirtyFlags    kKnownDirtyFlagsMask =
     static_cast<DirtyFlags>(DirtyFlag::Dtc) | static_cast<DirtyFlags>(DirtyFlag::Lifecycle);
 constexpr std::uint16_t kLifecycleCapsuleSectionVersion = 1U;
 constexpr std::size_t   kLifecyclePayloadSize = 16U;
@@ -134,7 +207,25 @@ template <bool Enabled> struct DtcOps
     }
 
     template <typename State>
+    [[nodiscard]] static ResultValue<DtcRecord> getByFault(const State &, LocalFaultId) noexcept
+    {
+        return ResultValue<DtcRecord>{Result::NotSupported};
+    }
+
+    template <typename State>
+    [[nodiscard]] static ResultValue<DtcStatusFlags> getStatus(const State &, DtcId) noexcept
+    {
+        return ResultValue<DtcStatusFlags>{Result::NotSupported};
+    }
+
+    template <typename State>
     [[nodiscard]] static Result registerRecord(State &, DtcId, DtcSeverity) noexcept
+    {
+        return Result::NotSupported;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result registerFault(State &, LocalFaultId, DtcId, DtcSeverity) noexcept
     {
         return Result::NotSupported;
     }
@@ -152,12 +243,40 @@ template <bool Enabled> struct DtcOps
         return Result::NotSupported;
     }
 
+    template <typename State>
+    [[nodiscard]] static Result setFaultFailed(State &, LocalFaultId) noexcept
+    {
+        return Result::NotSupported;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result setFaultPassed(State &, LocalFaultId) noexcept
+    {
+        return Result::NotSupported;
+    }
+
     template <typename State> [[nodiscard]] static Result clear(State &, DtcId) noexcept
+    {
+        return Result::NotSupported;
+    }
+
+    template <typename State> [[nodiscard]] static Result clearAll(State &) noexcept
+    {
+        return Result::NotSupported;
+    }
+
+    template <typename State> [[nodiscard]] static Result resetCounter(State &, DtcId) noexcept
+    {
+        return Result::NotSupported;
+    }
+
+    template <typename State> [[nodiscard]] static Result operationCycle(State &) noexcept
     {
         return Result::NotSupported;
     }
 };
 
+#if DIAG_FEATURE_DTC
 template <> struct DtcOps<true>
 {
     template <typename State> [[nodiscard]] static std::size_t count(const State &state) noexcept
@@ -178,15 +297,48 @@ template <> struct DtcOps<true>
     }
 
     template <typename State>
-    [[nodiscard]] static Result registerRecord(State &state, const DtcId id,
-                                               const DtcSeverity severity) noexcept
+    [[nodiscard]] static ResultValue<DtcRecord> getByFault(const State       &state,
+                                                           const LocalFaultId localFaultId) noexcept
+    {
+        const DtcRecord *const record =
+            findDtcByFault(state.config.dtcRecords, state.dtcCount, localFaultId);
+        if (record == nullptr)
+        {
+            return ResultValue<DtcRecord>{Result::NotFound};
+        }
+
+        return ResultValue<DtcRecord>{*record};
+    }
+
+    template <typename State>
+    [[nodiscard]] static ResultValue<DtcStatusFlags> getStatus(const State &state,
+                                                               const DtcId  id) noexcept
+    {
+        const DtcRecord *const record = findDtcRecord(state.config.dtcRecords, state.dtcCount, id);
+        if (record == nullptr)
+        {
+            return ResultValue<DtcStatusFlags>{Result::NotFound};
+        }
+
+        return ResultValue<DtcStatusFlags>{record->status};
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result registerFault(State &state, const LocalFaultId localFaultId,
+                                              const DtcId id, const DtcSeverity severity) noexcept
     {
         if (state.config.dtcRecords == nullptr || state.config.dtcCapacity == 0U)
         {
             return Result::InvalidArgument;
         }
 
-        if (findDtcRecord(state.config.dtcRecords, state.dtcCount, id) != nullptr)
+        if (static_cast<std::uint8_t>(severity) > static_cast<std::uint8_t>(DtcSeverity::Critical))
+        {
+            return Result::InvalidArgument;
+        }
+
+        if (findDtcRecord(state.config.dtcRecords, state.dtcCount, id) != nullptr ||
+            findDtcByFault(state.config.dtcRecords, state.dtcCount, localFaultId) != nullptr)
         {
             return Result::AlreadyExists;
         }
@@ -199,11 +351,19 @@ template <> struct DtcOps<true>
         DtcRecord &record = state.config.dtcRecords[state.dtcCount];
         record = DtcRecord{};
         record.id = id;
+        record.localFaultId = localFaultId;
         record.severity = severity;
         ++state.dtcCount;
         state.dirtyFlags |= static_cast<DirtyFlags>(DirtyFlag::Dtc);
 
         return Result::Ok;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result registerRecord(State &state, const DtcId id,
+                                               const DtcSeverity severity) noexcept
+    {
+        return registerFault(state, LocalFaultId{id.value}, id, severity);
     }
 
     template <typename State>
@@ -238,29 +398,51 @@ template <> struct DtcOps<true>
             return Result::NotFound;
         }
 
-        const bool wasActive = hasStatus(*record, DtcStatus::TestFailed);
+        const DtcRecord before = *record;
         if (active)
         {
-            record->status |= static_cast<DtcStatusFlags>(DtcStatus::TestFailed);
-            record->status |= static_cast<DtcStatusFlags>(DtcStatus::Pending);
-            record->status |= static_cast<DtcStatusFlags>(DtcStatus::Confirmed);
-            record->status |= static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
-            if (!wasActive && record->occurrenceCount < std::numeric_limits<std::uint32_t>::max())
-            {
-                ++record->occurrenceCount;
-            }
+            markDtcTestFailed(*record);
         }
         else
         {
-            record->status &= ~static_cast<DtcStatusFlags>(DtcStatus::TestFailed);
-            record->status &= ~static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle);
+            markDtcTestPassed(*record);
         }
 
-        if (active != wasActive)
+        markDtcDirtyIfChanged(state.dirtyFlags, before, *record);
+        return Result::Ok;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result setFaultFailed(State             &state,
+                                               const LocalFaultId localFaultId) noexcept
+    {
+        DtcRecord *const record =
+            findDtcByFault(state.config.dtcRecords, state.dtcCount, localFaultId);
+        if (record == nullptr)
         {
-            state.dirtyFlags |= static_cast<DirtyFlags>(DirtyFlag::Dtc);
+            return Result::NotFound;
         }
 
+        const DtcRecord before = *record;
+        markDtcTestFailed(*record);
+        markDtcDirtyIfChanged(state.dirtyFlags, before, *record);
+        return Result::Ok;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result setFaultPassed(State             &state,
+                                               const LocalFaultId localFaultId) noexcept
+    {
+        DtcRecord *const record =
+            findDtcByFault(state.config.dtcRecords, state.dtcCount, localFaultId);
+        if (record == nullptr)
+        {
+            return Result::NotFound;
+        }
+
+        const DtcRecord before = *record;
+        markDtcTestPassed(*record);
+        markDtcDirtyIfChanged(state.dirtyFlags, before, *record);
         return Result::Ok;
     }
 
@@ -273,21 +455,149 @@ template <> struct DtcOps<true>
             return Result::NotFound;
         }
 
-        if (record->status != 0U || record->occurrenceCount != 0U)
+        const DtcRecord before = *record;
+        const bool      changed = record->active || record->status != 0U;
+        if (changed)
         {
-            record->status = 0U;
-            record->occurrenceCount = 0U;
-            if (record->clearCount < std::numeric_limits<std::uint32_t>::max())
+            record->active = false;
+            record->clearCount = incrementSaturating(record->clearCount);
+        }
+
+        record->status = 0U;
+        record->failedThisCycle = false;
+        record->failedCycleCount = 0U;
+        record->agingCounter = 0U;
+        markDtcDirtyIfChanged(state.dirtyFlags, before, *record);
+        return Result::Ok;
+    }
+
+    template <typename State> [[nodiscard]] static Result clearAll(State &state) noexcept
+    {
+        if (state.config.dtcRecords == nullptr || state.config.dtcCapacity == 0U)
+        {
+            return Result::InvalidArgument;
+        }
+
+        for (std::size_t index = 0U; index < state.dtcCount; ++index)
+        {
+            DtcRecord      &record = state.config.dtcRecords[index];
+            const DtcRecord before = record;
+            if (record.active || record.status != 0U)
             {
-                ++record->clearCount;
+                record.active = false;
+                record.clearCount = incrementSaturating(record.clearCount);
             }
 
+            record.status = 0U;
+            record.failedThisCycle = false;
+            record.failedCycleCount = 0U;
+            record.agingCounter = 0U;
+            markDtcDirtyIfChanged(state.dirtyFlags, before, record);
+        }
+
+        return Result::Ok;
+    }
+
+    template <typename State>
+    [[nodiscard]] static Result resetCounter(State &state, const DtcId id) noexcept
+    {
+        DtcRecord *const record = findDtcRecord(state.config.dtcRecords, state.dtcCount, id);
+        if (record == nullptr)
+        {
+            return Result::NotFound;
+        }
+
+        const DtcRecord before = *record;
+        record->occurrenceCount = 0U;
+        record->activeCount = 0U;
+        record->clearCount = 0U;
+        record->failedCycleCount = 0U;
+        record->agingCounter = 0U;
+        markDtcDirtyIfChanged(state.dirtyFlags, before, *record);
+        return Result::Ok;
+    }
+
+    template <typename State> [[nodiscard]] static Result operationCycle(State &state) noexcept
+    {
+        if (state.config.dtcRecords == nullptr || state.config.dtcCapacity == 0U)
+        {
+            return Result::InvalidArgument;
+        }
+
+        std::uint8_t confirmationThreshold = state.config.confirmationThreshold;
+        if (confirmationThreshold == 0U)
+        {
+            confirmationThreshold = kDtcDefaultConfirmationThreshold;
+        }
+
+        std::uint16_t agingThreshold = state.config.agingThreshold;
+        if (agingThreshold == 0U)
+        {
+            agingThreshold = kDtcDefaultAgingThreshold;
+        }
+
+        bool changed = false;
+        for (std::size_t index = 0U; index < state.dtcCount; ++index)
+        {
+            DtcRecord      &record = state.config.dtcRecords[index];
+            const DtcRecord before = record;
+
+            if (record.failedThisCycle)
+            {
+                record.agingCounter = 0U;
+                record.failedCycleCount = incrementSaturating(record.failedCycleCount);
+                if (record.failedCycleCount >= confirmationThreshold)
+                {
+                    record.status |= static_cast<DtcStatusFlags>(DtcStatus::Confirmed);
+                }
+            }
+            else if (!record.active)
+            {
+                record.failedCycleCount = 0U;
+                record.status = static_cast<DtcStatusFlags>(
+                    record.status & ~static_cast<DtcStatusFlags>(DtcStatus::Pending));
+
+                if (hasStatus(record, DtcStatus::Confirmed))
+                {
+                    record.agingCounter = incrementSaturating(record.agingCounter);
+                    if (record.agingCounter >= agingThreshold)
+                    {
+                        record.status = 0U;
+                        record.active = false;
+                        record.agingCounter = 0U;
+                        record.failedCycleCount = 0U;
+                        if (!dtcRecordsEqual(before, record))
+                        {
+                            changed = true;
+                        }
+                        continue;
+                    }
+                }
+            }
+            else
+            {
+                record.failedCycleCount = 0U;
+            }
+
+            record.failedThisCycle = false;
+            record.status = static_cast<DtcStatusFlags>(
+                record.status & ~static_cast<DtcStatusFlags>(DtcStatus::TestFailedThisCycle));
+            record.status |= static_cast<DtcStatusFlags>(DtcStatus::TestNotCompletedThisCycle);
+            if (!dtcRecordsEqual(before, record))
+            {
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
             state.dirtyFlags |= static_cast<DirtyFlags>(DirtyFlag::Dtc);
         }
 
         return Result::Ok;
     }
 };
+#endif
 
 template <bool Enabled> struct IdentityOps
 {
@@ -858,12 +1168,17 @@ template <> struct PersistenceOps<true>
             const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
 
             internal::writeU32Le(&payload[offset], record.id.value);
-            internal::writeU32Le(&payload[offset + 4U], record.occurrenceCount);
-            internal::writeU32Le(&payload[offset + 8U], record.clearCount);
-            payload[offset + 12U] = record.status;
-            payload[offset + 13U] = static_cast<std::uint8_t>(record.severity);
-            payload[offset + 14U] = 0U;
-            payload[offset + 15U] = 0U;
+            internal::writeU32Le(&payload[offset + 4U], record.localFaultId.value);
+            payload[offset + 8U] = static_cast<std::uint8_t>(record.severity);
+            payload[offset + 9U] = record.active ? 1U : 0U;
+            payload[offset + 10U] = record.failedThisCycle ? 1U : 0U;
+            payload[offset + 11U] = record.status;
+            payload[offset + 12U] = record.failedCycleCount;
+            payload[offset + 13U] = 0U;
+            internal::writeU16Le(&payload[offset + 14U], record.agingCounter);
+            internal::writeU32Le(&payload[offset + 16U], record.occurrenceCount);
+            internal::writeU32Le(&payload[offset + 20U], record.activeCount);
+            internal::writeU32Le(&payload[offset + 24U], record.clearCount);
         }
 
         usedLength = required;
@@ -908,19 +1223,21 @@ template <> struct PersistenceOps<true>
         for (std::size_t index = 0U; index < count; ++index)
         {
             const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
-            if ((payload[offset + 12U] & ~kKnownDtcStatusMask) != 0U ||
-                payload[offset + 13U] > static_cast<std::uint8_t>(DtcSeverity::Critical) ||
-                payload[offset + 14U] != 0U || payload[offset + 15U] != 0U)
+            if (payload[offset + 8U] > static_cast<std::uint8_t>(DtcSeverity::Critical) ||
+                payload[offset + 9U] > 1U || payload[offset + 10U] > 1U ||
+                payload[offset + 13U] != 0U)
             {
                 return Result::CorruptData;
             }
 
             const std::uint32_t idValue = internal::readU32Le(&payload[offset]);
+            const std::uint32_t faultValue = internal::readU32Le(&payload[offset + 4U]);
             for (std::size_t prior = 0U; prior < index; ++prior)
             {
                 const std::size_t priorOffset =
                     kDtcPayloadHeaderSize + (prior * kDtcPayloadRecordSize);
-                if (internal::readU32Le(&payload[priorOffset]) == idValue)
+                if (internal::readU32Le(&payload[priorOffset]) == idValue ||
+                    internal::readU32Le(&payload[priorOffset + 4U]) == faultValue)
                 {
                     return Result::CorruptData;
                 }
@@ -931,13 +1248,19 @@ template <> struct PersistenceOps<true>
         {
             const std::size_t offset = kDtcPayloadHeaderSize + (index * kDtcPayloadRecordSize);
             DtcRecord        &record = state.config.dtcRecords[index];
+            record = DtcRecord{};
             record.id = DtcId{internal::readU32Le(&payload[offset])};
-            record.occurrenceCount = internal::readU32Le(&payload[offset + 4U]);
-            record.clearCount = internal::readU32Le(&payload[offset + 8U]);
-            record.status = payload[offset + 12U];
-            record.severity = static_cast<DtcSeverity>(payload[offset + 13U]);
+            record.localFaultId = LocalFaultId{internal::readU32Le(&payload[offset + 4U])};
+            record.severity = static_cast<DtcSeverity>(payload[offset + 8U]);
+            record.active = payload[offset + 9U] != 0U;
+            record.failedThisCycle = payload[offset + 10U] != 0U;
+            record.status = payload[offset + 11U];
+            record.failedCycleCount = payload[offset + 12U];
             record.reserved0 = 0U;
-            record.reserved1 = 0U;
+            record.agingCounter = internal::readU16Le(&payload[offset + 14U]);
+            record.occurrenceCount = internal::readU32Le(&payload[offset + 16U]);
+            record.activeCount = internal::readU32Le(&payload[offset + 20U]);
+            record.clearCount = internal::readU32Le(&payload[offset + 24U]);
         }
 
         state.dtcCount = count;
@@ -1330,6 +1653,17 @@ Result Context::registerDtc(const DtcId id, const DtcSeverity severity) noexcept
     return DtcOps<features::kDtc>::registerRecord(*m_state, id, severity);
 }
 
+Result Context::registerFault(const LocalFaultId localFaultId, const DtcId id,
+                              const DtcSeverity severity) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::registerFault(*m_state, localFaultId, id, severity);
+}
+
 Result Context::listDtcs(DtcRecord *records, const std::size_t capacity,
                          std::size_t &count) const noexcept
 {
@@ -1352,6 +1686,26 @@ Result Context::setDtcActive(const DtcId id, const bool active) noexcept
     return DtcOps<features::kDtc>::setActive(*m_state, id, active);
 }
 
+Result Context::setFaultTestFailed(const LocalFaultId localFaultId) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::setFaultFailed(*m_state, localFaultId);
+}
+
+Result Context::setFaultTestPassed(const LocalFaultId localFaultId) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::setFaultPassed(*m_state, localFaultId);
+}
+
 Result Context::clearDtc(const DtcId id) noexcept
 {
     if (!isInitialized())
@@ -1360,6 +1714,56 @@ Result Context::clearDtc(const DtcId id) noexcept
     }
 
     return DtcOps<features::kDtc>::clear(*m_state, id);
+}
+
+Result Context::clearAllDtcs() noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::clearAll(*m_state);
+}
+
+Result Context::resetDtcCounter(const DtcId id) noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::resetCounter(*m_state, id);
+}
+
+Result Context::operationCycle() noexcept
+{
+    if (!isInitialized())
+    {
+        return Result::NotInitialized;
+    }
+
+    return DtcOps<features::kDtc>::operationCycle(*m_state);
+}
+
+ResultValue<DtcRecord> Context::dtcByFault(const LocalFaultId localFaultId) const noexcept
+{
+    if (!isInitialized())
+    {
+        return ResultValue<DtcRecord>{Result::NotInitialized};
+    }
+
+    return DtcOps<features::kDtc>::getByFault(*m_state, localFaultId);
+}
+
+ResultValue<DtcStatusFlags> Context::dtcStatus(const DtcId id) const noexcept
+{
+    if (!isInitialized())
+    {
+        return ResultValue<DtcStatusFlags>{Result::NotInitialized};
+    }
+
+    return DtcOps<features::kDtc>::getStatus(*m_state, id);
 }
 
 Result Context::attachStorage(const Storage &storage) noexcept
