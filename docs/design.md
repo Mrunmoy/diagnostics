@@ -82,9 +82,13 @@ embedded links do not pull unused capsule or storage functions unless the
 application calls them.
 
 The DTC slice stores records in caller-owned RAM supplied through `diag::Config`.
-Registration, lookup, listing, active-state updates, and clear counters are
-bounded by the configured capacity. Runtime DTC mutation marks the DTC dirty flag
-but performs no storage writes.
+Registration, lookup, listing, active/inactive updates, local-fault mapping,
+clearing, and counter reset are bounded by the configured capacity. Status bits
+follow the UDS `statusOfDTC` layout. Confirmation and aging advance only through
+`operationCycle()` using configurable thresholds (defaults 1 / 40). Capsule
+records are 28-byte little-endian values matching the C branch layout; older
+16-byte cpp records are rejected by `record_size`. Runtime DTC mutation marks
+the DTC dirty flag but performs no storage writes.
 
 The lifecycle slice records the latest reset reason and bounded reset counters in
 the context. Policy determines whether the state stays RAM-only or marks the
@@ -119,7 +123,15 @@ leaves unknown section types to future feature slices. `clearPersistent()` simpl
 delegates to the adapter clear callback. The core still owns no flash, EEPROM,
 filesystem, or RTOS behavior.
 
-## Planned Feature Slices
+The transport slice attaches a thin `send`/`receive` callback adapter to the
+context. The core does not frame packets, time out exchanges, or own a bus. Link
+examples under `examples/` own framing and call into a shared diagnostic service
+payload so serial, SocketCAN, Modbus RTU, and in-process demos share one tester
+workflow.
 
-1. Example transports and tester-side tools that prove the API is usable without
-   coupling the core to any one protocol.
+## Deferred Relative To The C Branch
+
+Product and host-UI demos remain on the C branch for now: Grafana export,
+browser diagnostic viewer, catalog reader, and product-shaped nodes such as
+`industrial_oven`, `sensor_node`, `process_controller`, `ecu_node`, and
+`bootloader_app_shared`.
