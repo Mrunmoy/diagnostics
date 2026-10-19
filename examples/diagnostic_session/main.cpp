@@ -45,8 +45,16 @@ int main()
 
     const example_diag::Device endpoint{"diagnostic_session", &device.context(),
                                         diagnostic_session::persistedSizeCallback, &device};
-    InProcessTransport         transport{endpoint};
 
+    example_diag::ToolSnapshot snapshot{};
+    if (example_diag::collectSnapshot(endpoint, snapshot) != diag::Result::Ok ||
+        snapshot.dtcCount == 0U)
+    {
+        std::cerr << "diagnostic_session: snapshot collection failed\n";
+        return 1;
+    }
+
+    InProcessTransport transport{endpoint};
     const diag::Result result =
         example_diag_client::runDiagnosticSession(transport, "diagnostic_session", "in-process",
                                                   diag::DtcId{0x030101U}, std::cout, std::cerr);
