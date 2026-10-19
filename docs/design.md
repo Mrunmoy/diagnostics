@@ -129,9 +129,10 @@ examples under `examples/` own framing and call into a shared diagnostic service
 payload so serial, SocketCAN, Modbus RTU, and in-process demos share one tester
 workflow.
 
-## Deferred Relative To The C Branch
+## Example Parity With The C Branch
 
-Product and host-UI demos remain on the C branch for now: Grafana export,
-browser diagnostic viewer, catalog reader, and product-shaped nodes such as
-`industrial_oven`, `sensor_node`, `process_controller`, `ecu_node`, and
-`bootloader_app_shared`.
+The C++ example set matches the C branch: product-shaped nodes
+(`sensor_node`, `io_module`, `industrial_oven`, `process_controller`,
+`bootloader_app_shared`, `ecu_node`), host catalog mapping (`catalog_reader`),
+browser viewer (`diagnostic_viewer`), and the Grafana/Prometheus exporter path
+(`grafana_reader`), in addition to the shared session and link demos.

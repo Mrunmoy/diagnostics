@@ -12,7 +12,8 @@ diagnostic core to its storage and transport adapters.
 
 ## Current Status
 
-This branch has core C parity for the diagnostic state machine and workflow demos:
+This branch has full C-branch parity for the diagnostic core and example set,
+expressed in idiomatic C++17:
 
 - CMake package export as `diag::diag`.
 - Docker and devcontainer build environment.
@@ -29,10 +30,12 @@ This branch has core C parity for the diagnostic state machine and workflow demo
 - Thin transport attach API (`send`/`receive` callbacks).
 - Shared example protocol plus in-process, serial, SocketCAN, and Modbus RTU
   tester workflows under `examples/`.
+- Product-shaped nodes (`sensor_node`, `industrial_oven`, `process_controller`,
+  `ecu_node`, `io_module`, `bootloader_app_shared`).
+- Host tools: catalog reader, browser diagnostic viewer, and Grafana/Prometheus
+  exporter stack.
 
-Deferred relative to the C branch: product/UI demos such as Grafana, the browser
-viewer, and product-shaped nodes (`industrial_oven`, `sensor_node`, `ecu_node`,
-and similar).
+See [examples/README.md](examples/README.md) for which demo to start with.
 
 ## Quick Start
 
