@@ -276,6 +276,20 @@ if(DIAG_FEATURE_DTC
     )
     target_link_libraries(diag_diagnostic_viewer_device PRIVATE diag::diag)
     list(APPEND diag_example_targets diag_diagnostic_viewer_device)
+
+    add_executable(diag_grafana_reader_example
+        common/example_diag_tool.cpp
+        grafana_reader/device.cpp
+        grafana_reader/exporter.cpp
+        grafana_reader/main.cpp
+    )
+    target_include_directories(diag_grafana_reader_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/grafana_reader
+    )
+    target_link_libraries(diag_grafana_reader_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_grafana_reader_example)
 endif()
 
 if(DIAG_BUILD_TESTS)
