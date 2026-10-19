@@ -59,6 +59,80 @@ if(DIAG_FEATURE_STORAGE AND DIAG_FEATURE_TRANSPORT)
     list(APPEND diag_example_targets diag_adapters_example)
 endif()
 
+if(DIAG_FEATURE_DTC AND DIAG_FEATURE_IDENTITY)
+    add_executable(diag_sensor_node_example
+        common/example_diag_tool.cpp
+        sensor_node/main.cpp
+    )
+    target_include_directories(diag_sensor_node_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
+    target_link_libraries(diag_sensor_node_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_sensor_node_example)
+endif()
+
+if(DIAG_FEATURE_IDENTITY AND DIAG_FEATURE_TRANSPORT)
+    add_executable(diag_io_module_example io_module/main.cpp)
+    target_link_libraries(diag_io_module_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_io_module_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_industrial_oven_example
+        common/example_diag_tool.cpp
+        industrial_oven/main.cpp
+    )
+    target_include_directories(diag_industrial_oven_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
+    target_link_libraries(diag_industrial_oven_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_industrial_oven_example)
+
+    add_executable(diag_process_controller_example
+        common/example_diag_tool.cpp
+        process_controller/main.cpp
+    )
+    target_include_directories(diag_process_controller_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
+    target_link_libraries(diag_process_controller_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_process_controller_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_bootloader_app_shared_example bootloader_app_shared/main.cpp)
+    target_link_libraries(diag_bootloader_app_shared_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_bootloader_app_shared_example)
+endif()
+
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_LIFECYCLE
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_TRANSPORT
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_ecu_node_example
+        common/example_diag_tool.cpp
+        ecu_node/main.cpp
+    )
+    target_include_directories(diag_ecu_node_example
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
+    target_link_libraries(diag_ecu_node_example PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_ecu_node_example)
+endif()
+
 set(diag_session_link_features_ok FALSE)
 if(DIAG_FEATURE_DTC
    AND DIAG_FEATURE_IDENTITY
