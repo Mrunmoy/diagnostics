@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 
 namespace example_diag
 {
@@ -33,10 +34,42 @@ struct Device
     void *user{nullptr};
 };
 
+struct IdentitySnapshot
+{
+    std::uint16_t ecosystemId{0U};
+    std::uint16_t productId{0U};
+    std::uint16_t deviceType{0U};
+    std::uint8_t  deviceInstance{0U};
+    std::uint8_t  firmwareStage{0U};
+    std::uint8_t  firmwareComponent{0U};
+};
+
+struct DtcSnapshot
+{
+    diag::DtcId   id{};
+    std::uint8_t  status{0U};
+    std::uint8_t  severity{0U};
+    std::uint32_t occurrenceCount{0U};
+};
+
+struct ToolSnapshot
+{
+    IdentitySnapshot identity{};
+    DtcSnapshot      dtcs[kMaxDtcSnapshotCount]{};
+    std::size_t      dtcCount{0U};
+    std::size_t      persistedSize{0U};
+};
+
 void          writeU32Le(std::uint8_t *buffer, std::uint32_t value) noexcept;
 std::uint32_t readU32Le(const std::uint8_t *buffer) noexcept;
 
 [[nodiscard]] diag::Result handleRequest(const Device &device, const Frame &request,
                                          Frame &response) noexcept;
+
+[[nodiscard]] diag::Result collectSnapshot(const Device &device,
+                                           ToolSnapshot &outSnapshot) noexcept;
+
+[[nodiscard]] diag::Result runCli(const Device &device, diag::DtcId clearDtcId, std::ostream &out,
+                                  std::ostream &err);
 
 } // namespace example_diag
