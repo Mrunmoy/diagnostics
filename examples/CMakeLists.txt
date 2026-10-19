@@ -260,6 +260,24 @@ if(DIAG_BUILD_SOCKETCAN_EXAMPLE AND diag_session_link_features_ok)
     )
 endif()
 
+if(DIAG_FEATURE_DTC
+   AND DIAG_FEATURE_IDENTITY
+   AND DIAG_FEATURE_STORAGE
+   AND DIAG_FEATURE_CAPSULE)
+    add_executable(diag_diagnostic_viewer_device
+        common/example_diag_tool.cpp
+        diagnostic_viewer/device.cpp
+        diagnostic_viewer/main.cpp
+    )
+    target_include_directories(diag_diagnostic_viewer_device
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/common
+            ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer
+    )
+    target_link_libraries(diag_diagnostic_viewer_device PRIVATE diag::diag)
+    list(APPEND diag_example_targets diag_diagnostic_viewer_device)
+endif()
+
 if(DIAG_BUILD_TESTS)
     foreach(example_target IN LISTS diag_example_targets)
         add_test(NAME ${example_target} COMMAND ${example_target})
@@ -303,6 +321,21 @@ if(DIAG_BUILD_TESTS)
                     --device $<TARGET_FILE:diag_socketcan_device_cpp>
                     --tester $<TARGET_FILE:diag_socketcan_tester_cpp>
             )
+        endif()
+    endif()
+
+    if(TARGET diag_diagnostic_viewer_device)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME diag_diagnostic_viewer_server_self_test
+                COMMAND
+                    ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/diagnostic_viewer/viewer_server.py
+                    --binary $<TARGET_FILE:diag_diagnostic_viewer_device>
+                    --self-test
+            )
+        else()
+            message(STATUS "Python3 interpreter not found; skipping diagnostic viewer server self-test")
         endif()
     endif()
 endif()
